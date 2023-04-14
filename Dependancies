@@ -1,0 +1,6 @@
+What dependancies we use:
+
+npm install nodemon
+npm install express
+npm install dotenv
+npm install body-parser
