@@ -1,3 +1,5 @@
+/* For video/image posting routes */
+
 const express = require("express");
 const router = express.Router();
 
