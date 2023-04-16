@@ -4,3 +4,6 @@ npm install nodemon
 npm install express
 npm install dotenv
 npm install body-parser
+npm install http
+npm install socket.io
+npm install socket.io-client
