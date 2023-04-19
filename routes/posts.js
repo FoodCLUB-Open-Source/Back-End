@@ -10,7 +10,9 @@ const router = express.Router()
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
-    res.json({ "Testing": "Working Posts" })
+    const results = await pgQuery("SELECT * FROM users")
+    console.log(results)
+    res.json({ "Testing": "Working Posts", "Results": results.rows[0] })
   } catch (err) {
     console.error(err.message)
   }
