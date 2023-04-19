@@ -7,6 +7,6 @@ Password to the database:
 szqxrcjd */
 
 CREATE TABLE users (
-UserID SERIAL PRIMARY KEY,
-Username VARCHAR(255) UNIQUE
+    UserID SERIAL PRIMARY KEY,
+    Username VARCHAR(255) UNIQUE
 );

@@ -24,18 +24,67 @@ router.get("/testing", async (req, res) => {
 router.get("/homepage/getposts", async (req, res) => {
   try {
 
-    const randomPosts = await pgQuery("SELECT * FROM posts ORDER BY RANDOM() LIMIT 15;")
+    const randomPosts = await pgQuery(`SELECT posts.*, users.*, categories.* AS category_name 
+    FROM posts JOIN users ON posts.user_id = users.user_id 
+    JOIN categories ON posts.category_id = categories.category_id ORDER BY RANDOM() LIMIT 15;`)
     
-    res.json({"posts": random.rows[0]})
+    res.json({"posts": randomPosts.rows})
 
+    /* RETURNS 15 post Informations:
+      "post_id": 2,
+      "user_id": 2,
+      "title": "Post 2 Title",
+      "description": "Category 2 description",
+      "video_url": "https://example.com/video2.mp4",
+      "thumbnail_url": "https://example.com/thumbnail2.jpg",
+      "category_id": 2,
+      "created_at": "2023-04-19T16:44:53.922Z",
+      "updated_at": "2023-04-19T16:44:53.922Z",
+      "username": "user2",
+      "email": "user2@example.com",
+      "password": "password2",
+      "phone_number": "2345678901",
+      "profile_picture": "https://example.com/profile2.jpg",
+      "bio": "User 2 bio",
+      "gender": null,
+      "name": "Category 2"
+    */
   } catch (err) {
     console.error(err.message)
   }
 })
 
 /* Getting Ingredient For Specific Post */
-router.get("/homepage/getingredients", async (req, res) => {
+router.get("/homepage/getrecipe/:id", async (req, res) => {
   try {
+    const recipeId = req.params.id
+    const specificRecepie = await pgQuery(`SELECT * FROM recipes WHERE recipe_id = $1`, recipeId)
+
+    res.json({"recipe": specificRecepie.rows[0]})
+
+    /* RETURNS A RECEPIE FOR ID SPECIFIED:
+      "recipe_id": 1,
+        "post_id": 1,
+        "recepie_description": "Recipe 1",
+        "ingredients": [
+            "ingredient 1",
+            "ingredient 2",
+            "ingredient 3"
+        ],
+        "equipment": [
+            "equipment 1",
+            "equipment 2"
+        ],
+        "steps": [
+            "step 1",
+            "step 2",
+            "step 3"
+        ],
+        "preparation_time": 30,
+        "servings": 4,
+        "created_at": "2023-04-19T21:58:12.570Z",
+        "updated_at": "2023-04-19T21:58:12.570Z"
+    */
 
   } catch (err) {
     console.error(err.message)
@@ -94,6 +143,16 @@ router.delete("/homepage/deletereply", async (req, res) => {
 
 /* Posting For Bookmarking Specific Post */
 router.post("/homepage/postbookmark", async (req, res) => {
+  try {
+
+ 
+  } catch (err) {
+    console.error(err.message)
+  }
+})
+
+/* Deleting  Bookmarking Specific Post */
+router.post("/homepage/deletebookmark", async (req, res) => {
   try {
 
  
