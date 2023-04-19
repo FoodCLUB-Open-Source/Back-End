@@ -16,14 +16,15 @@ router.get("/testing", async (req, res) => {
   }
 })
 
-
-
                   /* Home Page Paths */
 
-/* Get posts */
+/* Get 15 random posts */
 router.get("/homepage/getposts", async (req, res) => {
   try {
 
+    const randomPosts = await pgQuery("SELECT * FROM posts ORDER BY RANDOM() LIMIT 15;")
+    
+    res.json({"posts": random.rows[0]})
 
   } catch (err) {
     console.error(err.message)
