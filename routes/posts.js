@@ -64,26 +64,26 @@ router.get("/homepage/getrecipe/:id", async (req, res) => {
 
     /* RETURNS A RECEPIE FOR ID SPECIFIED:
       "recipe_id": 1,
-        "post_id": 1,
-        "recepie_description": "Recipe 1",
-        "ingredients": [
-            "ingredient 1",
-            "ingredient 2",
-            "ingredient 3"
-        ],
-        "equipment": [
-            "equipment 1",
-            "equipment 2"
-        ],
-        "steps": [
-            "step 1",
-            "step 2",
-            "step 3"
-        ],
-        "preparation_time": 30,
-        "servings": 4,
-        "created_at": "2023-04-19T21:58:12.570Z",
-        "updated_at": "2023-04-19T21:58:12.570Z"
+      "post_id": 1,
+      "recepie_description": "Recipe 1",
+      "ingredients": [
+          "ingredient 1",
+          "ingredient 2",
+          "ingredient 3"
+      ],
+      "equipment": [
+          "equipment 1",
+          "equipment 2"
+      ],
+      "steps": [
+          "step 1",
+          "step 2",
+          "step 3"
+      ],
+      "preparation_time": 30,
+      "servings": 4,
+      "created_at": "2023-04-19T21:58:12.570Z",
+      "updated_at": "2023-04-19T21:58:12.570Z"
     */
 
   } catch (err) {
@@ -184,6 +184,7 @@ router.delete("/homepage/deletelike", async (req, res) => {
 /* Posting For Sending Video To Friend */
 router.post("/homepage/postsendvideo", async (req, res) => {
   try {
+    //Will need to update the messages table. and update a sent table.
 
  
   } catch (err) {
@@ -192,6 +193,43 @@ router.post("/homepage/postsendvideo", async (req, res) => {
 })
 
                 /* Discover Page Paths */
+/* Get 15 random posts for a specific category */
+router.get("/discover/getposts/:category", async (req, res) => {
+  try {
+    const recipeId = req.params.category
 
+    const randomPosts = await pgQuery(`
+      SELECT posts.*, users.*, categories.*
+      FROM posts
+      JOIN users ON posts.user_id = users.user_id
+      JOIN categories ON posts.category_id = categories.category_id
+      WHERE categories.name = $1
+      ORDER BY RANDOM() LIMIT 15;`, recipeId)
+
+    res.json({"posts": randomPosts.rows})
+
+    /* RETURNS 15 specific category post Informations e.g. category 2:
+      "post_id": 2,
+      "user_id": 2,
+      "title": "Post 2 Title",
+      "description": "Category 2 description",
+      "video_url": "https://example.com/video2.mp4",
+      "thumbnail_url": "https://example.com/thumbnail2.jpg",
+      "category_id": 2,
+      "created_at": "2023-04-19T16:44:53.922Z",
+      "updated_at": "2023-04-19T16:44:53.922Z",
+      "username": "user2",
+      "email": "user2@example.com",
+      "password": "password2",
+      "phone_number": "2345678901",
+      "profile_picture": "https://example.com/profile2.jpg",
+      "bio": "User 2 bio",
+      "gender": null,
+      "name": "Category 2"
+    */
+  } catch (err) {
+    console.error(err.message)
+  }
+})
 
 module.exports = router;
