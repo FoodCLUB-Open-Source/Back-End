@@ -61,7 +61,7 @@ async function s3Retrieve(fileName) {
 async function s3Delete(fileName) {
 
     params ={
-        Bucket: process.send.S3_BUCKET_NAME,
+        Bucket: process.env.S3_BUCKET_NAME,
         Key: fileName,
     }
 

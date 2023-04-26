@@ -21,7 +21,6 @@ router.get("/testing", async (req, res) => {
 })
 
 /* Posting a post */
-//CHANGE 'IMAGE' TO WHATEVER THE IMAGE IS CALLED FROM THE FRONT END
 router.post("/postvideo", upload.any(), async (req, res) => {
   try {
     const { user_id, title, description, category_id } = req.body
@@ -42,7 +41,7 @@ router.post("/postvideo", upload.any(), async (req, res) => {
   }
 })
 
-/* Get a specific post */
+/* Get a specific post and its category*/
 router.get("/getpost/:id", async (req, res) => {
   try {
 
@@ -79,10 +78,17 @@ router.get("/getpost/:id", async (req, res) => {
 /* Deletes a specific post */
 router.get("/deletepost/:id", async (req, res) => {
   try {
-    
-    const post = await pgQuery()
 
-    res.json(newPost.rows[0])
+    const postId = req.params.id
+
+    const post = await pgQuery(`SELECT * FROM posts WHERE post_id=$1`, postId)
+
+    await s3Delete(post.rows[0].video_name)
+    await s3Delete(post.rows[0].thumbnail_name)
+
+    await pgQuery(`DELETE FROM posts WHERE post_id = $1`, postId)
+
+    res.json({"Status": "Image Deleted"})
   } catch (err) {
     console.error(err.message)
   }
@@ -93,9 +99,13 @@ router.get("/deletepost/:id", async (req, res) => {
 router.get("/homepage/getposts", async (req, res) => {
   try {
 
-    const randomPosts = await pgQuery(`SELECT posts.*, users.*, categories.* AS category_name 
-    FROM posts JOIN users ON posts.user_id = users.user_id 
-    JOIN categories ON posts.category_id = categories.category_id ORDER BY RANDOM() LIMIT 15;`)
+    const randomPosts = await pgQuery(`
+      SELECT posts.*, users.*, categories.* AS category_name 
+      FROM posts JOIN users ON posts.user_id = users.user_id 
+      JOIN categories ON posts.category_id = categories.category_id ORDER BY RANDOM() LIMIT 15;`
+    )
+
+    //update to return the videos url properly
     
     res.json({"posts": randomPosts.rows})
 
@@ -273,7 +283,9 @@ router.get("/discover/getposts/:category", async (req, res) => {
       JOIN users ON posts.user_id = users.user_id
       JOIN categories ON posts.category_id = categories.category_id
       WHERE categories.name = $1
-      ORDER BY RANDOM() LIMIT 15;`, recipeId)
+      ORDER BY RANDOM() LIMIT 15;`
+      , recipeId
+    )
 
     res.json({"posts": randomPosts.rows})
 
