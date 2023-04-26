@@ -4,6 +4,9 @@ const express = require("express")
 require('dotenv').config()
 const http = require("http");
 const mongoDB = require('./mongoDB');
+const cors = require("cors")
+const bodyParser = require("body-parser");
+
 
 
 const app = express()
@@ -13,6 +16,11 @@ const server = http.createServer(app);
 /*  Middleware  */
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(cors({
+    origin: ['http://localhost:3000'],
+    credentials: true
+})) 
+app.use(bodyParser.urlencoded({ extended: true }))
 
 
 //mongoDB()
@@ -23,6 +31,7 @@ const postsRoutes = require("./routes/posts")
 
 app.use("/api/login", loginRoutes)
 app.use("/api/posts", postsRoutes)
+
 
 /* Socket Config */
 const socket = require("./socketconfig");

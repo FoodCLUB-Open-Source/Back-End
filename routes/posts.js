@@ -1,25 +1,81 @@
 /* For video/image posting routes */
 
 const express = require("express")
-const { pgQuery } = require('../functions/general_functions')
+const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
+const s3Bucket = require("../s3Client")
+const multer = require('multer')
 
 const router = express.Router()
-
+const storage = multer.memoryStorage()
+const upload = multer({ storage: storage })
 
 
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
     const results = await pgQuery("SELECT * FROM users")
-    console.log(results)
     res.json({ "Testing": "Working Posts", "Results": results.rows[0] })
   } catch (err) {
     console.error(err.message)
   }
 })
 
-                  /* Home Page Paths */
+/* Posting a post */
+//CHANGE 'IMAGE' TO WHATEVER THE IMAGE IS CALLED FROM THE FRONT END
+router.post("/postvideo", upload.any(), async (req, res) => {
+  try {
+    const { user_id, title, description, category_id } = req.body
 
+    console.log(user_id)
+    //Used to upload to s3 bucket
+    const newVideoName = await s3Upload(req.files[0])
+    const newThumbNaileName = await s3Upload(req.files[1])
+
+    const newPost = await pgQuery(
+      `INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, category_id, created_at, updated_at) 
+      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      user_id, title, description, newVideoName, newThumbNaileName, category_id
+    )
+
+    res.json(newPost.rows[0])
+  } catch (err) {
+    console.error(err.message)
+  }
+})
+
+/* Get a specific post */
+router.get("/getpost/:id", async (req, res) => {
+  try {
+
+    const postId = req.params.id
+
+    const specificPost = await pgQuery(`SELECT * FROM posts WHERE post_id = $1`, postId)
+
+    const imageUrl = s3Retrieve(specificPost.rows[0].image_name)
+
+
+
+
+
+    res.json(specificPost.rows[0])
+  } catch (err) {
+    console.error(err.message)
+  }
+})
+
+/* Deletes a specific post */
+router.get("/deletepost/:id", async (req, res) => {
+  try {
+    
+    const post = await pgQuery()
+
+    res.json(newPost.rows[0])
+  } catch (err) {
+    console.error(err.message)
+  }
+})
+
+                  /* Home Page Paths */
 /* Get 15 random posts */
 router.get("/homepage/getposts", async (req, res) => {
   try {
