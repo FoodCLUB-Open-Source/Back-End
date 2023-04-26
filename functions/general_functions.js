@@ -30,7 +30,7 @@ async function s3Upload (file) {
     
     const randomName = file.originalname + crypto.randomBytes(32).toString('hex')
 
-    /* Resize the image to the what is specified */
+    /* Resize the image to the what is specified (DOESNT WORK WITH VIDEOS) */
     //const buffer = await sharp(file.buffer).resize({height: 1920, width: 1080, fit: "contain"}).toBuffer()
 
     const params = {
@@ -49,7 +49,7 @@ async function s3Upload (file) {
 async function s3Retrieve(fileName) {
 
     params ={
-        Bucket: process.send.S3_BUCKET_NAME,
+        Bucket: process.env.S3_BUCKET_NAME,
         Key: fileName,
     }
 

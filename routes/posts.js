@@ -26,7 +26,6 @@ router.post("/postvideo", upload.any(), async (req, res) => {
   try {
     const { user_id, title, description, category_id } = req.body
 
-    console.log(user_id)
     //Used to upload to s3 bucket
     const newVideoName = await s3Upload(req.files[0])
     const newThumbNaileName = await s3Upload(req.files[1])
@@ -49,15 +48,29 @@ router.get("/getpost/:id", async (req, res) => {
 
     const postId = req.params.id
 
-    const specificPost = await pgQuery(`SELECT * FROM posts WHERE post_id = $1`, postId)
+    const specificPost = await pgQuery(`
+      SELECT posts.*, categories.*
+      FROM posts
+      JOIN categories ON posts.category_id = categories.category_id
+      WHERE post_id = $1`
+      , postId
+    )
 
-    const imageUrl = s3Retrieve(specificPost.rows[0].image_name)
+    const { title, description, video_name, thumbnail_name, name } = specificPost.rows[0]
 
 
+    const videoUrl = await s3Retrieve(video_name)
+    const thumbnailUrl = await s3Retrieve(thumbnail_name)
 
+    const responseData = {
+      title,
+      description,
+      video_url: videoUrl,
+      thumbnail_url: thumbnailUrl,
+      category_name: name,
+    }
 
-
-    res.json(specificPost.rows[0])
+    res.json(responseData)
   } catch (err) {
     console.error(err.message)
   }
