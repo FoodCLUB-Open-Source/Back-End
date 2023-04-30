@@ -13,7 +13,7 @@ const upload = multer({ storage: storage })
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
-    const results = await pgQuery("SELECT * FROM users")
+    const results = await pgQuery(`SELECT * FROM users`)
     res.json({ "Testing": "Working Posts", "Results": results.rows[0] })
   } catch (err) {
     console.error(err.message)
@@ -56,7 +56,6 @@ router.get("/getpost/:id", async (req, res) => {
     )
 
     const { title, description, video_name, thumbnail_name, name } = specificPost.rows[0]
-
 
     const videoUrl = await s3Retrieve(video_name)
     const thumbnailUrl = await s3Retrieve(thumbnail_name)

@@ -1,11 +1,13 @@
 /* File for useful functions to encourage DRY code */
 const pool = require("../pgdb")
-const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3")
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner")
+const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3")
 const s3Client = require("../s3Client")
 require('dotenv').config()
 const crypto = require("crypto")
 const sharp = require("sharp")
+//const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner")
+
 
 
 /* DRY secure postgreSQl query function */
@@ -46,18 +48,31 @@ async function s3Upload (file) {
     return randomName
 }
 
+/* Retrieves a image from the  bucket via cloudfront */
 async function s3Retrieve(fileName) {
 
-    params ={
-        Bucket: process.env.S3_BUCKET_NAME,
-        Key: fileName,
-    }
+    return "https://d33d3du89vdsqo.cloudfront.net/" + fileName
 
-    const s3GetCommand = new GetObjectCommand(params)
-    const url = await getSignedUrl(s3Client, s3GetCommand, { expiresIn: 3600 })
-    return url
+    // const signedImageUrl = getSignedUrl({
+    //     url: "https://d2x2sguewur1mk.cloudfront.net/" + fileName,
+    //     dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    //     privateKey: process.env.CLOUDFRONT_PK,
+    //     keyPairId: process.env.CLOUDFRONT_KPID
+    // })
+
+
+    //return signedImageUrl
+    // params ={
+    //     Bucket: process.env.S3_BUCKET_NAME,
+    //     Key: fileName,
+    // }
+
+    // const s3GetCommand = new GetObjectCommand(params)
+    // const url = await getSignedUrl(s3Client, s3GetCommand, { expiresIn: 3600 })
+    // return url
 }
 
+/* Deletes a image in the s3 bucket */
 async function s3Delete(fileName) {
 
     params ={
