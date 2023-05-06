@@ -3,11 +3,8 @@
 const express = require("express")
 require('dotenv').config()
 const http = require("http");
-const mongoDB = require('./mongoDB');
 const cors = require("cors")
 const bodyParser = require("body-parser");
-
-
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -21,9 +18,6 @@ app.use(cors({
     credentials: true
 })) 
 app.use(bodyParser.urlencoded({ extended: true }))
-
-
-//mongoDB()
 
 /*  All Routes  */
 const loginRoutes = require("./routes/login")
