@@ -34,7 +34,7 @@ router.post("/postvideo", upload.any(), async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
       user_id, title, description, newVideoName, newThumbNaileName, category_id
     )
-
+      
     res.json(newPost.rows[0])
   } catch (err) {
     console.error(err.message)

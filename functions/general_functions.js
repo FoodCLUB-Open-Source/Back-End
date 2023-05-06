@@ -6,7 +6,7 @@ require('dotenv').config()
 const crypto = require("crypto")
 const sharp = require("sharp")
 //const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner")
+const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
 
 
 
@@ -51,25 +51,16 @@ async function s3Upload (file) {
 /* Retrieves a image from the  bucket via cloudfront */
 async function s3Retrieve(fileName) {
 
-    return "https://d33d3du89vdsqo.cloudfront.net/" + fileName
+    //return "https://d33d3du89vdsqo.cloudfront.net/" + fileName
 
-    // const signedImageUrl = getSignedUrl({
-    //     url: "https://d2x2sguewur1mk.cloudfront.net/" + fileName,
-    //     dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24),
-    //     privateKey: process.env.CLOUDFRONT_PK,
-    //     keyPairId: process.env.CLOUDFRONT_KPID
-    // })
+    const signedImageUrl = getSignedUrl({
+        url: "https://d33d3du89vdsqo.cloudfront.net/" + fileName,
+        dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24),
+        privateKey: process.env.CLOUDFRONT_PK,
+        keyPairId: process.env.CLOUDFRONT_KPID
+    })     
 
-
-    //return signedImageUrl
-    // params ={
-    //     Bucket: process.env.S3_BUCKET_NAME,
-    //     Key: fileName,
-    // }
-
-    // const s3GetCommand = new GetObjectCommand(params)
-    // const url = await getSignedUrl(s3Client, s3GetCommand, { expiresIn: 3600 })
-    // return url
+    return signedImageUrl
 }
 
 /* Deletes a image in the s3 bucket */
