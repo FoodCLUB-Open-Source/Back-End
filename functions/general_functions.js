@@ -5,7 +5,6 @@ const s3Client = require("../s3Client")
 require('dotenv').config()
 const crypto = require("crypto")
 const sharp = require("sharp")
-//const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
 const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
 
 
@@ -50,8 +49,6 @@ async function s3Upload (file) {
 
 /* Retrieves a image from the  bucket via cloudfront */
 async function s3Retrieve(fileName) {
-
-    //return "https://d33d3du89vdsqo.cloudfront.net/" + fileName
 
     const signedImageUrl = getSignedUrl({
         url: "https://d33d3du89vdsqo.cloudfront.net/" + fileName,
