@@ -114,14 +114,21 @@ router.get("/homepage/getposts", async (req, res) => {
   try {
 
     const randomPosts = await pgQuery(`
-      SELECT posts.*, users.*, categories.* AS category_name 
-      FROM posts JOIN users ON posts.user_id = users.user_id 
-      JOIN categories ON posts.category_id = categories.category_id ORDER BY RANDOM() LIMIT 15;`
-    )
+      SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
+      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id 
+      ORDER BY RANDOM() LIMIT 15;
+    `)
 
-    //update to return the videos url properly
-    
-    res.json({"posts": randomPosts.rows})
+    const processedPosts = await Promise.all(
+      randomPosts.rows.map(async (post) => {
+        const videoUrl = await s3Retrieve(post.video_name)
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name)
+        const { video_name, thumbnail_name, phone_number, password, email, gender, created_at, updated_at,  ...rest } = post
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl }
+      })
+    )
+      
+    res.json({"posts": processedPosts})
 
     /* RETURNS 15 post Informations:
       "post_id": 2,
@@ -135,11 +142,8 @@ router.get("/homepage/getposts", async (req, res) => {
       "updated_at": "2023-04-19T16:44:53.922Z",
       "username": "user2",
       "email": "user2@example.com",
-      "password": "password2",
-      "phone_number": "2345678901",
       "profile_picture": "https://example.com/profile2.jpg",
       "bio": "User 2 bio",
-      "gender": null,
       "name": "Category 2"
     */
   } catch (err) {
@@ -148,7 +152,7 @@ router.get("/homepage/getposts", async (req, res) => {
 })
 
 /* Getting Ingredient For Specific Post */
-router.get("/homepage/getrecipe/:id", async (req, res) => {
+router.get("/getrecipe/:id", async (req, res) => {
   try {
     const recipeId = req.params.id
     const specificRecepie = await pgQuery(`SELECT * FROM recipes WHERE recipe_id = $1`, recipeId)
@@ -185,8 +189,26 @@ router.get("/homepage/getrecipe/:id", async (req, res) => {
 })
 
 /* Getting Comments For Specific Post */
-router.get("/homepage/getcomments", async (req, res) => {
+router.get("/getcomments/:id", async (req, res) => {
   try {
+    const commentId = req.params.id
+
+    const primaryKey = {
+      post_id:1,
+      view_id:"asda"
+    }
+    
+
+    const results = await getItem("Views", primaryKey)
+
+    const adding = {
+      post_id: 2,
+      view_id: "practise",
+      message: "THIS IS ADDED THROUGH NODE.JS"
+    }
+    await putItem("Views", adding)
+    
+    res.json({ "Testing": "Working Posts", "Results": results })
 
 
   } catch (err) {
@@ -194,10 +216,33 @@ router.get("/homepage/getcomments", async (req, res) => {
   }
 })
 
-/* Posting Message For Specific Post */
-router.post("/homepage/postmessage", async (req, res) => {
+/* Posting Comments For Specific Post */
+router.post("/postcomments", async (req, res) => {
   try {
 
+    const { user_id, post_id, comment } = req.body
+
+        
+
+    putItem("Views", {post_id: 5, view_id: "asasdda", message: "Testing"})
+
+
+    const primaryKey = {
+      post_id:1,
+      view_id:"asda"
+    }
+    
+
+    const results = await getItem("Views", primaryKey)
+
+    const adding = {
+      post_id: 2,
+      view_id: "practise",
+      message: "THIS IS ADDED THROUGH NODE.JS"
+    }
+    await putItem("Views", adding)
+    
+    res.json({ "Testing": "Working Posts", "Results": results })
    
   } catch (err) {
     console.error(err.message)
