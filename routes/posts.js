@@ -2,8 +2,8 @@
 
 const express = require("express")
 const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
-const s3Bucket = require("../s3Client")
 const multer = require('multer')
+const { getItem, putItem } = require('../functions/dynamoDB_functions');
 
 const router = express.Router()
 const storage = multer.memoryStorage()
@@ -13,8 +13,23 @@ const upload = multer({ storage: storage })
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
-    const results = await pgQuery(`SELECT * FROM users`)
-    res.json({ "Testing": "Working Posts", "Results": results.rows[0] })
+
+    const primaryKey = {
+      post_id:1,
+      view_id:"asda"
+    }
+    
+
+    const results = await getItem("Views", primaryKey)
+
+    const adding = {
+      post_id: 2,
+      view_id: "practise",
+      message: "THIS IS ADDED THROUGH NODE.JS"
+    }
+    await putItem("Views", adding)
+    
+    res.json({ "Testing": "Working Posts", "Results": results })
   } catch (err) {
     console.error(err.message)
   }

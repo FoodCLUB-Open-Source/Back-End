@@ -6,8 +6,6 @@ const http = require("http");
 const cors = require("cors")
 const bodyParser = require("body-parser");
 
-
-
 const app = express()
 const port = process.env.PORT || 5000
 const server = http.createServer(app);
@@ -20,7 +18,6 @@ app.use(cors({
     credentials: true
 })) 
 app.use(bodyParser.urlencoded({ extended: true }))
-
 
 /*  All Routes  */
 const loginRoutes = require("./routes/login")
