@@ -22,10 +22,13 @@ app.use(bodyParser.urlencoded({ extended: true }))
 /*  All Routes  */
 const loginRoutes = require("./routes/login")
 const postsRoutes = require("./routes/posts")
+const commentsRoutes = require("./routes/comments")
+const likesRoutes = require("./routes/likes")
 
 app.use("/api/login", loginRoutes)
 app.use("/api/posts", postsRoutes)
-
+app.use("/api/comments", commentsRoutes)
+app.use("/api/likes", likesRoutes)
 
 /* Socket Config */
 const socket = require("./socketconfig");

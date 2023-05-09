@@ -7,15 +7,23 @@ const dynamoDB = require('../dynamoDB');
 	view_id will need to be a UUID. and post_id needs to be from postgreSQL
 
 */
-async function getItem(tableName, primaryKey) {
-	const params = {
-	  TableName: tableName,
-	  Key: primaryKey
-	};
-  
+async function getItemPrimaryKey(params) {
+
 	try {
 	  const data = await dynamoDB.get(params);
 	  return data.Item;
+	} catch (error) {
+	  console.error("Error getting item:", error);
+	  throw error;
+	}
+}
+
+/* Get all items that belong to the specific Partition Key*/
+async function getItemPartitionKey(params) {
+
+	try {
+	  const data = await dynamoDB.query(params);
+	  return data.Items;
 	} catch (error) {
 	  console.error("Error getting item:", error);
 	  throw error;
@@ -57,4 +65,4 @@ async function deleteItem(tableName, primaryKey) {
 	}
   }
 
-module.exports = { getItem, putItem, deleteItem }
+module.exports = { getItemPrimaryKey, getItemPartitionKey, putItem, deleteItem }

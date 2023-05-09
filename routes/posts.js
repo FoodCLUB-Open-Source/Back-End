@@ -3,7 +3,7 @@
 const express = require("express")
 const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
 const multer = require('multer')
-const { getItem, putItem } = require('../functions/dynamoDB_functions');
+const { getItemPrimaryKey, getItemPartitionKey, putItem } = require('../functions/dynamoDB_functions');
 
 const router = express.Router()
 const storage = multer.memoryStorage()
@@ -14,13 +14,15 @@ const upload = multer({ storage: storage })
 router.get("/testing", async (req, res) => {
   try {
 
-    const primaryKey = {
-      post_id:1,
-      view_id:"asda"
-    }
+    const params = {
+      TableName: "Views",
+      Key: {
+        post_id:1,
+        view_id:"asda"
+      }
+    };
     
-
-    const results = await getItem("Views", primaryKey)
+    const results = await getItemPrimaryKey(params)
 
     const adding = {
       post_id: 2,
@@ -34,6 +36,7 @@ router.get("/testing", async (req, res) => {
     console.error(err.message)
   }
 })
+
 
 /* Posting a post */
 router.post("/postvideo", upload.any(), async (req, res) => {
@@ -55,6 +58,7 @@ router.post("/postvideo", upload.any(), async (req, res) => {
     console.error(err.message)
   }
 })
+
 
 /* Get a specific post and its category*/
 router.get("/getpost/:id", async (req, res) => {
@@ -89,6 +93,7 @@ router.get("/getpost/:id", async (req, res) => {
   }
 })
 
+
 /* Deletes a specific post */
 router.get("/deletepost/:id", async (req, res) => {
   try {
@@ -108,7 +113,7 @@ router.get("/deletepost/:id", async (req, res) => {
   }
 })
 
-                  /* Home Page Paths */
+
 /* Get 15 random posts */
 router.get("/homepage/getposts", async (req, res) => {
   try {
@@ -188,136 +193,6 @@ router.get("/getrecipe/:id", async (req, res) => {
   }
 })
 
-/* Getting Comments For Specific Post */
-router.get("/getcomments/:id", async (req, res) => {
-  try {
-    const commentId = req.params.id
-
-    const primaryKey = {
-      post_id:1,
-      view_id:"asda"
-    }
-    
-
-    const results = await getItem("Views", primaryKey)
-
-    const adding = {
-      post_id: 2,
-      view_id: "practise",
-      message: "THIS IS ADDED THROUGH NODE.JS"
-    }
-    await putItem("Views", adding)
-    
-    res.json({ "Testing": "Working Posts", "Results": results })
-
-
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Posting Comments For Specific Post */
-router.post("/postcomments", async (req, res) => {
-  try {
-
-    const { user_id, post_id, comment } = req.body
-
-        
-
-    putItem("Views", {post_id: 5, view_id: "asasdda", message: "Testing"})
-
-
-    const primaryKey = {
-      post_id:1,
-      view_id:"asda"
-    }
-    
-
-    const results = await getItem("Views", primaryKey)
-
-    const adding = {
-      post_id: 2,
-      view_id: "practise",
-      message: "THIS IS ADDED THROUGH NODE.JS"
-    }
-    await putItem("Views", adding)
-    
-    res.json({ "Testing": "Working Posts", "Results": results })
-   
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Posting Reply For Specific Comment */
-router.get("/homepage/postreply", async (req, res) => {
-  try {
-
- 
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Delete Message For Specific Post */
-router.delete("/homepage/deletemessage", async (req, res) => {
-  try {
-
-   
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Delete Reply For Specific Comment */
-router.delete("/homepage/deletereply", async (req, res) => {
-  try {
-
- 
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Posting For Bookmarking Specific Post */
-router.post("/homepage/postbookmark", async (req, res) => {
-  try {
-
- 
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Deleting  Bookmarking Specific Post */
-router.post("/homepage/deletebookmark", async (req, res) => {
-  try {
-
- 
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Posting For Liking Specific Video */
-router.post("/homepage/postlike", async (req, res) => {
-  try {
-
- 
-  } catch (err) {
-    console.error(err.message)
-  }
-})
-
-/* Deleting Like On Specific Video */
-router.delete("/homepage/deletelike", async (req, res) => {
-  try {
-
- 
-  } catch (err) {
-    console.error(err.message)
-  }
-})
 
 /* Posting For Sending Video To Friend */
 router.post("/homepage/postsendvideo", async (req, res) => {
@@ -330,23 +205,31 @@ router.post("/homepage/postsendvideo", async (req, res) => {
   }
 })
 
-                /* Discover Page Paths */
+
 /* Get 15 random posts for a specific category */
-router.get("/discover/getposts/:category", async (req, res) => {
+router.get("/discover/getcategoryposts/:category", async (req, res) => {
   try {
-    const recipeId = req.params.category
+    const categoryId = req.params.category
 
     const randomPosts = await pgQuery(`
-      SELECT posts.*, users.*, categories.*
-      FROM posts
-      JOIN users ON posts.user_id = users.user_id
-      JOIN categories ON posts.category_id = categories.category_id
-      WHERE categories.name = $1
-      ORDER BY RANDOM() LIMIT 15;`
-      , recipeId
+      SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
+      FROM posts 
+      JOIN users ON posts.user_id = users.user_id 
+      JOIN categories ON posts.category_id = categories.category_id 
+      WHERE categories.category_id = $1
+      ORDER BY RANDOM() LIMIT 15;
+    `, categoryId)
+
+    const processedPosts = await Promise.all(
+      randomPosts.rows.map(async (post) => {
+        const videoUrl = await s3Retrieve(post.video_name)
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name)
+        const { video_name, thumbnail_name, phone_number, password, email, gender, created_at, updated_at,  ...rest } = post
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl }
+      })
     )
 
-    res.json({"posts": randomPosts.rows})
+    res.json({"posts": processedPosts})
 
     /* RETURNS 15 specific category post Informations e.g. category 2:
       "post_id": 2,
