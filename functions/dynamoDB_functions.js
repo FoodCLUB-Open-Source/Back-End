@@ -53,6 +53,16 @@ async function putItem(tableName, item) {
 	}
 }
 
+async function updateItem(params) {
+	try {
+		const data = await dynamoDB.update(params);
+		return data;
+	} catch (err) {
+		console.error('Unable to update item. Error JSON:', JSON.stringify(err, null, 2));
+		throw err;
+	}
+}
+
 // Delete an item by primary key
 async function deleteItem(params) {
 	try {
@@ -66,4 +76,4 @@ async function deleteItem(params) {
 	}
 }
 
-module.exports = { getItemPrimaryKey, getItemPartitionKey, putItem, deleteItem }
+module.exports = { getItemPrimaryKey, getItemPartitionKey, putItem, updateItem, deleteItem }

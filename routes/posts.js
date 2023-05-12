@@ -106,6 +106,8 @@ router.post("/postvideo", upload.any(), async (req, res) => {
       user_id, post_title, post_description, newVideoName, newThumbNaileName, category_id
     )
 
+    //INSERT RECIPE aswell
+
     const { post_id } = newPost.rows[0]
     
     const totalLikesSchema = setTotalLikes(post_id)
@@ -222,22 +224,6 @@ router.get("/homepage/getposts", async (req, res) => {
       
     res.json({"posts": processedPosts})
 
-    /* RETURNS 15 post Informations:
-      "post_id": 2,
-      "user_id": 2,
-      "post_title": "Post 2 post_title",
-      "post_description": "Category 2 post_description",
-      "video_url": "https://example.com/video2.mp4",
-      "thumbnail_url": "https://example.com/thumbnail2.jpg",
-      "category_id": 2,
-      "created_at": "2023-04-19T16:44:53.922Z",
-      "updated_at": "2023-04-19T16:44:53.922Z",
-      "username": "user2",
-      "email": "user2@example.com",
-      "profile_picture": "https://example.com/profile2.jpg",
-      "bio": "User 2 bio",
-      "name": "Category 2"
-    */
   } catch (err) {
     console.error(err.message)
   }
@@ -250,30 +236,6 @@ router.get("/getrecipe/:id", async (req, res) => {
     const specificRecepie = await pgQuery(`SELECT * FROM recipes WHERE recipe_id = $1`, recipeId)
 
     res.json({"recipe": specificRecepie.rows[0]})
-
-    /* RETURNS A RECEPIE FOR ID SPECIFIED:
-      "recipe_id": 1,
-      "post_id": 1,
-      "recepie_description": "Recipe 1",
-      "ingredients": [
-          "ingredient 1",
-          "ingredient 2",
-          "ingredient 3"
-      ],
-      "equipment": [
-          "equipment 1",
-          "equipment 2"
-      ],
-      "steps": [
-          "step 1",
-          "step 2",
-          "step 3"
-      ],
-      "preparation_time": 30,
-      "servings": 4,
-      "created_at": "2023-04-19T21:58:12.570Z",
-      "updated_at": "2023-04-19T21:58:12.570Z"
-    */
 
   } catch (err) {
     console.error(err.message)
@@ -309,34 +271,22 @@ router.get("/discover/getcategoryposts/:category", async (req, res) => {
 
     const processedPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
+
         const videoUrl = await s3Retrieve(post.video_name)
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name)
+        
         const { video_name, thumbnail_name, phone_number, password, email, gender, created_at, updated_at,  ...rest } = post
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl }
+        
+        const { view_count, like_count } = await getLikesViews(post.post_id)
+
+        const liked = await checkLike(parseInt(post.post_id), parseInt(req.query.user_id))
+
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, view_count, like_count, liked }
       })
     )
 
     res.json({"posts": processedPosts})
 
-    /* RETURNS 15 specific category post Informations e.g. category 2:
-      "post_id": 2,
-      "user_id": 2,
-      "post_title": "Post 2 post_title",
-      "post_description": "Category 2 post_description",
-      "video_url": "https://example.com/video2.mp4",
-      "thumbnail_url": "https://example.com/thumbnail2.jpg",
-      "category_id": 2,
-      "created_at": "2023-04-19T16:44:53.922Z",
-      "updated_at": "2023-04-19T16:44:53.922Z",
-      "username": "user2",
-      "email": "user2@example.com",
-      "password": "password2",
-      "phone_number": "2345678901",
-      "profile_picture": "https://example.com/profile2.jpg",
-      "bio": "User 2 bio",
-      "gender": null,
-      "name": "Category 2"
-    */
   } catch (err) {
     console.error(err.message)
   }
