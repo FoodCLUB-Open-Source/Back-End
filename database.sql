@@ -21,8 +21,8 @@ CREATE TABLE users (
 
 CREATE TABLE categories (
   category_id SERIAL PRIMARY KEY,
-  name VARCHAR(255) UNIQUE NOT NULL,
-  description TEXT,
+  category_name VARCHAR(255) UNIQUE NOT NULL,
+  category_description TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -30,8 +30,8 @@ CREATE TABLE categories (
 CREATE TABLE posts (
   post_id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(user_id),
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
+  post_title VARCHAR(255) NOT NULL,
+  post_description TEXT,
   video_name VARCHAR(255) NOT NULL,
   thumbnail_name VARCHAR(255) NOT NULL,
   category_id INTEGER REFERENCES categories(category_id),
@@ -57,14 +57,14 @@ VALUES ('user1', 'user1@example.com', 'password1', '1234567890', 'https://exampl
        ('user4', 'user4@example.com', 'password4', '4567890123', 'https://example.com/profile4.jpg', 'User 4 bio'),
        ('user5', 'user5@example.com', 'password5', '5678901234', 'https://example.com/profile5.jpg', 'User 5 bio');
 
-INSERT INTO categories (name, description)
+INSERT INTO categories (category_name, category_description)
 VALUES ('Category 1', 'Category 1 description'),
        ('Category 2', 'Category 2 description'),
        ('Category 3', 'Category 3 description'),
        ('Category 4', 'Category 4 description'),
        ('Category 5', 'Category 5 description');
 
-INSERT INTO posts (user_id, title, description, video_url, thumbnail_url, category_id)
+INSERT INTO posts (user_id, title, post_description, video_url, thumbnail_url, category_id)
 VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg', 1),
        (2, 'Post 2 Title', 'Post 2 description', 'https://example.com/video2.mp4', 'https://example.com/thumbnail2.jpg', 2),
        (3, 'Post 3 Title', 'Post 3 description', 'https://example.com/video3.mp4', 'https://example.com/thumbnail3.jpg', 3),

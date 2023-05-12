@@ -69,6 +69,29 @@ function setStory(userId, videoUrl, thumbnailUrl) {
 	}
 }
 
+function setTotalLikes(postId) {
+	return {
+		post_id: postId,
+		like_count: 0,
+	}
+}
+
+function setTotalViews(postId) {
+	return {
+		post_id: postId,
+		view_count: 0,
+	}
+}
 
 
-module.exports = { setViews, setLikes, setComment, setReplies, setCommentsLike, setFollow, setStory }
+module.exports = { 
+	setViews, 
+	setLikes, 
+	setComment, 
+	setReplies, 
+	setCommentsLike, 
+	setFollow, 
+	setStory,
+	setTotalLikes,
+	setTotalViews
+}
