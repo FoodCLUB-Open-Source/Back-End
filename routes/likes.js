@@ -15,7 +15,6 @@ router.get("/testing", async (req, res) => {
 	}
 })
 
-  
 /* Posting For Liking Specific Video */
 router.post("/postlike", async (req, res) => {
 	try {
@@ -52,7 +51,6 @@ router.delete("/deletelike", async (req, res) => {
 
 		const { user_id, post_id } = req.body
 
-		
 		let params = {
 			TableName: "Likes",
 			Key: {

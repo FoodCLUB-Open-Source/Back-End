@@ -25,6 +25,8 @@ function setComment(userId, postId, comment) {
 		user_id: userId,
 		post_id: postId,
 		comment: comment,
+		comment_like_count: 0,
+		comment_reply_count: 0,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 	}
@@ -69,20 +71,14 @@ function setStory(userId, videoUrl, thumbnailUrl) {
 	}
 }
 
-function setTotalLikes(postId) {
+function setPostStats(postId) {
 	return {
 		post_id: postId,
 		like_count: 0,
+		view_count:0,
+		comments_count:0
 	}
 }
-
-function setTotalViews(postId) {
-	return {
-		post_id: postId,
-		view_count: 0,
-	}
-}
-
 
 module.exports = { 
 	setViews, 
@@ -92,6 +88,5 @@ module.exports = {
 	setCommentsLike, 
 	setFollow, 
 	setStory,
-	setTotalLikes,
-	setTotalViews
+	setPostStats,
 }

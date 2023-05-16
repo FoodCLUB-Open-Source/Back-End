@@ -4,7 +4,7 @@ const express = require("express")
 const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
 const multer = require('multer')
 const { getItemPrimaryKey, getItemPartitionKey, putItem, deleteItem } = require('../functions/dynamoDB_functions');
-const { setTotalLikes, setTotalViews } = require("../dynamo_schemas/dynamo_schemas")
+const { setPostStats } = require("../dynamo_schemas/dynamo_schemas")
 
 const router = express.Router()
 const storage = multer.memoryStorage()
@@ -23,28 +23,18 @@ router.get("/testing", async (req, res) => {
 
 /* Functions for Posts */
 /* returns the total likes and views per post */
-async function getLikesViews(postId){
+async function getPostStats(postId){
   let params = {
-		TableName: "Total_Views",
+		TableName: "Post_Stats",
 		KeyConditionExpression: "post_id = :postId",
 		ExpressionAttributeValues: {
 		  ":postId": postId
 		},
 	}
 
-  const views = await getItemPartitionKey(params)
+  const stats = await getItemPartitionKey(params)
 
-  params = {
-		TableName: "Total_Likes",
-		KeyConditionExpression: "post_id = :postId",
-		ExpressionAttributeValues: {
-		  ":postId": postId
-		},
-	}
-
-  const likes = await getItemPartitionKey(params)
-
-  return { view_count: views[0].view_count, like_count: likes[0].like_count }
+  console.log(stats)
 
 } 
 
@@ -52,18 +42,9 @@ async function getLikesViews(postId){
 async function removeLikesViews(postId){
 
   let params = {
-		TableName: "Total_Views",
+		TableName: "Post_Stats",
 		Key: {
       post_id: postId
-    }
-	}
-
-  await deleteItem(params)
-
-  params = {
-		TableName: "Total_Likes",
-		Key: {
-      'post_id': postId
     }
 	}
 
@@ -110,11 +91,9 @@ router.post("/postvideo", upload.any(), async (req, res) => {
 
     const { post_id } = newPost.rows[0]
     
-    const totalLikesSchema = setTotalLikes(post_id)
-    const totalViewsSchema = setTotalViews(post_id)
+    const postStatsSchema = setPostStats(post_id)
 
-		await putItem("Total_Likes", totalLikesSchema)
-    await putItem("Total_Views", totalViewsSchema)
+		await putItem("Post_Stats", postStatsSchema)
     
     console.log("Video Posted")
     res.json(newPost.rows[0])
@@ -144,10 +123,10 @@ router.get("/getpost/:id", async (req, res) => {
     const videoUrl = await s3Retrieve(video_name)
     const thumbnailUrl = await s3Retrieve(thumbnail_name)
 
-    const { view_count, like_count } = await getLikesViews(parseInt(postId))
+    const { view_count, like_count, comments_count } = await getPostStats(parseInt(postId))
 
     const liked = await checkLike(parseInt(postId), parseInt(req.query.user_id))
-
+    
     const responseData = {
       post_id,
       user_id,
@@ -163,6 +142,7 @@ router.get("/getpost/:id", async (req, res) => {
       post_updated_at,
       view_count,
       like_count,
+      comments_count,
       liked
     }
 
@@ -174,7 +154,7 @@ router.get("/getpost/:id", async (req, res) => {
 
 
 /* Deletes a specific post */
-router.get("/deletepost/:id", async (req, res) => {
+router.delete("/deletepost/:id", async (req, res) => {
   try {
 
     const postId = req.params.id
