@@ -35,6 +35,7 @@ async function getPostStats(postId){
   const stats = await getItemPartitionKey(params)
 
   console.log(stats)
+  return stats[0]
 
 } 
 

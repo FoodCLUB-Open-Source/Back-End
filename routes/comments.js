@@ -48,30 +48,24 @@ router.post("/postcomment", async (req, res) => {
 })
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-/* Getting 50 most liked Comments For Specific Post */
+/* Getting 30 most liked Comments For Specific Post */
 router.get("/getcomments/:id", async (req, res) => {
 	try {
 		const postId = parseInt(req.params.id)
 		
 		const params = {
 			TableName: "Comments",
-			KeyConditionExpression: "post_id = :postId",
-			ExpressionAttributeValues: {
-			":postId": postId
+			IndexName: "post_id_comment_like_count_index",
+			KeyConditionExpression: "#pid = :pid",
+			ExpressionAttributeNames: {
+				"#pid": "post_id",
 			},
-		}
+			ExpressionAttributeValues: {
+				":pid": postId,
+			},
+			ScanIndexForward: false, // to sort in descending order
+			Limit: 30
+		};
 	
 		const results = await getItemPartitionKey(params)
 		
@@ -81,15 +75,6 @@ router.get("/getcomments/:id", async (req, res) => {
 	  console.error(err.message)
 	}
   })
-
-
-
-
-
-
-
-
-
 
 
 /* Update Comment For Specific Post */
