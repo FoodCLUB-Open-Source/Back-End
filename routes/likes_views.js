@@ -1,9 +1,8 @@
 const express = require("express")
 const router = express.Router()
 
-const { setCommentsLike } = require("../dynamo_schemas/dynamo_schemas")
 const { putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
-const { setLikes } = require("../dynamo_schemas/dynamo_schemas")
+const { setLikes, setViews, setCommentsLike } = require("../dynamo_schemas/dynamo_schemas")
 
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
@@ -14,6 +13,39 @@ router.get("/testing", async (req, res) => {
 		console.error(err.message)
 	}
 })
+
+/* Posting For Viewing Specific Video */
+router.post("/postview/:id", async (req, res) => {
+	try {
+
+		const postId = parseInt(req.params.id)
+		const { user_id } = req.body
+
+		const viewSchema = setViews(user_id, postId)
+		await putItem("Views", viewSchema)
+
+		const params = {
+			TableName: 'Post_Stats',
+			Key: {
+			  'post_id': postId,
+			},
+			UpdateExpression: 'set view_count = view_count + :val',
+			ExpressionAttributeValues: {
+			  ':val': 1
+			},
+			ReturnValues: 'UPDATED_NEW'
+		};
+
+		await updateItem(params)
+		
+		console.log("Post Viewed")
+		res.json({Status: "Post Viewed"})
+
+	} catch (err) {
+		console.error(err.message)
+	}
+})
+
 
 /* Posting For Liking Specific Video */
 router.post("/postlike/:id", async (req, res) => {

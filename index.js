@@ -28,7 +28,7 @@ const likesRoutes = require("./routes/likes_views")
 app.use("/api/login", loginRoutes)
 app.use("/api/posts", postsRoutes)
 app.use("/api/comments", commentsRoutes)
-app.use("/api/likes", likesRoutes)
+app.use("/api/likes_views", likesRoutes)
 
 /* Socket Config */
 const socket = require("./socketconfig");
