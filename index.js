@@ -23,7 +23,7 @@ app.use(bodyParser.urlencoded({ extended: true }))
 const loginRoutes = require("./routes/login")
 const postsRoutes = require("./routes/posts")
 const commentsRoutes = require("./routes/comments")
-const likesRoutes = require("./routes/likes")
+const likesRoutes = require("./routes/likes_views")
 
 app.use("/api/login", loginRoutes)
 app.use("/api/posts", postsRoutes)

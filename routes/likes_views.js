@@ -16,17 +16,19 @@ router.get("/testing", async (req, res) => {
 })
 
 /* Posting For Liking Specific Video */
-router.post("/postlike", async (req, res) => {
+router.post("/postlike/:id", async (req, res) => {
 	try {
-		const { user_id, post_id } = req.body
 
-		const likeSchema = setLikes(user_id, post_id)
+		const postId = parseInt(req.params.id)
+		const { user_id } = req.body
+
+		const likeSchema = setLikes(user_id, postId)
 		await putItem("Likes", likeSchema)
 
 		const params = {
-			TableName: 'Total_Likes',
+			TableName: 'Post_Stats',
 			Key: {
-			  'post_id': post_id,
+			  'post_id': postId,
 			},
 			UpdateExpression: 'set like_count = like_count + :val',
 			ExpressionAttributeValues: {
@@ -46,15 +48,16 @@ router.post("/postlike", async (req, res) => {
 })
   
 /* Deleting Like On Specific Video */
-router.delete("/deletelike", async (req, res) => {
+router.delete("/deletelike/:id", async (req, res) => {
 	try {
 
-		const { user_id, post_id } = req.body
+		const postId = parseInt(req.params.id)
+		const { user_id } = req.body
 
 		let params = {
 			TableName: "Likes",
 			Key: {
-				post_id: post_id,
+				post_id: postId,
 				user_id: user_id
 			}
 		}
@@ -62,9 +65,9 @@ router.delete("/deletelike", async (req, res) => {
 	  	await deleteItem(params)
 
 		params = {
-			TableName: 'Total_Likes',
+			TableName: 'Post_Stats',
 			Key: {
-			  'post_id': post_id,
+			  'post_id': postId,
 			},
 			UpdateExpression: 'set like_count = like_count - :val',
 			ExpressionAttributeValues: {
@@ -84,13 +87,33 @@ router.delete("/deletelike", async (req, res) => {
 })
 
 /* Posting a like for a specific comment */
-router.post("/postcommentlike", async (req, res) => {
+router.post("/postcommentlike/:id", async (req, res) => {
 	try {
-		const {user_id, comment_id} = req.body
+
+		const commentId = req.params.id
+		const { user_id, post_id } = req.body
 		
-		const commentLikeSchema = setCommentsLike(user_id, comment_id)
+		console.log(commentId, user_id, post_id)
+
+		const commentLikeSchema = setCommentsLike(user_id, commentId)
 
 		await putItem("Comment_Likes", commentLikeSchema)
+
+		params = {
+			TableName: 'Comments',
+			Key: {
+			  'post_id': parseInt(post_id),
+			  'comment_id': commentId
+			},
+			UpdateExpression: 'set comment_like_count = comment_like_count + :val',
+			ExpressionAttributeValues: {
+			  ':val': 1
+			},
+			ReturnValues: 'UPDATED_NEW'
+		};
+
+		await updateItem(params)
+
 
 		res.json({ "Status": "Comment Liked"})
 
@@ -100,9 +123,38 @@ router.post("/postcommentlike", async (req, res) => {
 })
 
 /* Deleting Like On Specific Comment */
-router.delete("/deletecommentlike", async (req, res) => {
+router.delete("/deletecommentlike/:id", async (req, res) => {
 	try {
 
+		const commentId = req.params.id
+		const { comment_like_id, post_id } = req.body
+
+		let params = {
+			TableName: "Comment_Likes",
+			Key: {
+				comment_id: commentId,
+				comment_like_id: comment_like_id
+			}
+		}
+	
+	  	await deleteItem(params)
+
+		params = {
+			TableName: 'Comments',
+			Key: {
+			  'post_id': post_id,
+			},
+			UpdateExpression: 'set comment_like_count = comment_like_count - :val',
+			ExpressionAttributeValues: {
+			  ':val': 1
+			},
+			ReturnValues: 'UPDATED_NEW'
+		};
+
+		await updateItem(params)
+
+		console.log("Comment Unliked")
+		res.json({Status: "Comment Unliked"})
 
 	} catch (err) {
 		console.error(err.message)
