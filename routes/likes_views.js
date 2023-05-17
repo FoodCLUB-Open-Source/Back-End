@@ -79,7 +79,7 @@ router.delete("/deletelike/:id", async (req, res) => {
 		await updateItem(params)
 
 		console.log("Post Unliked")
-		res.json({Status: "Post Unlike"})
+		res.json({Status: "Post Unliked"})
 
 	} catch (err) {
 		console.error(err.message)
@@ -129,6 +129,8 @@ router.delete("/deletecommentlike/:id", async (req, res) => {
 		const commentId = req.params.id
 		const { comment_like_id, post_id } = req.body
 
+		console.log(commentId, comment_like_id, post_id)
+
 		let params = {
 			TableName: "Comment_Likes",
 			Key: {
@@ -142,7 +144,8 @@ router.delete("/deletecommentlike/:id", async (req, res) => {
 		params = {
 			TableName: 'Comments',
 			Key: {
-			  'post_id': post_id,
+			  'post_id': parseInt(post_id),
+			  'comment_id': commentId
 			},
 			UpdateExpression: 'set comment_like_count = comment_like_count - :val',
 			ExpressionAttributeValues: {
