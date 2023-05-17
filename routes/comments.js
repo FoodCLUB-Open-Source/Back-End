@@ -66,9 +66,13 @@ router.get("/getcomments/:id", async (req, res) => {
 			ScanIndexForward: false, // to sort in descending order
 			Limit: 30
 		};
-	
-		const results = await getItemPartitionKey(params)
 		
+		//maybe make it so that the user that is requesting the comments. his comments are first.
+		
+
+		const results = await getItemPartitionKey(params)
+
+		console.log("Comments Fetched")
 		res.json({ "Testing": "Working Posts", "Results": results })
   
 	} catch (err) {
@@ -81,6 +85,32 @@ router.get("/getcomments/:id", async (req, res) => {
 router.put("/updatecomment/:id", async (req, res) => {
 	try {
 
+		const postId = parseInt(req.params.id)
+		const { comment, comment_id } = req.body
+
+		console.log(postId, comment, comment_id)
+
+		const params = {
+			TableName: "Comments",
+			Key: {
+				"post_id": postId,
+				"comment_id": comment_id
+			},
+			UpdateExpression: "set #cmt = :c, updated_at = :u",
+			ExpressionAttributeNames: {
+				"#cmt": "comment"
+			},
+			ExpressionAttributeValues: {
+				":c": comment,
+				":u": new Date().toISOString()
+			},
+			ReturnValues: "UPDATED_NEW"
+		};
+
+		await updateItem(params)
+
+		console.log("Comment Updated")
+		res.json({ Status: "Comment Updated" })
 		
 	} catch (err) {
 		console.error(err.message)
