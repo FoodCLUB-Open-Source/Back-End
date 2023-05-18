@@ -34,6 +34,16 @@ app.use("/api/likes_views", likesRoutes)
 const socket = require("./socketconfig");
 socket.init(server);
 
+
+app.use((err, req, res, next) => {
+    console.error(err.stack); 
+    if (!process.env.PORT) {
+        res.status(err.statusCode || 500).send({ error: err.message, stack: err.stack });
+      } else {
+        res.status(err.statusCode || 500).send({ error: err.message });
+      }
+});
+
 /* Server Listener */
 server.listen(port, () =>{
     console.log(`Server has started on port ${port}`)

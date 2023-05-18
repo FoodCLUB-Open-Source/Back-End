@@ -2,7 +2,7 @@ const express = require("express")
 const router = express.Router()
 
 const { setComment, setReplies } = require("../dynamo_schemas/dynamo_schemas")
-const { getItemPrimaryKey, getItemPartitionKey, putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
+const { getItemPartitionKey, putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
 
 
 /* Testing Posts Route */
@@ -16,19 +16,20 @@ router.get("/testing", async (req, res) => {
 })
 
 /* Posting Comment For Specific Post */
-router.post("/postcomment", async (req, res) => {
+router.post("/postcomment/:id", async (req, res) => {
 	try {
 
-		const { user_id, post_id, comment } = req.body
+		const postId = parseInt(req.params.id)
+		const { user_id, comment } = req.body
 
-		const commentSchema = setComment(user_id, post_id, comment)
+		const commentSchema = setComment(user_id, postId, comment)
 
 		await putItem("Comments", commentSchema)
 
 		const params = {
 			TableName: 'Post_Stats',
 			Key: {
-			  'post_id': post_id,
+			  'post_id': postId,
 			},
 			UpdateExpression: 'set comments_count = comments_count + :val',
 			ExpressionAttributeValues: {

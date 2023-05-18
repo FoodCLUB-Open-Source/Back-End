@@ -2,6 +2,9 @@
 
 const express = require("express")
 const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
+const { body, check, param, validationResult } = require('express-validator')
+const rateLimit = require("express-rate-limit")
+
 const multer = require('multer')
 const { getItemPrimaryKey, getItemPartitionKey, putItem, deleteItem } = require('../functions/dynamoDB_functions');
 const { setPostStats } = require("../dynamo_schemas/dynamo_schemas")
@@ -22,6 +25,14 @@ router.get("/testing", async (req, res) => {
 })
 
 /* Functions for Posts */
+
+/* Limits the amount of requests a user can make based on Ip address e.g. 100 requests every 15 minutes*/
+const postVideoLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  message: "Too many requests created from this IP, please try again after 15 minutes"
+});
+
 /* returns the total likes and views per post */
 async function getPostStats(postId){
   let params = {
@@ -73,22 +84,70 @@ async function checkLike(postId, userId) {
 }
 
 
+/* Used to validate data being passed to postvideo endpoint */
+const validatePostVideo = () => {
+  return [ 
+    // Sanitize and validate
+    param('id')
+      .isInt().withMessage('User Id should be a number')
+      .notEmpty().withMessage('User Id is required')
+      .trim()
+      .escape(),
+
+    body('post_title')
+      .notEmpty().withMessage('Post Title is required')
+      .trim()
+      .escape(),
+
+    body('post_description')
+      .notEmpty().withMessage('Post Description is required')
+      .trim()
+      .escape(),
+
+    body('category_id')
+      .isInt().withMessage('Category Id should be a number')
+      .notEmpty().withMessage('Category Id is required')
+      .trim()
+      .escape(),
+
+    check('files')
+      .custom((value, { req }) => req.files && req.files.length === 2)
+      .withMessage('A video file and a thumbnail file are required'),
+
+    check('files.*.mimetype')
+      .custom((value, { req }) =>
+        ['video/mp4', 'image/jpeg', 'image/png'].includes(value)
+      ).withMessage('Invalid file type. Only accept mp4, jpeg, png'),
+  ]
+}
+
 /* Posting a post to the database */
-router.post("/postvideo", upload.any(), async (req, res) => {
+router.post("/postvideo/:id", postVideoLimiter, upload.any(), validatePostVideo(), async (req, res, next) => {
   try {
-    const { user_id, post_title, post_description, category_id } = req.body
+
+    const errors = validationResult(req)
+  
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    const userId = parseInt(req.params.id)
+    const { post_title, post_description, category_id } = req.body
+
 
     //Used to upload to s3 bucket
-    const newVideoName = await s3Upload(req.files[0])
-    const newThumbNaileName = await s3Upload(req.files[1])
+    const [newVideoName, newThumbNaileName] = await Promise.all([
+      s3Upload(req.files[0]),
+      s3Upload(req.files[1])
+    ])
 
     const newPost = await pgQuery(
       `INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) 
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-      user_id, post_title, post_description, newVideoName, newThumbNaileName, category_id
+      userId, post_title, post_description, newVideoName, newThumbNaileName, category_id
     )
 
-    //INSERT RECIPE aswell
+    //INSERT RECIPE ASWELL
 
     const { post_id } = newPost.rows[0]
     
@@ -96,12 +155,39 @@ router.post("/postvideo", upload.any(), async (req, res) => {
 
 		await putItem("Post_Stats", postStatsSchema)
     
-    console.log("Video Posted")
+    console.log("Video Posted" + post_id)
     res.json(newPost.rows[0])
   } catch (err) {
-    console.error(err.message)
+    next(err)
   }
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Get a specific post and its category
   /api/posts/getpost/8?user_id=3
