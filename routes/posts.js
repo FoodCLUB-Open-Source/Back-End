@@ -1,9 +1,11 @@
 /* For video/image posting routes */
 
 const express = require("express")
-const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
-const { body, check, param, validationResult } = require('express-validator')
+const { pgQuery, makeTransactions, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
+const { validationResult } = require('express-validator')
 const rateLimit = require("express-rate-limit")
+const { validatePostVideo } = require('../functions/validators')
+
 
 const multer = require('multer')
 const { getItemPrimaryKey, getItemPartitionKey, putItem, deleteItem } = require('../functions/dynamoDB_functions');
@@ -84,43 +86,6 @@ async function checkLike(postId, userId) {
 }
 
 
-/* Used to validate data being passed to postvideo endpoint */
-const validatePostVideo = () => {
-  return [ 
-    // Sanitize and validate
-    param('id')
-      .isInt().withMessage('User Id should be a number')
-      .notEmpty().withMessage('User Id is required')
-      .trim()
-      .escape(),
-
-    body('post_title')
-      .notEmpty().withMessage('Post Title is required')
-      .trim()
-      .escape(),
-
-    body('post_description')
-      .notEmpty().withMessage('Post Description is required')
-      .trim()
-      .escape(),
-
-    body('category_id')
-      .isInt().withMessage('Category Id should be a number')
-      .notEmpty().withMessage('Category Id is required')
-      .trim()
-      .escape(),
-
-    check('files')
-      .custom((value, { req }) => req.files && req.files.length === 2)
-      .withMessage('A video file and a thumbnail file are required'),
-
-    check('files.*.mimetype')
-      .custom((value, { req }) =>
-        ['video/mp4', 'image/jpeg', 'image/png'].includes(value)
-      ).withMessage('Invalid file type. Only accept mp4, jpeg, png'),
-  ]
-}
-
 /* Posting a post to the database */
 router.post("/postvideo/:id", postVideoLimiter, upload.any(), validatePostVideo(), async (req, res, next) => {
   try {
@@ -141,18 +106,18 @@ router.post("/postvideo/:id", postVideoLimiter, upload.any(), validatePostVideo(
       s3Upload(req.files[1])
     ])
 
-    const newPost = await pgQuery(
-      `INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) 
-      VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-      userId, post_title, post_description, newVideoName, newThumbNaileName, category_id
-    )
-
-    //INSERT RECIPE ASWELL
+    const queries = [
+      'INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *',
+      // INSERT INTO RECEPIES QUERY
+    ];
+    const values = [
+      [userId, post_title, post_description, newVideoName, newThumbNaileName, category_id],
+      // INSERT INTO RECIPES VALUES
+    ];
+    const newPost = await makeTransactions(queries, values)
 
     const { post_id } = newPost.rows[0]
-    
     const postStatsSchema = setPostStats(post_id)
-
 		await putItem("Post_Stats", postStatsSchema)
     
     console.log("Video Posted" + post_id)
@@ -169,33 +134,13 @@ router.post("/postvideo/:id", postVideoLimiter, upload.any(), validatePostVideo(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Get a specific post and its category
   /api/posts/getpost/8?user_id=3
 */
-router.get("/getpost/:id", async (req, res) => {
+router.get("/getpost/:id", postVideoLimiter, async (req, res) => {
   try {
 
-    const postId = req.params.id
+    const postId = parseInt(req.params.id)
     
     const specificPost = await pgQuery(`
       SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
@@ -210,9 +155,9 @@ router.get("/getpost/:id", async (req, res) => {
     const videoUrl = await s3Retrieve(video_name)
     const thumbnailUrl = await s3Retrieve(thumbnail_name)
 
-    const { view_count, like_count, comments_count } = await getPostStats(parseInt(postId))
+    const { view_count, like_count, comments_count } = await getPostStats(postId)
 
-    const liked = await checkLike(parseInt(postId), parseInt(req.query.user_id))
+    const liked = await checkLike(postId, parseInt(req.query.user_id))
     
     const responseData = {
       post_id,
@@ -238,6 +183,24 @@ router.get("/getpost/:id", async (req, res) => {
     console.error(err.message)
   }
 })
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /* Deletes a specific post */

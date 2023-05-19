@@ -26,6 +26,30 @@ async function pgQuery (query, ...inputs) {
     }
 }
 
+/* Ensures all queries happen or none at all.
+    Example of how to use:
+    const query = ['INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *', ...]
+    const values = [[userId, post_title, post_description, newVideoName, newThumbNaileName, category_id], ...];
+    const result = await makeTransaction(query, values)
+*/
+const makeTransactions = async (queries, values) => {
+    const client = await pool.connect();
+    let res = null;
+    try {
+      await client.query('BEGIN')
+      for (let i = 0; i < queries.length; i++) {
+        res =await client.query(queries[i], values[i])
+      }
+      await client.query('COMMIT')
+    } catch (e) {
+      await client.query('ROLLBACK')
+      throw e
+    } finally {
+      client.release()
+    }
+    return res
+  }
+
 /*DRY upload to s3 function */
 async function s3Upload (file) {
     
@@ -73,4 +97,4 @@ async function s3Delete(fileName) {
 }
 
 
-module.exports = { pgQuery, s3Upload, s3Retrieve, s3Delete }
+module.exports = { pgQuery, makeTransactions, s3Upload, s3Retrieve, s3Delete }
