@@ -1,10 +1,9 @@
-const { body, check, param } = require('express-validator')
+const { body, check, param, query } = require('express-validator')
 
 
 /* Used to validate data being passed to the /posts/postvideo/:id endpoint */
 const validatePostVideo = () => {
 	return [ 
-	  // Sanitize and validate
 	  param('id')
 		.isInt().withMessage('User Id should be a number')
 		.notEmpty().withMessage('User Id is required')
@@ -23,11 +22,45 @@ const validatePostVideo = () => {
 		.trim()
 		.escape(),
   
-	  body('category_id')
-		.isInt().withMessage('Category Id should be a number')
-		.notEmpty().withMessage('Category Id is required')
-		.trim()
-		.escape(),
+	  body('category_id_list')
+		.custom((value) => {
+			let hashtagIds;
+			try {
+			hashtagIds = JSON.parse(value);
+			} catch (error) {
+			throw new Error('Invalid hashtag_id_list format');
+			}
+			
+			if (!Array.isArray(hashtagIds) || hashtagIds.length === 0) {
+			throw new Error('hashtag_id_list should not be empty and must be an array');
+			}
+			
+			if (!hashtagIds.every(Number.isInteger)) {
+			throw new Error('hashtag Ids should be integers');
+			}
+			
+			return true;
+		}),
+
+		body('hashtag_id_list')
+			.custom((value) => {
+				let hashtagIds;
+				try {
+				hashtagIds = JSON.parse(value);
+				} catch (error) {
+				throw new Error('Invalid hashtag_id_list format');
+				}
+				
+				if (!Array.isArray(hashtagIds) || hashtagIds.length === 0) {
+				throw new Error('hashtag_id_list should not be empty and must be an array');
+				}
+				
+				if (!hashtagIds.every(Number.isInteger)) {
+				throw new Error('hashtag Ids should be integers');
+				}
+				
+				return true;
+			}),
   
 		check('files')
 		.custom((value, { req }) => {
@@ -50,14 +83,31 @@ const validatePostVideo = () => {
 			// 	if (file.size > MAX_FILE_SIZE) {
 			// 		throw new Error('File size exceeds the maximum limit');
 			// 	}
-			// }
+			// } 
 			return true;
 		}),
+	]
+}
+
+const validateGetPost = () => {
+	return [ 
+		param('id')
+			.isInt().withMessage('Post Id should be a number')
+			.notEmpty().withMessage('Post Id is required')
+			.trim()
+			.escape(),
+
+		query('user_id')
+			.isInt().withMessage('User Id should be a number')
+			.notEmpty().withMessage('User Id is required')
+			.trim()
+			.escape(),
 	]
 }
 
 
 module.exports = { 
 	validatePostVideo,
+	validateGetPost,
 
 }
