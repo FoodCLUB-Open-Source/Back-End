@@ -99,10 +99,6 @@ router.post("/postvideo/:id", requestLimiter, upload.any(), validatePostVideo(),
 
     const client = await pool.connect();
 
-    console.log(recipe_ingredients)
-    console.log(recipe_equipment)
-    console.log(recipe_steps)
-
     try {
       await client.query('BEGIN')
 
