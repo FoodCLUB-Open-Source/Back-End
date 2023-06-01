@@ -4,7 +4,7 @@ const express = require("express")
 const { pgQuery, makeTransactions, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
 const { validationResult } = require('express-validator')
 const { requestLimiter } = require("../functions/general_functions")
-const { validatePostVideo, validateGetPost } = require('../functions/validators')
+const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators')
 
 const pool = require("../pgdb")
 
@@ -137,12 +137,6 @@ router.post("/postvideo/:id", requestLimiter, upload.any(), validatePostVideo(),
 })
 
 
-
-
-
-
-
-
 /* Get a specific post and its category
   /api/posts/getpost/8?user_id=3
 */
@@ -157,6 +151,7 @@ router.get("/getpost/:id", requestLimiter, validateGetPost(), async (req, res, n
 
     const postId = parseInt(req.params.id)
     
+    //NEED TO UPDATE THIS TO THE NEW CATEGORY SYSTEM
     const specificPost = await pgQuery(`
       SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
       FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id 
@@ -204,57 +199,57 @@ router.get("/getpost/:id", requestLimiter, validateGetPost(), async (req, res, n
 })
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Deletes a specific post */
-router.delete("/deletepost/:id", async (req, res) => {
+router.delete("/deletepost/:id", requestLimiter, validateParamId(), async (req, res, next) => {
   try {
+
+    const errors = validationResult(req)
+  
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
 
     const postId = req.params.id
 
-    const post = await pgQuery(`SELECT * FROM posts WHERE post_id=$1`, postId)
+    const post = await pgQuery(`SELECT * FROM posts WHERE post_id = $1`, postId)
 
-    await s3Delete(post.rows[0].video_name)
-    await s3Delete(post.rows[0].thumbnail_name)
+    const { video_name, thumbnail_name } = post.rows[0]
 
-    await pgQuery(`DELETE FROM posts WHERE post_id = $1`, postId)
 
-    await removeLikesViews(parseInt(postId))
+    //CHANGE THIS SO THAT IF ONE DOESNT HAPPEN NONE DO
+    //MAYBE CREATE A DELETE FOLDER IN S3. To allow rollback
+    await Promise.all([
+      s3Delete(video_name),
+      s3Delete(thumbnail_name),
+      pgQuery(`DELETE FROM posts WHERE post_id = $1`, postId),
+      removeLikesViews(parseInt(postId))
+    ])
 
     console.log("Post Deleted")
     res.json({"Status": "Image Deleted"})
   } catch (err) {
-    console.error(err.message)
+    next(err)
   }
 })
 
-
 /* Get 15 random posts */
-router.get("/homepage/getposts", async (req, res) => {
+router.get("/homepage/getposts", requestLimiter, validateGetPosts(), async (req, res, next) => {
   try {
 
+    const errors = validationResult(req)
+  
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    //THIS NEEDS TO CHANGE TO CORRESPOND TO THE NEW CATEGORY SYSTEM.
+    //NEEDS TO ADD PAGINATION AND CACHHING
     const randomPosts = await pgQuery(`
-      SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
-      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id 
+      SELECT posts.*, users.*, categories.*
+      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id
       ORDER BY RANDOM() LIMIT 15;
     `)
-
+    
     const processedPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
 
@@ -270,45 +265,61 @@ router.get("/homepage/getposts", async (req, res) => {
         return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, view_count, like_count, liked }
       })
     )
-      
+    
     res.json({"posts": processedPosts})
 
   } catch (err) {
-    console.error(err.message)
+    next(err)
   }
 })
 
 /* Getting Ingredient For Specific Post */
-router.get("/getrecipe/:id", async (req, res) => {
+router.get("/getrecipe/:id", requestLimiter, validateParamId(), async (req, res, next) => {
   try {
+
+    const errors = validationResult(req)
+  
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
     const recipeId = req.params.id
     const specificRecepie = await pgQuery(`SELECT * FROM recipes WHERE recipe_id = $1`, recipeId)
 
     res.json({"recipe": specificRecepie.rows[0]})
 
   } catch (err) {
-    console.error(err.message)
+    next(err)
   }
 })
 
 
 /* Posting For Sending Video To Friend */
-router.post("/homepage/postsendvideo", async (req, res) => {
+router.post("/homepage/postsendvideo", requestLimiter,  async (req, res, next) => {
   try {
     //Will need to update the messages table. and update a sent table.
 
  
   } catch (err) {
-    console.error(err.message)
+    next(err)
   }
 })
 
 
 /* Get 15 random posts for a specific category */
-router.get("/discover/getcategoryposts/:category", async (req, res) => {
+router.get("/discover/getcategoryposts/:id", requestLimiter, validateGetCategoryPost(), async (req, res, next) => {
   try {
-    const categoryId = req.params.category
 
+    const errors = validationResult(req)
+  
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() })
+    }
+
+    //REQUIRES PAGINATION AND CACHING
+    const categoryId = req.params.id
+
+    // CHANGE THIS TO MATCH THE NEW CATEGORY SYSTEM
     const randomPosts = await pgQuery(`
       SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
       FROM posts 
@@ -337,7 +348,7 @@ router.get("/discover/getcategoryposts/:category", async (req, res) => {
     res.json({"posts": processedPosts})
 
   } catch (err) {
-    console.error(err.message)
+    next(err)
   }
 })
 

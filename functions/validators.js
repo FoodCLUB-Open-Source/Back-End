@@ -1,6 +1,18 @@
 const { body, check, param, query } = require('express-validator')
 
 
+/* Validates functions that require a number Id */
+const validateParamId = () => {
+	return [
+		param('id')
+			.isInt().withMessage('Id should be a number')
+			.notEmpty().withMessage('Id is required')
+			.trim()
+			.escape(),
+	]
+}
+
+
 /* Used to validate data being passed to the /posts/postvideo/:id endpoint */
 const validatePostVideo = () => {
 	return [ 
@@ -156,6 +168,7 @@ const validatePostVideo = () => {
 	]
 }
 
+/* Used to validate posts/getpost/:id */
 const validateGetPost = () => {
 	return [ 
 		param('id')
@@ -172,9 +185,42 @@ const validateGetPost = () => {
 	]
 }
 
+/* Used to validate posts/getposts*/
+const validateGetPosts = () => {
+	return [ 
+		query('user_id')
+			.isInt().withMessage('User Id should be a number')
+			.notEmpty().withMessage('User Id is required')
+			.trim()
+			.escape(),
+	]
+}
+
+
+/* Used to validate posts/getpost/:id */
+const validateGetCategoryPost = () => {
+	return [ 
+		param('id')
+			.notEmpty().withMessage('Category Id is required')
+			.trim()
+			.escape(),
+
+		query('user_id')
+			.isInt().withMessage('User Id should be a number')
+			.notEmpty().withMessage('User Id is required')
+			.trim()
+			.escape(),
+	]
+}
+
+
+
 
 module.exports = { 
 	validatePostVideo,
 	validateGetPost,
+	validateParamId,
+	validateGetPosts,
+	validateGetCategoryPost
 
 }
