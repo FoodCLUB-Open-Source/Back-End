@@ -155,8 +155,8 @@ router.post("/postcommentlike/:id", requestLimiter, validatePostComment(), async
 		const commentId = req.params.id
 		const { user_id, post_id } = req.body
 
-		const commentLikeSchema = setCommentsLike(user_id, commentId)
-		
+		const commentLikeSchema = setCommentsLike(parseInt(user_id), commentId)
+	
 		params = {
 			TableName: 'Comments',
 			Key: {
@@ -223,4 +223,4 @@ router.delete("/deletecommentlike/:id", requestLimiter, validateDeleteComment(),
 	}
 })
 
-  module.exports = router;
+module.exports = router;

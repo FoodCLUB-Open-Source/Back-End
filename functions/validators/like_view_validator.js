@@ -1,4 +1,4 @@
-const { body, check, param, query } = require('express-validator')
+const { body, param } = require('express-validator')
 
 
 /* Validates functions that require a number Id */
@@ -56,7 +56,6 @@ const validateDeleteLike = () => {
 const validatePostComment = () => {
 	return [
 		param('id')
-			.isInt().withMessage('Id should be a number')
 			.notEmpty().withMessage('Id is required')
 			.trim()
 			.escape(),
