@@ -10,14 +10,14 @@ const SOCKET_ADDRESS = process.env.SOCKET_ADDRESS;
 
 /*  Middleware  */
 if (process.env.NODE_ENV !== "production") {
-	app.use(requestLogging);
+  app.use(requestLogging);
 }
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-	origin: [SOCKET_ADDRESS],
-	credentials: true
+  origin: [SOCKET_ADDRESS],
+  credentials: true
 }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
