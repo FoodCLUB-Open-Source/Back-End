@@ -18,21 +18,6 @@ router.get("/testing", async (req, res) => {
 })
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* Posting Comment For Specific Post */
 router.post("/postcomment/:id", requestLimiter,  async (req, res, next) => {
 	try {
