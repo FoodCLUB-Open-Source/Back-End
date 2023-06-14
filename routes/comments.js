@@ -19,7 +19,7 @@ router.get("/testing", async (req, res) => {
 
 
 /* Posting Comment For Specific Post */
-router.post("/postcomment/:id", requestLimiter,  async (req, res, next) => {
+router.post("/posts/comments/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		const postId = parseInt(req.params.id)
@@ -70,7 +70,7 @@ router.post("/postcomment/:id", requestLimiter,  async (req, res, next) => {
 
 
 /* Getting 30 most liked Comments For Specific Post */
-router.get("/getcomments/:id", requestLimiter, async (req, res, next) => {
+router.get("/posts/comments/:id", requestLimiter, async (req, res, next) => {
 	try {
 		const postId = parseInt(req.params.id)
 		
@@ -104,7 +104,7 @@ router.get("/getcomments/:id", requestLimiter, async (req, res, next) => {
 
 
 /* Update Comment For Specific Post */ 
-router.put("/updatecomment/:id", requestLimiter, async (req, res, next) => {
+router.put("/posts/comments/:id", requestLimiter, async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id
@@ -139,7 +139,7 @@ router.put("/updatecomment/:id", requestLimiter, async (req, res, next) => {
 })
 
 /* Delete Comment For Specific Post */
-router.delete("/deletecomment/:id", requestLimiter, async (req, res, next) => {
+router.delete("/posts/comments/:id", requestLimiter, async (req, res, next) => {
 	try {
 
 		let commentId = req.params.id
@@ -180,7 +180,7 @@ router.delete("/deletecomment/:id", requestLimiter, async (req, res, next) => {
 
 
 /* get 20 Replies For Specific Comment */
-router.get("/getreply/:id", requestLimiter,  async (req, res, next) => {
+router.get("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id
@@ -215,7 +215,7 @@ router.get("/getreply/:id", requestLimiter,  async (req, res, next) => {
 })
 
 /* Posting Reply For Specific Comment */
-router.post("/postreply/:id", requestLimiter,  async (req, res, next) => {
+router.post("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		let commentId = req.params.id
@@ -249,7 +249,7 @@ router.post("/postreply/:id", requestLimiter,  async (req, res, next) => {
 })
 
 /* update Reply For Specific Comment */
-router.put("/updatereply/:id", requestLimiter,  async (req, res, next) => {
+router.put("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		const replyId = req.params.id
@@ -284,7 +284,7 @@ router.put("/updatereply/:id", requestLimiter,  async (req, res, next) => {
 })
 
 /* Delete Reply For Specific Comment */
-router.delete("/deletereply/:id", requestLimiter,  async (req, res, next) => {
+router.delete("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		let replyId = req.params.id

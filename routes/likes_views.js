@@ -18,7 +18,7 @@ router.get("/testing", async (req, res) => {
 })
 
 /* Posting For Viewing Specific Video */
-router.post("/postview/:id", requestLimiter, validatePostView(), async (req, res, next) => {
+router.post("/posts/view/:id", requestLimiter, validatePostView(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -57,7 +57,7 @@ router.post("/postview/:id", requestLimiter, validatePostView(), async (req, res
 })
 
 /* Posting For Liking Specific Video */
-router.post("/postlike/:id", requestLimiter, validatePostLike(), async (req, res, next) => {
+router.post("/posts/like/:id", requestLimiter, validatePostLike(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -97,7 +97,7 @@ router.post("/postlike/:id", requestLimiter, validatePostLike(), async (req, res
 })
 
 /* Deleting Like On Specific Video */
-router.delete("/deletelike/:id", requestLimiter, validateDeleteLike(), async (req, res, next) => {
+router.delete("/posts/like/:id", requestLimiter, validateDeleteLike(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -143,7 +143,7 @@ router.delete("/deletelike/:id", requestLimiter, validateDeleteLike(), async (re
 })
 
 /* Posting a like for a specific comment */
-router.post("/postcommentlike/:id", requestLimiter, validatePostComment(), async (req, res, next) => {
+router.post("/posts/comment/like/:id", requestLimiter, validatePostComment(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -183,7 +183,7 @@ router.post("/postcommentlike/:id", requestLimiter, validatePostComment(), async
 })
 
 /* Deleting Like On Specific Comment */
-router.delete("/deletecommentlike/:id", requestLimiter, validateDeleteComment(), async (req, res, next) => {
+router.delete("/posts/comment/like/:id", requestLimiter, validateDeleteComment(), async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id

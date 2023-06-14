@@ -25,6 +25,7 @@ router.get("/testing", async (req, res) => {
     console.error(err.message)
   }
 })
+ 
 
 /* Functions for Posts */
 /* returns the total likes and views per post */
@@ -78,7 +79,7 @@ async function checkLike(postId, userId) {
 
 
 /* Posting a post to the database */
-router.post("/postvideo/:id", requestLimiter, upload.any(), validatePostVideo(), async (req, res, next) => {
+router.post("/posts/:id", requestLimiter, upload.any(), validatePostVideo(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -139,7 +140,7 @@ router.post("/postvideo/:id", requestLimiter, upload.any(), validatePostVideo(),
 /* Get a specific post and its category
   /api/posts/getpost/8?user_id=3
 */
-router.get("/getpost/:id", requestLimiter, validateGetPost(), async (req, res, next) => {
+router.get("/posts/:id", requestLimiter, validateGetPost(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -199,7 +200,7 @@ router.get("/getpost/:id", requestLimiter, validateGetPost(), async (req, res, n
 
 
 /* Deletes a specific post */
-router.delete("/deletepost/:id", requestLimiter, validateParamId(), async (req, res, next) => {
+router.delete("/posts/:id", requestLimiter, validateParamId(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -232,7 +233,7 @@ router.delete("/deletepost/:id", requestLimiter, validateParamId(), async (req, 
 })
 
 /* Get 15 random posts */
-router.get("/homepage/getposts", requestLimiter, validateGetPosts(), async (req, res, next) => {
+router.get("/homepage/posts", requestLimiter, validateGetPosts(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -273,7 +274,7 @@ router.get("/homepage/getposts", requestLimiter, validateGetPosts(), async (req,
 })
 
 /* Getting Ingredient For Specific Post */
-router.get("/getrecipe/:id", requestLimiter, validateParamId(), async (req, res, next) => {
+router.get("/posts/recipe/:id", requestLimiter, validateParamId(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -294,7 +295,7 @@ router.get("/getrecipe/:id", requestLimiter, validateParamId(), async (req, res,
 
 
 /* Posting For Sending Video To Friend */
-router.post("/homepage/postsendvideo", requestLimiter,  async (req, res, next) => {
+router.post("/posts/sendvideo", requestLimiter,  async (req, res, next) => {
   try {
     //Will need to update the messages table. and update a sent table.
 
@@ -306,7 +307,7 @@ router.post("/homepage/postsendvideo", requestLimiter,  async (req, res, next) =
 
 
 /* Get 15 random posts for a specific category */
-router.get("/discover/getcategoryposts/:id", requestLimiter, validateGetCategoryPost(), async (req, res, next) => {
+router.get("/categoryposts/:id", requestLimiter, validateGetCategoryPost(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
