@@ -1,4 +1,5 @@
 # FoodCLUB Backend
+The repo for the FoodCLUB Backend
 
 ## Example `.env`
 
