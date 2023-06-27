@@ -8,7 +8,7 @@ szqxrcjd */
 
 /* CREATING TABLES */
 CREATE TABLE users (
-  user_id SERIAL PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   username VARCHAR(255) UNIQUE NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
@@ -16,56 +16,77 @@ CREATE TABLE users (
   profile_picture VARCHAR(255),
   user_bio TEXT,
   gender VARCHAR(10),
-  user_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  user_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   date_of_birth DATE NOT NULL
 );
 
 CREATE TABLE posts (
-  post_id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(user_id),
-  post_title VARCHAR(255) NOT NULL,
-  post_description TEXT,
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
   video_name VARCHAR(255) NOT NULL,
   thumbnail_name VARCHAR(255) NOT NULL,
-  post_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  post_updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  recipe_id INTEGER REFERENCES recipes(recipe_id),
-  post_hashtags INTEGER[]
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  recipe_id INTEGER REFERENCES recipes(id),
 );
 
 CREATE TABLE categories (
-  category_id SERIAL PRIMARY KEY,
-  category_name VARCHAR(255) UNIQUE NOT NULL
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) UNIQUE NOT NULL
 );
 
-CREATE TABLE post_categories (
-  post_id INTEGER REFERENCES posts(post_id),
-  category_id INTEGER REFERENCES categories(category_id)
+CREATE TABLE posts_categories (
+  id SERIAL PRIMARY KEY,
+  post_id INTEGER REFERENCES posts(id),
+  category_name VARCHAR(255) UNIQUE REFERENCES categories(name)
 );
 
 CREATE TABLE bookmarks (
-    bookmark_id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(user_id),
-    post_id INTEGER NOT NULL REFERENCES posts(post_id),
-    bookmark_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    post_id INTEGER NOT NULL REFERENCES posts(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE hashtags (
-  hashtag_id SERIAL PRIMARY KEY,
-  hashtag_name VARCHAR(255) UNIQUE NOT NULL,
-  hashtag_created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE posts_hashtags (
+  post_id INTEGER REFERENCES posts(id),
+  hashtag_name VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE recipes (
-  recipe_id SERIAL PRIMARY KEY,
-  post_id INTEGER REFERENCES posts(post_id),
+  id SERIAL PRIMARY KEY,
+  post_id INTEGER REFERENCES posts(id),
   recipe_description TEXT,
   recipe_ingredients VARCHAR[],
   recipe_equipment VARCHAR[],
   recipe_steps VARCHAR[],
   preparation_time INTEGER,
   recipe_servings INTEGER
+);
+
+CREATE TABLE blocked_users (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  blocked_user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE following (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  user_following_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE report (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  reported_user_id INTEGER NOT NULL REFERENCES users(id),
+  post_id INTEGER NOT NULL REFERENCES posts(id),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 /* INSERTING DATA */
@@ -76,14 +97,14 @@ VALUES ('user1', 'user1@example.com', 'password1', '1234567890', 'https://exampl
        ('user4', 'user4@example.com', 'password4', '4567890123', 'https://example.com/profile4.jpg', 'User 4 bio', 'male', '2001-01-01'),
        ('user5', 'user5@example.com', 'password5', '5678901234', 'https://example.com/profile5.jpg', 'User 5 bio', 'male', '2001-01-01');
 
-INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, recipe_id, post_hashtags)
-VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg', 1, ARRAY[1, 2, 3]),
-       (2, 'Post 2 Title', 'Post 2 description', 'https://example.com/video2.mp4', 'https://example.com/thumbnail2.jpg', 2, ARRAY[1, 2, 3]),
-       (3, 'Post 3 Title', 'Post 3 description', 'https://example.com/video3.mp4', 'https://example.com/thumbnail3.jpg', 3, ARRAY[1, 2, 3]),
-       (4, 'Post 4 Title', 'Post 4 description', 'https://example.com/video4.mp4', 'https://example.com/thumbnail4.jpg', 4, ARRAY[1, 2, 3]),
-       (5, 'Post 5 Title', 'Post 5 description', 'https://example.com/video5.mp4', 'https://example.com/thumbnail5.jpg', 5, ARRAY[1, 2, 3]);
+INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, recipe_id)
+VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg', 1),
+       (2, 'Post 2 Title', 'Post 2 description', 'https://example.com/video2.mp4', 'https://example.com/thumbnail2.jpg', 2),
+       (3, 'Post 3 Title', 'Post 3 description', 'https://example.com/video3.mp4', 'https://example.com/thumbnail3.jpg', 3),
+       (4, 'Post 4 Title', 'Post 4 description', 'https://example.com/video4.mp4', 'https://example.com/thumbnail4.jpg', 4),
+       (5, 'Post 5 Title', 'Post 5 description', 'https://example.com/video5.mp4', 'https://example.com/thumbnail5.jpg', 5);
 
-INSERT INTO categories (category_name)
+INSERT INTO categories (name)
 VALUES ('Vegan'),
        ('Vegetarian'),
        ('Breakfast'),
@@ -116,12 +137,11 @@ VALUES ('Vegan'),
        ('High Protein'),
        ('High Fiber');
 
-INSERT INTO post_categories (post_id, category_id)
-VALUES (43, 6),
-       (43, 7),
-       (43, 8),
-       (43, 9),
-       (43, 10);
+INSERT INTO posts_categories (post_id, category_name)
+VALUES (45, 'Vegan'),
+       (45, 'Vegetarian'),
+       (45, 'Dinner'),
+       (45, 'Italian');
 
 INSERT INTO bookmarks (user_id, post_id)
 VALUES (1, 3),
@@ -130,12 +150,12 @@ VALUES (1, 3),
        (2, 5),
        (3, 5);
 
-INSERT INTO hashtags (hashtag_name)
-VALUES ('#food'),
-       ('#foodie'),
-       ('#ilovefood'),
-       ('#yummy'),
-       ('#foodclub');
+INSERT INTO posts_hashtags (post_id, hashtag_name)
+VALUES (45, '#food'),
+       (45, '#foodie'),
+       (45, '#ilovefood'),
+       (45, '#yummy'),
+       (45, '#foodclub');
        
 INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, recipe_servings)
 VALUES (1, 'Recipe 1', '{"ingredient 1", "ingredient 2", "ingredient 3"}', '{"equipment 1", "equipment 2"}', '{"step 1", "step 2", "step 3"}', 30, 4),
@@ -143,3 +163,23 @@ VALUES (1, 'Recipe 1', '{"ingredient 1", "ingredient 2", "ingredient 3"}', '{"eq
        (3, 'Recipe 3', '{"ingredient 7", "ingredient 8", "ingredient 9"}', '{"equipment 5", "equipment 6"}', '{"step 1", "step 2", "step 3"}', 60, 8),
        (4, 'Recipe 4', '{"ingredient 10", "ingredient 11", "ingredient 12"}', '{"equipment 7", "equipment 8"}', '{"step 1", "step 2", "step 3"}', 75, 10),
        (5, 'Recipe 5', '{"ingredient 13", "ingredient 14", "ingredient 15"}', '{"equipment 9", "equipment 10"}', '{"step 1", "step 2", "step 3"}', 90, 12);
+
+INSERT INTO blocked_users (user_id, blocked_user_id)
+VALUES (1, 2),
+       (2, 1),
+       (3, 4),
+       (4, 5),
+       (5, 1);
+
+INSERT INTO following (user_id, user_following_id)
+VALUES (1, 2),
+       (2, 1),
+       (3, 4),
+       (4, 5),
+       (5, 1);
+
+INSERT INTO report (user_id, reported_user_id, post_id)
+VALUES  (1, 2, 45),
+        (3, 2, 45),
+        (4, 2, 45),
+        (5, 2, 45);
