@@ -2,7 +2,9 @@ const express = require("express")
 const router = express.Router()
 
 const { setComment, setReplies } = require("../dynamo_schemas/dynamo_schemas")
-const { getItemPrimaryKey, getItemPartitionKey, putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
+const { getItemPartitionKey, putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
+const { } = require('../functions/validators/comments_validators')
+const { requestLimiter } = require('../functions/general_functions')
 
 
 /* Testing Posts Route */
@@ -15,20 +17,22 @@ router.get("/testing", async (req, res) => {
 	}
 })
 
+
 /* Posting Comment For Specific Post */
-router.post("/postcomment", async (req, res) => {
+router.post("/posts/comments/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
-		const { user_id, post_id, comment } = req.body
+		const postId = parseInt(req.params.id)
+		const { user_id, comment } = req.body
 
-		const commentSchema = setComment(user_id, post_id, comment)
+		const commentSchema = setComment(user_id, postId, comment)
 
 		await putItem("Comments", commentSchema)
 
 		const params = {
 			TableName: 'Post_Stats',
 			Key: {
-			  'post_id': post_id,
+			  'post_id': postId,
 			},
 			UpdateExpression: 'set comments_count = comments_count + :val',
 			ExpressionAttributeValues: {
@@ -43,13 +47,30 @@ router.post("/postcomment", async (req, res) => {
 		res.json({ "Status": "Comment Posted" })
 		
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Getting 30 most liked Comments For Specific Post */
-router.get("/getcomments/:id", async (req, res) => {
+router.get("/posts/comments/:id", requestLimiter, async (req, res, next) => {
 	try {
 		const postId = parseInt(req.params.id)
 		
@@ -77,13 +98,13 @@ router.get("/getcomments/:id", async (req, res) => {
 		res.json({ "Testing": "Working Posts", "Results": results })
   
 	} catch (err) {
-	  console.error(err.message)
+	  next(err)
 	}
 })
 
 
 /* Update Comment For Specific Post */ 
-router.put("/updatecomment/:id", async (req, res) => {
+router.put("/posts/comments/:id", requestLimiter, async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id
@@ -113,12 +134,12 @@ router.put("/updatecomment/:id", async (req, res) => {
 		res.json({ Status: "Comment Updated" })
 		
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 
 /* Delete Comment For Specific Post */
-router.delete("/deletecomment/:id", async (req, res) => {
+router.delete("/posts/comments/:id", requestLimiter, async (req, res, next) => {
 	try {
 
 		let commentId = req.params.id
@@ -153,13 +174,13 @@ router.delete("/deletecomment/:id", async (req, res) => {
 		res.json({ Status: "Comment Deleted" })
 
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 
 
 /* get 20 Replies For Specific Comment */
-router.get("/getreply/:id", async (req, res) => {
+router.get("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id
@@ -189,12 +210,12 @@ router.get("/getreply/:id", async (req, res) => {
 
 
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 
 /* Posting Reply For Specific Comment */
-router.post("/postreply/:id", async (req, res) => {
+router.post("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		let commentId = req.params.id
@@ -223,12 +244,12 @@ router.post("/postreply/:id", async (req, res) => {
 		res.json({ "Status": "Reply Posted" })
 
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 
 /* update Reply For Specific Comment */
-router.put("/updatereply/:id", async (req, res) => {
+router.put("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		const replyId = req.params.id
@@ -258,12 +279,12 @@ router.put("/updatereply/:id", async (req, res) => {
 
 
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 
 /* Delete Reply For Specific Comment */
-router.delete("/deletereply/:id", async (req, res) => {
+router.delete("/posts/comments/replies/:id", requestLimiter,  async (req, res, next) => {
 	try {
 
 		let replyId = req.params.id
@@ -299,7 +320,7 @@ router.delete("/deletereply/:id", async (req, res) => {
 		res.json({ Status: "Reply Deleted" })
 
 	} catch (err) {
-		console.error(err.message)
+		next(err)
 	}
 })
 

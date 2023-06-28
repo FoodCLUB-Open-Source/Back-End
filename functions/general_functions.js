@@ -6,7 +6,7 @@ require('dotenv').config()
 const crypto = require("crypto")
 const sharp = require("sharp")
 const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
-
+const rateLimit = require("express-rate-limit")
 
 
 /* DRY secure postgreSQl query function */
@@ -25,6 +25,30 @@ async function pgQuery (query, ...inputs) {
         return {error: `There has been an error performing this query: ${err}`}
     }
 }
+
+/* Ensures all queries happen or none at all.
+    Example of how to use:
+    const query = ['INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *', ...]
+    const values = [[userId, post_title, post_description, newVideoName, newThumbNaileName, category_id], ...];
+    const result = await makeTransaction(query, values)
+*/
+const makeTransactions = async (queries, values) => {
+    const client = await pool.connect();
+    let res = null;
+    try {
+      await client.query('BEGIN')
+      for (let i = 0; i < queries.length; i++) {
+        res =await client.query(queries[i], values[i])
+      }
+      await client.query('COMMIT')
+    } catch (e) {
+      await client.query('ROLLBACK')
+      throw e
+    } finally {
+      client.release()
+    }
+    return res
+  }
 
 /*DRY upload to s3 function */
 async function s3Upload (file) {
@@ -72,5 +96,11 @@ async function s3Delete(fileName) {
     await s3Client.send(s3GetCommand)
 }
 
+/* Limits the amount of requests a user can make based on Ip address e.g. 100 requests every 15 minutes*/
+const requestLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: "Too many requests created from this IP, please try again after 15 minutes"
+});
 
-module.exports = { pgQuery, s3Upload, s3Retrieve, s3Delete }
+module.exports = { pgQuery, makeTransactions, s3Upload, s3Retrieve, s3Delete, requestLimiter }
