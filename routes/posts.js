@@ -5,6 +5,10 @@ const { pgQuery, s3Upload, s3Retrieve, s3Delete, requestLimiter } = require('../
 const { validationResult } = require('express-validator')
 const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators/posts_validators')
 
+require('dotenv').config()
+const s3Client = require("../s3Client")
+const { GetObjectCommand } = require("@aws-sdk/client-s3");
+
 const pool = require("../pgdb")
 
 const multer = require('multer')
@@ -19,8 +23,12 @@ const upload = multer({ storage: storage })
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
-    removeLikesViews(8)
-    res.json({ "Testing": "Working Posts"})
+
+    const practise = await s3Retrieve("cooking-practise.mp4")
+
+    console.log(practise)
+    res.json({"Testing": practise})
+
   } catch (err) {
     console.error(err.message)
   }
@@ -36,7 +44,7 @@ async function getPostStats(postId){
 		ExpressionAttributeValues: {
 		  ":postId": postId
 		},
-	}
+	} 
 
   const stats = await getItemPartitionKey(params)
 
