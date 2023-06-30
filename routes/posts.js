@@ -1,7 +1,7 @@
 /* For video/image posting routes */
 
 const express = require("express")
-const { pgQuery, s3Upload, s3Retrieve, s3Delete, requestLimiter } = require('../functions/general_functions')
+const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
 const { validationResult } = require('express-validator')
 const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators/posts_validators')
 
@@ -19,8 +19,12 @@ const upload = multer({ storage: storage })
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
-    removeLikesViews(8)
-    res.json({ "Testing": "Working Posts"})
+
+    const practise = await s3Retrieve("cooking-practise.mp4")
+
+    console.log(practise)
+    res.json({"Testing": practise})
+
   } catch (err) {
     console.error(err.message)
   }
@@ -36,7 +40,7 @@ async function getPostStats(postId){
 		ExpressionAttributeValues: {
 		  ":postId": postId
 		},
-	}
+	} 
 
   const stats = await getItemPartitionKey(params)
 

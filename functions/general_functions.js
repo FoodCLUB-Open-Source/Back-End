@@ -75,7 +75,7 @@ async function s3Upload (file) {
 async function s3Retrieve(fileName) {
 
     const signedImageUrl = getSignedUrl({
-        url: "https://d33d3du89vdsqo.cloudfront.net/" + fileName,
+        url: process.env.CLOUDFRONT_URL + fileName,
         dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24),
         privateKey: process.env.CLOUDFRONT_PK,
         keyPairId: process.env.CLOUDFRONT_KPID
