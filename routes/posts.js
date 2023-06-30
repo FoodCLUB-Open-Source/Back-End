@@ -5,7 +5,6 @@ const { pgQuery, s3Upload, s3Retrieve, s3Delete, requestLimiter } = require('../
 const { validationResult } = require('express-validator')
 const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators/posts_validators')
 
-require('dotenv').config()
 const s3Client = require("../s3Client")
 const { GetObjectCommand } = require("@aws-sdk/client-s3");
 
