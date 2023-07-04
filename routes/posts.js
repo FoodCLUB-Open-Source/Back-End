@@ -11,11 +11,17 @@ const storage = multer.memoryStorage()
 const upload = multer({ storage: storage })
 
 
+const Redis = require("../redisConfig")
+
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
   try {
-    removeLikesViews(8)
-    res.json({ "Testing": "Working Posts"})
+    
+    await Redis.set('myKey', 'Hello Redis!');
+
+    const value = await Redis.get('myKey');
+
+    res.json({ "Testing": "Working Posts", "Value": value})
   } catch (err) {
     console.error(err.message)
   }
