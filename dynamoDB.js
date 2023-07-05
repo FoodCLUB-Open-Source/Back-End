@@ -1,6 +1,5 @@
 /* Establishing connection to the dynamoDB */
 
-require('dotenv').config();
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocument } = require('@aws-sdk/lib-dynamodb');
 
