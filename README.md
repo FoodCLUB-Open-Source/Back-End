@@ -41,9 +41,13 @@ Ensure you have Doppler installed using `doppler --version` and update to the la
 
 ### Login to Doppler
 
+Login using `doppler login`.
+
 ![Doppler Login](assets/doppler-login.gif)
 
 ### Configure Doppler
+
+Configure using `doppler setup`.
 
 ![Doppler Setup](assets/doppler-setup.gif)
 
@@ -51,8 +55,8 @@ Ensure you have Doppler installed using `doppler --version` and update to the la
 
 Install dependencies using `npm install`.
 
-Start the server in development mode with debug request logging `npm run devStart`.
+Start the server in development mode with debug request logging using `npm run devStart`.
 
-Start the server in production mode`npm run start`.
+Start the server in production mode using `npm run start`.
 
 ![npm run](assets/npm-run.gif)
