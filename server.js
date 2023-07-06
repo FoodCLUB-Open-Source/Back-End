@@ -1,10 +1,3 @@
-/* Environment Variables Config */
-const dotenv = require("dotenv");
-const dotenvExpand = require("dotenv-expand");
-
-const env = dotenv.config();
-dotenvExpand.expand(env);
-
 /* Backend Config */
 const http = require("http");
 const app = require("./app");

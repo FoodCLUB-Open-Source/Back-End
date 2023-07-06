@@ -1,7 +1,7 @@
 /* For video/image posting routes */
 
 const express = require("express")
-const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
+const { pgQuery, s3Upload, s3Retrieve, s3Delete, requestLimiter } = require('../functions/general_functions')
 const { validationResult } = require('express-validator')
 const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators/posts_validators')
 

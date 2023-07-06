@@ -2,7 +2,6 @@
 const pool = require("../pgdb")
 const { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3")
 const s3Client = require("../s3Client")
-require('dotenv').config()
 const crypto = require("crypto")
 const sharp = require("sharp")
 const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
