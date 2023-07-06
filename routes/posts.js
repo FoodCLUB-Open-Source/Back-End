@@ -1,7 +1,7 @@
 /* For video/image posting routes */
 
 const express = require("express")
-const { pgQuery, s3Upload, s3Retrieve, s3Delete, requestLimiter } = require('../functions/general_functions')
+const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
 const { validationResult } = require('express-validator')
 const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators/posts_validators')
 
@@ -88,7 +88,7 @@ async function checkLike(postId, userId) {
 
 
 /* Posting a post to the database */
-router.post("/posts/:id", requestLimiter, upload.any(), validatePostVideo(), async (req, res, next) => {
+router.post("/posts/:id", rateLimiter(), upload.any(), validatePostVideo(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -149,7 +149,7 @@ router.post("/posts/:id", requestLimiter, upload.any(), validatePostVideo(), asy
 /* Get a specific post and its category
   /api/posts/getpost/8?user_id=3
 */
-router.get("/posts/:id", requestLimiter, validateGetPost(), async (req, res, next) => {
+router.get("/posts/:id", rateLimiter(), validateGetPost(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -209,7 +209,7 @@ router.get("/posts/:id", requestLimiter, validateGetPost(), async (req, res, nex
 
 
 /* Deletes a specific post */
-router.delete("/posts/:id", requestLimiter, validateParamId(), async (req, res, next) => {
+router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -242,7 +242,7 @@ router.delete("/posts/:id", requestLimiter, validateParamId(), async (req, res, 
 })
 
 /* Get 15 random posts */
-router.get("/homepage/posts", requestLimiter, validateGetPosts(), async (req, res, next) => {
+router.get("/homepage/posts", rateLimiter(), validateGetPosts(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -283,7 +283,7 @@ router.get("/homepage/posts", requestLimiter, validateGetPosts(), async (req, re
 })
 
 /* Getting Ingredient For Specific Post */
-router.get("/posts/recipe/:id", requestLimiter, validateParamId(), async (req, res, next) => {
+router.get("/posts/recipe/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -304,7 +304,7 @@ router.get("/posts/recipe/:id", requestLimiter, validateParamId(), async (req, r
 
 
 /* Posting For Sending Video To Friend */
-router.post("/posts/sendvideo", requestLimiter,  async (req, res, next) => {
+router.post("/posts/sendvideo", rateLimiter(),  async (req, res, next) => {
   try {
     //Will need to update the messages table. and update a sent table.
 
@@ -316,7 +316,7 @@ router.post("/posts/sendvideo", requestLimiter,  async (req, res, next) => {
 
 
 /* Get 15 random posts for a specific category */
-router.get("/categoryposts/:id", requestLimiter, validateGetCategoryPost(), async (req, res, next) => {
+router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)

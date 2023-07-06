@@ -5,8 +5,6 @@ const s3Client = require("../s3Client")
 const crypto = require("crypto")
 const sharp = require("sharp")
 const { getSignedUrl } = require("@aws-sdk/cloudfront-signer")
-const rateLimit = require("express-rate-limit")
-
 
 /* DRY secure postgreSQl query function */
 /* Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) */
@@ -95,11 +93,5 @@ async function s3Delete(fileName) {
     await s3Client.send(s3GetCommand)
 }
 
-/* Limits the amount of requests a user can make based on Ip address e.g. 100 requests every 15 minutes*/
-const requestLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 100, 
-    message: "Too many requests created from this IP, please try again after 15 minutes"
-});
 
-module.exports = { pgQuery, makeTransactions, s3Upload, s3Retrieve, s3Delete, requestLimiter }
+module.exports = { pgQuery, makeTransactions, s3Upload, s3Retrieve, s3Delete }
