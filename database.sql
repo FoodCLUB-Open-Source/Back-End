@@ -1,7 +1,7 @@
 /* An SQL file with all the SQL used so it is easier to move the database to another AWS account
 
 Command to connect to the database:
-psql --host=foodclub.cwlinpre6rr8.eu-north-1.rds.amazonaws.com --port=5432 --username=FoodCLUB123 --password --dbname=foodclub
+psql --host=foodclub.cmfx3corion7.eu-west-2.rds.amazonaws.com --port=5432 --username=foodclub --password --dbname=foodclub
 
 Password to the database:
 szqxrcjd */
@@ -30,7 +30,7 @@ CREATE TABLE posts (
   thumbnail_name VARCHAR(255) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  recipe_id INTEGER REFERENCES recipes(id),
+  recipe_id INTEGER REFERENCES recipes(id)
 );
 
 CREATE TABLE categories (
@@ -138,24 +138,24 @@ VALUES ('Vegan'),
        ('High Fiber');
 
 INSERT INTO posts_categories (post_id, category_name)
-VALUES (45, 'Vegan'),
-       (45, 'Vegetarian'),
-       (45, 'Dinner'),
-       (45, 'Italian');
+VALUES (6, 'Vegan'),
+       (7, 'Vegetarian'),
+       (8, 'Dinner'),
+       (9, 'Italian');
 
 INSERT INTO bookmarks (user_id, post_id)
-VALUES (1, 3),
-       (1, 3),
-       (2, 4),
-       (2, 5),
-       (3, 5);
+VALUES (1, 6),
+       (1, 7),
+       (2, 7),
+       (2, 8),
+       (3, 9);
 
 INSERT INTO posts_hashtags (post_id, hashtag_name)
-VALUES (45, '#food'),
-       (45, '#foodie'),
-       (45, '#ilovefood'),
-       (45, '#yummy'),
-       (45, '#foodclub');
+VALUES (6, '#food'),
+       (6, '#foodie'),
+       (6, '#ilovefood'),
+       (6, '#yummy'),
+       (6, '#foodclub');
        
 INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, recipe_servings)
 VALUES (1, 'Recipe 1', '{"ingredient 1", "ingredient 2", "ingredient 3"}', '{"equipment 1", "equipment 2"}', '{"step 1", "step 2", "step 3"}', 30, 4),
@@ -179,7 +179,7 @@ VALUES (1, 2),
        (5, 1);
 
 INSERT INTO report (user_id, reported_user_id, post_id)
-VALUES  (1, 2, 45),
-        (3, 2, 45),
-        (4, 2, 45),
-        (5, 2, 45);
+VALUES  (1, 2, 6),
+        (3, 2, 6),
+        (4, 2, 6),
+        (5, 2, 6);
