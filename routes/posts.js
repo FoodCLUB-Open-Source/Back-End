@@ -28,6 +28,7 @@ router.get("/testing", rateLimiter(), async (req, res) => {
 
     const value = await Redis.get('myKey');
 
+
     res.json({ "Testing": "Working Posts", "Value": value})
 
   } catch (err) {
@@ -88,7 +89,7 @@ async function checkLike(postId, userId) {
 
 
 /* Posting a post to the database */
-router.post("/posts/:id", rateLimiter(), upload.any(), validatePostVideo(), async (req, res, next) => {
+router.post("/posts/:id", rateLimiter(5, 15), upload.any(), validatePostVideo(), async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
