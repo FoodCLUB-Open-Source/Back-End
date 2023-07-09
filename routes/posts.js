@@ -21,7 +21,7 @@ const Redis = require("../redisConfig")
 const rateLimiter = require("../middleware/rate_limiter")
 
 /* Testing Posts Route */
-router.get("/testing/:id", rateLimiter(), async (req, res) => {
+router.get("/testing", rateLimiter(4, 15), async (req, res) => {
   try {
     
     await Redis.set('myKey', 'Hello Redis!');

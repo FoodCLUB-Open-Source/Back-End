@@ -2,7 +2,6 @@
 
 const Redis = require("../redisConfig");
 
-
 /* 
 Uses the client's IP address to track the number of requests.
 Sliding window time frame.
@@ -20,29 +19,39 @@ const rateLimiter = (maxRequests, windowInMins) => {
             const window = windowInMins || process.env.RATE_LIMITER_WINDOW_REFRESH_MINS;
             
             const IP = req.ip;
-            const endpoint = req.path.replace(/\/\d+/, '/id'); // Replace dynamic parts with a wildcard
-            const redisKey = `RATE_LIMITER|${IP}|${endpoint+ "|" + req.method.toUpperCase()}`;
+            const endpoint = `${req.method}:${req.route.path}`;
+            const redisKey = `RATE_LIMITER|${IP}|${endpoint}`;
 
             const now = Date.now();
             const nowWindow = now + (window * 60000);
-            
+            console.log(redisKey)
             //Get timestamps inbetween now and the expirey date.
             const timestamps = await Redis.zRangeByScore(redisKey, now, nowWindow);
             
             if (timestamps.length >= requests) {
-                res.status(429).send('You have exceeded the maximum amount of requests. Please try again later');
+                res.set({
+                    'X-RateLimit-Limit': requests, //Maximum number of requests allowed
+                    'X-RateLimit-Remaining': Math.max(0, requests - timestamps.length - 1), // Requests left in Window
+                    'X-RateLimit-Reset': nowWindow // Tme when teh rate limit will reset
+                }).status(429).send({
+                    status: 'error',
+                    message: `Rate limit exceeded limit. Try again later in ${window} minutes.`
+                });            
             } else {
                 //Log the request and add the expiration to the set and set a expiry date
-                await Redis.ZADD(redisKey, {
-                    score: nowWindow,
-                    value: nowWindow.toString()
-                });
-                await Redis.expire(redisKey, window * 60);
+
+                await Redis.multi()
+                    .ZADD(redisKey, {
+                        score: nowWindow,
+                        value: nowWindow.toString()
+                    })
+                    .expire(redisKey, window * 60)
+                    .exec();
+
                 next();
             }
-        } catch (error) {
-            console.error(error);
-            res.status(500).send('An error occurred.');
+        } catch (err) {
+            next(err);
         };
     };
 };
