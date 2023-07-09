@@ -3,12 +3,12 @@
 const Redis = require("../redisConfig");
 
 /* 
-Uses the client's IP address to track the number of requests.
-Sliding window time frame.
-This is the middleware that will be implemented in the following manner:
-app.use('/api/fast', rateLimiter(200, 15), (req, res) => {
-or alternatively
-you can just use rateLimiter() to use the default values that are specified in the .env file
+    This is the middleware that will be implemented in the following manner:
+    app.use('/api/fast', rateLimiter(200, 15), (req, res) => {
+
+    or alternatively:
+
+    you can just use rateLimiter() to use the default values that are specified in the .env file
 */
 
 const rateLimiter = (maxRequests, windowInMins) => {    
@@ -24,7 +24,7 @@ const rateLimiter = (maxRequests, windowInMins) => {
 
             const now = Date.now();
             const nowWindow = now + (window * 60000);
-            console.log(redisKey)
+
             //Get timestamps inbetween now and the expirey date.
             const timestamps = await Redis.zRangeByScore(redisKey, now, nowWindow);
             
@@ -49,7 +49,7 @@ const rateLimiter = (maxRequests, windowInMins) => {
                     .exec();
 
                 next();
-            }
+            };
         } catch (err) {
             next(err);
         };
