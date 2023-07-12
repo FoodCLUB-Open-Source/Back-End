@@ -25,7 +25,9 @@ const rateLimiter = (maxRequests, windowInMins) => {
             const now = Date.now();
             const nowWindow = now + (window * 60000);
 
-            //Get timestamps inbetween now and the expirey date.
+            //Get timestamps inbetween now and the expirey date and delete any outdated.
+            await Redis.zRemRangeByScore(redisKey, 0, now)
+
             const timestamps = await Redis.zRangeByScore(redisKey, now, nowWindow);
             
             if (timestamps.length >= requests) {

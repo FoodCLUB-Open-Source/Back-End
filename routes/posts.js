@@ -19,15 +19,13 @@ const upload = multer({ storage: storage })
 const Redis = require("../redisConfig")
 
 const rateLimiter = require("../middleware/rate_limiter")
+const { inputValidator, inputErrorHandler } = require("../middleware/input_validator")
 
 /* Testing Posts Route */
-router.get("/testing", rateLimiter(4, 15), async (req, res) => {
+router.get("/testing", rateLimiter(5,1), async (req, res) => {
   try {
-    
-    await Redis.set('myKey', 'Hello Redis!');
 
-    const value = await Redis.get('myKey');
-
+    const value = "Hello"
 
     res.json({ "Testing": "Working Posts", "Value": value})
 
