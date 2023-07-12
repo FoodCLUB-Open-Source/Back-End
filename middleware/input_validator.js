@@ -25,15 +25,16 @@ const inputValidator = () => {
 					body(key)
 					.isLength({min: 2, max: 300}).withMessage(`${key} value must be between 2 and 300 characters long`)
 					.trim()
-					.customSanitizer(() => sanitized);
+					.customSanitizer(() => sanitized)
+					.run(req);
 
 				}
 
-				if ((typeof(value) === "number") || typeof(value) === "float"){
+				if ((typeof(value) === "number") || typeof(value) === "float" || typeof(val) === "boolean"){
 
 					body(key)
 					.exists().withMessage("The number inputted must exist")
-
+					.run(req);
 				}
 
 
