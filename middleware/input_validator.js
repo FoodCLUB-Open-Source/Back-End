@@ -3,75 +3,76 @@
 const { body, check, param, query, validationResult } = require('express-validator')
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
-const { validateGetCategoryPost } = require('../functions/validators/posts_validators');
-
 
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
 /*This will do the validation and recurse if an array or object */
-const validateAndSanitize = async (key, value, req, source) => {
+const validateAndSanitize = (key, value, req, source) => {
 
 	let validator;
 
-	if (source === "body") {validator = body}
-	else if (source === "query") {validator = query}
-	else if (source === "params") {validator = param};
+	if (source === "body") { validator = body }
+	else if (source === "query") { validator = query }
+	else if (source === "params") { validator = param };
 
     if (typeof(value) === "string"){
         let sanitized = DOMPurify.sanitize(value);
         sanitized = sanitized.replace(/\0/g, '');
 		
-        await validator(key)
-            .isLength({min: 1, max: 500}).withMessage(`${key} value must be between 2 and 300 characters long`)
+        validator(key)
+			.exists().withMessage(`${key} value must exist`)
+            .isLength({min: 1, max: 500}).withMessage(`${key} value must be between 2 and 500 characters long`)
             .trim()
             .customSanitizer(() => sanitized)
-            .run(req);
+    
     }
 
-    else if (typeof(value) === "number" || typeof(value) === "float" || typeof(value) === "boolean"){
-        await validator(key)
-            .exists().withMessage("The inputted value must exist")
-            .run(req);
+    else if (typeof(value) === "number" || typeof(value) === "boolean"){
+        
+		validator(key)
+            .exists().withMessage(`${key} value must exist`)
+
     }
 
     else if (Array.isArray(value)) {
         for(let i = 0; i < value.length; i++) {
-            await validateAndSanitize(`${key}[${i}]`, value[i], req, source);
+            validateAndSanitize(`${key}[${i}]`, value[i], req, source);
         }
     }
 
     else if (typeof(value) === 'object' && value !== null && !(value instanceof Array)) {
         for(const property in value) {
             if (value.hasOwnProperty(property)) {
-                await validateAndSanitize(`${key}.${property}`, value[property], req, source);
+                validateAndSanitize(`${key}.${property}`, value[property], req, source);
             }
         }
     }
 }
 
+/* Chceks body, queries, params */
 const inputValidator = () => {    
     return async (req, res, next) => {
         let validationErrors = [];
 
         if (Object.keys(req.body).length !== 0) {
             for (const [key, value] of Object.entries(req.body)){
-                await validateAndSanitize(key, value, req, "body");
-				await validateFrequent(key, req, "body");
+                validateAndSanitize(key, value, req, "body");
+				validateFrequent(key, req, "body");
             }
         }
 
 		if (Object.keys(req.query).length !== 0) {
             for (const [key, value] of Object.entries(req.query)){
-                await validateAndSanitize(key, value, req, "query");
-				await validateFrequent(key, req, "query");
+                validateAndSanitize(key, value, req, "query");
+				validateFrequent(key, req, "query");
             }
         }
 
 		if (Object.keys(req.params).length !== 0) {
             for (const [key, value] of Object.entries(req.params)){
-                await validateAndSanitize(key, value, req, "params");
-				await validateFrequent(key, req, "params");
+                validateAndSanitize(key, value, req, "params");
+				validateFrequent(key, req, "params");
             }
         }
 
@@ -79,71 +80,157 @@ const inputValidator = () => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
 			validationErrors = errors.array();
-			return res.status(422).json({ errors: validationErrors });
+			return res.status(400).json({ errors: validationErrors });
 		}
 
         next();
     }
 }
 
-const validateFrequent = async (key, req, source) => {
+/* Used to vlidate frequently used variables */
+const validateFrequent = (key, req, source) => {
 	let validator;
 
 	if (source === "body") {validator = body}
 	else if (source === "query") {validator = query}
 	else if (source === "params") {validator = param};
 
-	//numeric IDs
-	if (key === "user_id" || key === "post_id" || key === "recipe_id") {
-		await validator(key)
-			.exists().withMessage(`${key} is required`)
-			.isInt().withMessage(`${key} is not a number`)
-			.isPositive().withMessage(`${key} cannot be negative`)
+	//numeric IDs and number counts
+	const numeric = [
+		"user_id", "post_id", "recipe_id", 
+		"comment_like_count", "like_count", "view_count",
+		"comments_count", "follower_count", "following_count",
+		"likes_count"
+	];
+
+	if (numeric.includes(key)) {
+
+		validator(key)
+			.isInt({ min:0 }).withMessage(`${key} is not a number or not larger than 0`)
 			.toInt()
-			.run(req);
+
+	//Dynamo DB where id is number # number.
 	} else if (key === "post_id_user_id"){
 
+		validator(key)
+			.isLength({ min: 3, max: 50 }).withMessage("post_id_user_id must be between 3 and 50 characters long")
+			.custom((value, { req }) => {
+				const parts = value.split("#");
+
+				if (parts.length !== 2) {
+				  	throw new Error("post_id_user_id must have two ids separated by '#'"); 
+				}
+
+				const firstPart = parseInt(parts[0]);
+				const secondPart = parseInt(parts[1]);
+
+				if (isNaN(firstPart) || isNaN(secondPart)) {
+				  	throw new Error("post_id_user_id must contain valid integers before and after the #");
+				}
+
+				return true;
+			  })
+
+	//DynamoDB where ids is number # date
 	} else if (key === "post_id_created_at"){
 
+		validator(key)
+			.isLength({ min: 5, max: 50 }).withMessage("post_id_created_at must be between 5 and 50 characters long")
+			.custom((value, { req }) => {
+				const parts = value.split("#");
+
+				if (parts.length !== 2) {
+				  	throw new Error("post_id_created_at must have an id before the # and a valid date after"); 
+				}
+
+				const firstPart = parseInt(parts[0]);
+				const secondPart = parseInt(parts[1]);
+
+				if (isNaN(firstPart)) {
+				  	throw new Error("post_id_created_at must contain valid integer before the #");
+				}
+
+				if (isNaN(Date.parse(secondPart))) {
+					throw new Error("post_id_created_at must contain a valid date after the #");
+				}
+
+				return true;
+			  })
+
+	//DynamoDB where id is string # number
 	} else if (key === "comment_id_user_id"){
 
+		validator(key)
+			.isLength({ min: 3, max: 50 }).withMessage("comment_id_user_id must be between 3 and 50 characters long")
+			.custom((value, { req }) => {
+				const parts = value.split("#");
+
+				if (parts.length !== 2) {
+				  	throw new Error("comment_id_user_id must have two ids after and before the #"); 
+				}
+
+				const secondPart = parseInt(parts[1]);
+
+				if (isNaN(secondPart)) {
+				  	throw new Error("comment_id_user_id must contain valid integer after the #");
+				}
+				
+				return true;
+			  })
+
 	} else if (key === "email"){
-		await validator(key)
-			.exists().withMessage('Email is required')
+
+		validator(key)
 			.isEmail().withMessage("Must be a valid email address")
 			.normalizeEmail()
-			.isLength({ min: 5, max: 100 }).withMessage('Email must be between 5 and 100 characters')
-			.run(req);
+			.isLength({ min: 5, max: 30 }).withMessage('Email must be between 5 and 30 characters')
+
 	} else if (key === "password"){
-		await validator(key)
-			.exists().withMessage('Password is required')
-			.isLength({ min: 5 }).withMessage('Password must be at least 8 characters long')
+
+		validator(key)
+			.isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
 			.matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,1024}$/)
 			.withMessage('Password must have at least one uppercase letter, one lowercase letter, one number, and one special character')
-			.run(req);
+
 	} else if (key === "phonenumber"){
-		await validator(key)
-			.exists().withMessage('Phonenumber is required')
+
+		validator(key)
 			.isMobilePhone().withMessage('Must be a valid mobile phone number')
 			.isLength({ min: 4, max: 15 }).withMessage('Phone number length must be between 4 and 15')
 			.matches(/^\+?[1-9]\d{1,14}$/).withMessage('Must be a valid international phone number')
-			.run(req);
+
 	} else if (key === "username") {
-		await validator(key)
-			.exists().withMessage('Username is required')
+
+		validator(key)
 			.isLength({ min: 2, max: 30 }).withMessage('Username must be between 2 and 30 characters long')
 			.isAlphanumeric().withMessage('Username must only contain letters and numbers')
-			.run(req);
+
 	} else if (key === "gender") {
-		await validator(key)
-			.exists().withMessage('Gender is required')
+
+		validator(key)
   			.isIn(['male', 'female', 'non-binary']).withMessage('Gender must be either male, female, or non-binary')
-			.run(req);
+
 	} else if (key === "user_bio" || key === "description") {
-		await validator(key)
-			.exists().withMessage('Bio is required')
+
+		validator(key)
 			.isLength({ min: 0, max: 150 }).withMessage('Username must be between 0 and 150 characters long')
-			.run(req);
+
+	}
+	else if ((key === "created_at") || (key === "updated_at")) {
+
+		validator(key)
+			.isDate().withMessage("created_at must be a valid date")
+			.custom((value, { req }) => {
+				const currentDate = new Date();
+				const inputDate = new Date(value);
+		  
+				if (inputDate > currentDate) {
+				  throw new Error("created_at cannot be in the future");
+				}
+		  
+				return true;
+			  })
+
 	}
 }
 
