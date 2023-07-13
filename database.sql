@@ -29,8 +29,7 @@ CREATE TABLE posts (
   video_name VARCHAR(255) NOT NULL,
   thumbnail_name VARCHAR(255) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  recipe_id INTEGER REFERENCES recipes(id)
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE categories (
@@ -39,21 +38,22 @@ CREATE TABLE categories (
 );
 
 CREATE TABLE posts_categories (
-  id SERIAL PRIMARY KEY,
   post_id INTEGER REFERENCES posts(id),
-  category_name VARCHAR(255) UNIQUE REFERENCES categories(name)
+  category_name VARCHAR(255) UNIQUE REFERENCES categories(name),
+  PRIMARY KEY (post_id, category_name)
 );
 
 CREATE TABLE bookmarks (
-    id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
     post_id INTEGER NOT NULL REFERENCES posts(id),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, post_id)
 );
 
 CREATE TABLE posts_hashtags (
   post_id INTEGER REFERENCES posts(id),
-  hashtag_name VARCHAR(255) NOT NULL
+  hashtag_name VARCHAR(255) NOT NULL,
+  PRIMARY KEY (post_id, hashtag_name)
 );
 
 CREATE TABLE recipes (
@@ -68,25 +68,25 @@ CREATE TABLE recipes (
 );
 
 CREATE TABLE blocked_users (
-  id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   blocked_user_id INTEGER NOT NULL REFERENCES users(id),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, blocked_user_id)
 );
 
 CREATE TABLE following (
-  id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   user_following_id INTEGER NOT NULL REFERENCES users(id),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, user_following_id)
 );
 
 CREATE TABLE report (
-  id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   reported_user_id INTEGER NOT NULL REFERENCES users(id),
   post_id INTEGER NOT NULL REFERENCES posts(id),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, post_id)
 );
 
 /* INSERTING DATA */
@@ -97,12 +97,12 @@ VALUES ('user1', 'user1@example.com', 'password1', '1234567890', 'https://exampl
        ('user4', 'user4@example.com', 'password4', '4567890123', 'https://example.com/profile4.jpg', 'User 4 bio', 'male', '2001-01-01'),
        ('user5', 'user5@example.com', 'password5', '5678901234', 'https://example.com/profile5.jpg', 'User 5 bio', 'male', '2001-01-01');
 
-INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, recipe_id)
-VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg', 1),
-       (2, 'Post 2 Title', 'Post 2 description', 'https://example.com/video2.mp4', 'https://example.com/thumbnail2.jpg', 2),
-       (3, 'Post 3 Title', 'Post 3 description', 'https://example.com/video3.mp4', 'https://example.com/thumbnail3.jpg', 3),
-       (4, 'Post 4 Title', 'Post 4 description', 'https://example.com/video4.mp4', 'https://example.com/thumbnail4.jpg', 4),
-       (5, 'Post 5 Title', 'Post 5 description', 'https://example.com/video5.mp4', 'https://example.com/thumbnail5.jpg', 5);
+INSERT INTO posts (user_id, title, description, video_name, thumbnail_name)
+VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg'),
+       (2, 'Post 2 Title', 'Post 2 description', 'https://example.com/video2.mp4', 'https://example.com/thumbnail2.jpg'),
+       (3, 'Post 3 Title', 'Post 3 description', 'https://example.com/video3.mp4', 'https://example.com/thumbnail3.jpg'),
+       (4, 'Post 4 Title', 'Post 4 description', 'https://example.com/video4.mp4', 'https://example.com/thumbnail4.jpg'),
+       (5, 'Post 5 Title', 'Post 5 description', 'https://example.com/video5.mp4', 'https://example.com/thumbnail5.jpg');
 
 INSERT INTO categories (name)
 VALUES ('Vegan'),
