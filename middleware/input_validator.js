@@ -1,11 +1,44 @@
 /* Input validation for all Endpoints */
 
-const { body, check, param, query, validationResult } = require('express-validator')
+const { body, param, query, validationResult } = require('express-validator');
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
+
+/* Chceks body, queries, params */
+const inputValidator = () => {    
+    return async (req, res, next) => {
+        let validationErrors = [];
+
+        if (Object.keys(req.body).length !== 0) {
+            for (const [key, value] of Object.entries(req.body)){
+                validateAndSanitize(key, value, req, "body");
+            };
+        };
+
+		if (Object.keys(req.query).length !== 0) {
+            for (const [key, value] of Object.entries(req.query)){
+                validateAndSanitize(key, value, req, "query");
+            };
+        };
+
+		if (Object.keys(req.params).length !== 0) {
+            for (const [key, value] of Object.entries(req.params)){
+                validateAndSanitize(key, value, req, "params");
+            };
+        };
+		
+		const errors = validationResult(req);
+		if (!errors.isEmpty()) {
+			validationErrors = errors.array();
+			return res.status(400).json({ errors: validationErrors });
+		};
+
+        next();
+    }
+}
 
 /*This will do the validation and recurse if an array or object */
 const validateAndSanitize = (key, value, req, source) => {
@@ -35,7 +68,7 @@ const validateAndSanitize = (key, value, req, source) => {
 
     }
 
-    else if (Array.isArray(value)) {
+    if (Array.isArray(value)) {
         for(let i = 0; i < value.length; i++) {
             validateAndSanitize(`${key}[${i}]`, value[i], req, source);
         }
@@ -47,44 +80,10 @@ const validateAndSanitize = (key, value, req, source) => {
                 validateAndSanitize(`${key}.${property}`, value[property], req, source);
             }
         }
-    }
-}
+    } else {
+		validateFrequent(key, req, source);
+	}
 
-/* Chceks body, queries, params */
-const inputValidator = () => {    
-    return async (req, res, next) => {
-        let validationErrors = [];
-
-        if (Object.keys(req.body).length !== 0) {
-            for (const [key, value] of Object.entries(req.body)){
-                validateAndSanitize(key, value, req, "body");
-				validateFrequent(key, req, "body");
-            }
-        }
-
-		if (Object.keys(req.query).length !== 0) {
-            for (const [key, value] of Object.entries(req.query)){
-                validateAndSanitize(key, value, req, "query");
-				validateFrequent(key, req, "query");
-            }
-        }
-
-		if (Object.keys(req.params).length !== 0) {
-            for (const [key, value] of Object.entries(req.params)){
-                validateAndSanitize(key, value, req, "params");
-				validateFrequent(key, req, "params");
-            }
-        }
-
-		
-		const errors = validationResult(req);
-		if (!errors.isEmpty()) {
-			validationErrors = errors.array();
-			return res.status(400).json({ errors: validationErrors });
-		}
-
-        next();
-    }
 }
 
 /* Used to vlidate frequently used variables */
@@ -100,7 +99,7 @@ const validateFrequent = (key, req, source) => {
 		"user_id", "post_id", "recipe_id", 
 		"comment_like_count", "like_count", "view_count",
 		"comments_count", "follower_count", "following_count",
-		"likes_count"
+		"likes_count", "page", "page_size"
 	];
 
 	if (numeric.includes(key)) {
@@ -129,7 +128,7 @@ const validateFrequent = (key, req, source) => {
 				}
 
 				return true;
-			  })
+			})
 
 	//DynamoDB where ids is number # date
 	} else if (key === "post_id_created_at"){
@@ -155,7 +154,7 @@ const validateFrequent = (key, req, source) => {
 				}
 
 				return true;
-			  })
+			})
 
 	//DynamoDB where id is string # number
 	} else if (key === "comment_id_user_id"){
@@ -176,7 +175,7 @@ const validateFrequent = (key, req, source) => {
 				}
 				
 				return true;
-			  })
+			})
 
 	} else if (key === "email"){
 
@@ -229,7 +228,7 @@ const validateFrequent = (key, req, source) => {
 				}
 		  
 				return true;
-			  })
+			})
 
 	}
 }
