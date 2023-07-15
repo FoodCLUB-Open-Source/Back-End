@@ -26,7 +26,7 @@ const rateLimiter = (maxRequests, windowInMins) => {
             const nowWindow = now + (window * 60000);
 
             //Get timestamps inbetween now and the expirey date and delete any outdated.
-            await Redis.zRemRangeByScore(redisKey, 0, now)
+            await Redis.zRemRangeByScore(redisKey, 0, now);
 
             const timestamps = await Redis.zRangeByScore(redisKey, now, nowWindow);
             
@@ -36,7 +36,6 @@ const rateLimiter = (maxRequests, windowInMins) => {
                     'X-RateLimit-Remaining': Math.max(0, requests - timestamps.length - 1), // Requests left in Window
                     'X-RateLimit-Reset': nowWindow // Tme when teh rate limit will reset
                 }).status(429).send({
-                    status: 'error',
                     message: `Rate limit exceeded limit. Try again later in ${window} minutes.`
                 });            
             } else {
