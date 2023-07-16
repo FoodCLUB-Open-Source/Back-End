@@ -11,47 +11,51 @@ const DOMPurify = createDOMPurify(window);
 
 /* Chceks body, queries, params */
 const inputValidator = () => {    
-    return async (req, res, next) => {
+    return [
+        body().custom((value, { req }) => {
+            if (Object.keys(req.body).length !== 0) {
+                for (const [key, value] of Object.entries(req.body)){
+                    const a = validateAndSanitize(key, value, req, "body");
+					console.log(a)
+                };
+            }
+            return true;
+        }),
 
-        if (Object.keys(req.body).length !== 0) {
-            for (const [key, value] of Object.entries(req.body)){
-                validateAndSanitize(key, value, req, "body");
-            };
-        };
+        query().custom((value, { req }) => {
+            if (Object.keys(req.query).length !== 0) {
+                for (const [key, value] of Object.entries(req.query)){
+                    validateAndSanitize(key, value, req, "query");
+                };
+            }
+            return true;
+        }),
 
-		if (Object.keys(req.query).length !== 0) {
-            for (const [key, value] of Object.entries(req.query)){
-                validateAndSanitize(key, value, req, "query");
-            };
-        };
+        param().custom((value, { req }) => {
+            if (Object.keys(req.params).length !== 0) {
+                for (const [key, value] of Object.entries(req.params)){
+                    validateAndSanitize(key, value, req, "params");
+                };
+            }
+            return true;
+        }),
 
-		if (Object.keys(req.params).length !== 0) {
-            for (const [key, value] of Object.entries(req.params)){
-                validateAndSanitize(key, value, req, "params");
-            };
-        };
-
-		if (Object.keys(req.headers).length !== 0) {
-            for (const [key] of Object.entries(req.headers)){
-                headerValidation(key, req)
-            };
-        };
-		
-		const errors = validationResult(req);
-		console.log(errors.array())
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		};
-
-        next();
-    }
+        header().custom((value, { req }) => {
+            if (Object.keys(req.headers).length !== 0) {
+                for (const [key, value] of Object.entries(req.headers)){
+                    headerValidation(key, value, req);
+                };
+            }
+            return true;
+        }),
+    ];
 }
 
 /*This will do the validation and recurse if an array or object */
 const validateAndSanitize = (key, value, req, source) => {
 
 	let validator;
-
+	
 	if (source === "body") { validator = body }
 	else if (source === "query") { validator = query }
 	else if (source === "params") { validator = param };
