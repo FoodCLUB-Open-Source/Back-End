@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const requestLogging = require("./middleware/logging");
+const inputValidator = require("./middleware/input_validator")
 
 const app = express();
 const router = express.Router();
@@ -29,5 +30,6 @@ router.use("/likes_views", require("./routes/likes_views"));
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
+
 
 module.exports = app;

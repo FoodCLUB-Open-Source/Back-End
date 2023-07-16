@@ -1,16 +1,17 @@
 /* Input validation for all Endpoints */
 
-const { body, param, query, validationResult } = require('express-validator');
+const { body, param, query, header, validationResult } = require('express-validator');
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
+/* The headers we are using will need to be validated. I only added the basic ones */
+
 /* Chceks body, queries, params */
 const inputValidator = () => {    
     return async (req, res, next) => {
-        let validationErrors = [];
 
         if (Object.keys(req.body).length !== 0) {
             for (const [key, value] of Object.entries(req.body)){
@@ -29,11 +30,17 @@ const inputValidator = () => {
                 validateAndSanitize(key, value, req, "params");
             };
         };
+
+		if (Object.keys(req.headers).length !== 0) {
+            for (const [key] of Object.entries(req.headers)){
+                headerValidation(key, req)
+            };
+        };
 		
 		const errors = validationResult(req);
+		console.log(errors.array())
 		if (!errors.isEmpty()) {
-			validationErrors = errors.array();
-			return res.status(400).json({ errors: validationErrors });
+			return res.status(400).json({ errors: errors.array() });
 		};
 
         next();
@@ -86,6 +93,24 @@ const validateAndSanitize = (key, value, req, source) => {
 
 }
 
+/* Used to validate the headers */
+const headerValidation = (key, req) => {
+
+	if (key === "content-type"){
+
+		header(key)
+			.isIn(['application/json', 'multipart/form-data'])
+			.withMessage('Content-Type must be application/json or multipart/form-data')
+	
+	} else if (key === "accept"){
+
+		header(key)
+			.custom(value => ['application/json', 'multipart/form-data'].includes(value))
+			.withMessage("Accept must be application/json or multipart/form-data")
+
+		}
+}
+
 /* Used to vlidate frequently used variables */
 const validateFrequent = (key, req, source) => {
 	let validator;
@@ -105,8 +130,8 @@ const validateFrequent = (key, req, source) => {
 	if (numeric.includes(key)) {
 
 		validator(key)
-			.isInt({ min:0 }).withMessage(`${key} is not a number or not larger than 0`)
 			.toInt()
+			.isInt({ min:0 }).withMessage(`${key} is not a number or not larger than 0`)
 
 	//Dynamo DB where id is number # number.
 	} else if (key === "post_id_user_id"){
