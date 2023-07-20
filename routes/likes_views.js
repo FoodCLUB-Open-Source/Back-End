@@ -3,7 +3,8 @@ const router = express.Router()
 
 const { putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
 const { setLikes, setViews, setCommentsLike } = require("../dynamo_schemas/dynamo_schemas")
-const { requestLimiter } = require('../functions/general_functions')
+const rateLimiter = require("../middleware/rate_limiter")
+
 const { validatePostView, validatePostLike, validateDeleteLike, validatePostComment, validateDeleteComment } = require('../functions/validators/like_view_validator')
 const { validationResult } = require('express-validator')
 
@@ -18,7 +19,7 @@ router.get("/testing", async (req, res) => {
 })
 
 /* Posting For Viewing Specific Video */
-router.post("/posts/view/:id", requestLimiter, validatePostView(), async (req, res, next) => {
+router.post("/posts/view/:id", rateLimiter(), validatePostView(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -57,7 +58,7 @@ router.post("/posts/view/:id", requestLimiter, validatePostView(), async (req, r
 })
 
 /* Posting For Liking Specific Video */
-router.post("/posts/like/:id", requestLimiter, validatePostLike(), async (req, res, next) => {
+router.post("/posts/like/:id", rateLimiter(), validatePostLike(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -97,7 +98,7 @@ router.post("/posts/like/:id", requestLimiter, validatePostLike(), async (req, r
 })
 
 /* Deleting Like On Specific Video */
-router.delete("/posts/like/:id", requestLimiter, validateDeleteLike(), async (req, res, next) => {
+router.delete("/posts/like/:id", rateLimiter(), validateDeleteLike(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -143,7 +144,7 @@ router.delete("/posts/like/:id", requestLimiter, validateDeleteLike(), async (re
 })
 
 /* Posting a like for a specific comment */
-router.post("/posts/comment/like/:id", requestLimiter, validatePostComment(), async (req, res, next) => {
+router.post("/posts/comment/like/:id", rateLimiter(), validatePostComment(), async (req, res, next) => {
 	try {
 
 		const errors = validationResult(req)
@@ -183,7 +184,7 @@ router.post("/posts/comment/like/:id", requestLimiter, validatePostComment(), as
 })
 
 /* Deleting Like On Specific Comment */
-router.delete("/posts/comment/like/:id", requestLimiter, validateDeleteComment(), async (req, res, next) => {
+router.delete("/posts/comment/like/:id", rateLimiter(), validateDeleteComment(), async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id
