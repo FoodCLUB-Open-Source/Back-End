@@ -22,19 +22,13 @@ const rateLimiter = require("../middleware/rate_limiter")
 const inputValidator = require("../middleware/input_validator")
 
 /* Testing Posts Route */
-router.get("/testing/:numid/test/:stringid", inputValidator(), async (req, res) => {
+router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) => {
   try {
 
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    console.log(errors.array())
-
     const value = "Hello"
+    console.log(req.params)
 
-    res.json({ "Testing": "Working Posts", "Value": value})
+    res.json({ "Testing": "Working Posts", "Value": req.body.comment_id_user_id})
 
   } catch (err) {
     console.error(err.message)
