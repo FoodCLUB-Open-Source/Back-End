@@ -60,7 +60,7 @@ const inputValidator = [
 		})
 		.trim()
 		.customSanitizer(value => sanitisedInput(value))
-	,
+		,
 	check("post_id_created_at")
 		.optional()
 		.isLength({ min:5, max: 50}).withMessage("post_id_created_at must be inbetween 5 and 50 characters long")

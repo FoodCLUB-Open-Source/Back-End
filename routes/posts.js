@@ -22,7 +22,7 @@ const rateLimiter = require("../middleware/rate_limiter")
 const inputValidator = require("../middleware/input_validator")
 
 /* Testing Posts Route */
-router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) => {
+router.get("/testing/:user_id/test/:post_id", async (req, res) => {
   try {
 
     const value = "Hello"

@@ -22,6 +22,8 @@ app.use(cors({
 }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
+app.use(inputValidator)
+
 /*  All Routes  */
 router.use("/login", require("./routes/login"));
 router.use("/posts", require("./routes/posts"));
