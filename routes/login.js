@@ -11,6 +11,7 @@ const AWS = require('aws-sdk');
 const crypto = require('crypto')
 const bcrypt = require('bcrypt')
 const appFunctions = require('../functions/general_functions')
+const rateLimiter = require('../middleware/rate_limiter')
 
 const CognitoUserPool = AmazonCognitoId.CognitoUserPool;
 
@@ -37,7 +38,7 @@ router.get("/testing", async (req, res) => {
 
 /* Sign up */ 
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', rateLimiter(10, 1), async (req, res) => {
   const { username, email, phoneNumber, profilePicture, userBio, gender, dateOfBirth, password } = req.body;
   
 
