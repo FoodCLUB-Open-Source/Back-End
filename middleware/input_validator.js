@@ -4,6 +4,7 @@ const { check, validationResult } = require('express-validator');
 const createDOMPurify = require('dompurify');
 const { JSDOM } = require('jsdom');
 
+//for input sanitisation
 const window = new JSDOM('').window;
 const DOMPurify = createDOMPurify(window);
 
@@ -12,23 +13,17 @@ const numericVariables = [
 	"user_id", "post_id", "recipe_id", 
 	"comment_like_count", "like_count", "view_count",
 	"comments_count", "follower_count", "following_count",
-	"likes_count", "page", "page_size"
-]
-const dateVariables = ["updated_at, created_at"]
+	"likes_count", "page_number", "page_size"
+];
+const dateVariables = ["updated_at, created_at"];
 
 const sanitisedInput = (value) => {
 	let sanitized = DOMPurify.sanitize(value);
 	return sanitized.replace(/\0/g, '');
-}
-
+};
 
 /* Chceks body, queries, params */
 const inputValidator = [
-
-	(req, res, next) => {
-		console.log(req.params)
-		next()
-	},
 
 	...numericVariables.map(id => 
 		check(id)
@@ -47,14 +42,14 @@ const inputValidator = [
 
 			if (parts.length !== 2) {
 				  throw new Error("post_id_user_id must have two ids separated by '|'"); 
-			}
+			};
 
 			const firstPart = parseInt(parts[0]);
 			const secondPart = parseInt(parts[1]);
 
 			if (isNaN(firstPart) || isNaN(secondPart)) {
 				  throw new Error("post_id_user_id must contain valid integers before and after the |");
-			}
+			};
 
 			return true;
 		})
@@ -65,23 +60,23 @@ const inputValidator = [
 		.optional()
 		.isLength({ min:5, max: 50}).withMessage("post_id_created_at must be inbetween 5 and 50 characters long")
 		.isString().withMessage(`post_id_created_at must be string`)
-		.custom((value, { req }) => {
+		.custom((value) => {
 			const parts = value.split("|");
 
 			if (parts.length !== 2) {
 				throw new Error("post_id_created_at must have an id before the | and a valid date after"); 
-			}
+			};
 
 			const firstPart = parseInt(parts[0]);
 			const secondPart = parseInt(parts[1]);
 
 			if (isNaN(firstPart)) {
 				throw new Error("post_id_created_at must contain valid integer before the |");
-			}
+			};
 
 			if (isNaN(Date.parse(secondPart))) {
 				throw new Error("post_id_created_at must contain a valid date after the |");
-			}
+			};
 
 			return true;
 		})
@@ -91,7 +86,7 @@ const inputValidator = [
 	check("comment_id_user_id")
 		.optional()
 		.isLength({ min: 3, max: 50 }).withMessage("comment_id_user_id must be between 3 and 50 characters long")
-		.custom((value, { req }) => {
+		.custom((value) => {
 			const parts = value.split("|");
 
 			if (parts.length !== 2) {
@@ -151,13 +146,13 @@ const inputValidator = [
 		check(date)
 			.optional()
 			.isDate().withMessage(`${date} must be a valid date`)
-			.custom((value, { req }) => {
+			.custom((value) => {
 				const currentDate = new Date();
 				const inputDate = new Date(value);
 		
 				if (inputDate > currentDate) {
-				throw new Error(`${date} cannot be in the future`);
-				}
+					throw new Error(`${date} cannot be in the future`);
+				};
 		
 				return true;
 			})
@@ -168,13 +163,9 @@ const inputValidator = [
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
 		  return res.status(400).json({ errors: errors.array() });
-		}
+		};
 		next();
 	}
-
-]
-
-
-
+];
 
 module.exports = inputValidator;

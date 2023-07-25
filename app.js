@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const requestLogging = require("./middleware/logging");
-const inputValidator = require("./middleware/input_validator")
 
 const app = express();
 const router = express.Router();
@@ -21,8 +20,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(bodyParser.urlencoded({ extended: true }));
-
-app.use(inputValidator)
 
 /*  All Routes  */
 router.use("/login", require("./routes/login"));
