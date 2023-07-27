@@ -2,7 +2,7 @@
 
 const express = require("express")
 const { pgQuery, s3Upload, s3Retrieve, s3Delete } = require('../functions/general_functions')
-const { validationResult } = require('express-validator')
+const { param, validationResult } = require('express-validator')
 const { validatePostVideo, validateGetPost, validateParamId, validateGetCategoryPost, validateGetPosts } = require('../functions/validators/posts_validators')
 
 const pool = require("../pgdb")
@@ -19,6 +19,18 @@ const upload = multer({ storage: storage })
 const Redis = require("../redisConfig")
 
 const rateLimiter = require("../middleware/rate_limiter")
+
+// middleware to ensure postID is valid
+const validatePostId = [
+  param('postid').notEmpty().withMessage('Post ID is required.').isInt().withMessage('Post ID must be an integer.'),
+  (req, res, next) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+          return res.status(400).json({ errors: errors.array() });
+      }
+      next();
+  }
+];
 
 /* Testing Posts Route */
 router.get("/testing", rateLimiter(4, 15), async (req, res) => {
@@ -146,68 +158,71 @@ router.post("/posts/:id", rateLimiter(5, 15), upload.any(), validatePostVideo(),
   }
 })
 
-
-/* Get a specific post and its category
-  /api/posts/getpost/8?user_id=3
-*/
-router.get("/posts/:id", rateLimiter(), validateGetPost(), async (req, res, next) => {
+/**
+ * Retrieves post details of a specific post based off post ID
+ * 
+ * @route GET /post/:postid
+ * @param {string} req.params.postid - The ID of the post to retrieve details for
+ * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
+ * @throws {Error} - If there is error retrieving post details or validation issues
+ */
+router.get("/post/:postid", rateLimiter(), validatePostId, async (req, res) => {
   try {
-
-    const errors = validationResult(req)
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
-
-    const postId = parseInt(req.params.id)
-    
-    //NEED TO UPDATE THIS TO THE NEW CATEGORY SYSTEM
-    const specificPost = await pgQuery(`
-      SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
-      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id 
-      WHERE post_id = $1`
-      , postId
-    )
-
-    if (!specificPost.rows[0]){ res.status(400).json({ error: `No Post With Id Of ${postId}`})}
-
-    const { post_id, user_id, post_title, post_description, video_name, thumbnail_name, name, category_id,
-    username, profile_picture, post_created_at, post_updated_at } = specificPost.rows[0]
-
-    const [videoUrl, thumbnailUrl, postStats, liked] = await Promise.all([
-      s3Retrieve(video_name),
-      s3Retrieve(thumbnail_name),
-      getPostStats(postId),
-      checkLike(postId, parseInt(req.query.user_id))
-    ])
-
-    const { view_count, like_count, comments_count } = postStats
-    
-    const responseData = {
-      post_id,
-      user_id,
-      post_title,
-      post_description,
-      video_url: videoUrl,
-      thumbnail_url: thumbnailUrl,
-      category_name: name,
-      category_id,
-      username,
-      profile_picture,
-      post_created_at,
-      post_updated_at,
-      view_count,
-      like_count,
-      comments_count,
-      liked
-    }
-
-    res.json(responseData)
-  } catch (err) {
-    next(err)
+      const postID = parseInt(req.params.postid); // retrieving post ID
+      const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+      const postDetails = await pgQuery(query, postID);
+      const refinedPostDetails = await refinePostsData(postDetails.rows); // further refining posts data
+      return res.status(200).json({ data: refinedPostDetails }); // sending data to client
+  } catch (error) {
+      console.error(error.message);
+      res.status(500).json({ message: error.message }); // server side error
   }
 })
 
+/**
+ * Function that refines posts data to get video URL and thumbnail URL from s3 bucket. Additionally post comments count, like count and view count details are added
+ * 
+ * @param {Array} posts - array containing posts 
+ * @returns {Array} - array with details refined
+ */
+async function refinePostsData(posts) {
+  for (i = 0; i < posts.length; i++) {
+      const post = posts[i]; // retrieving a post
+
+      // getting post details such as ID, video name and thumbnail name
+      const postID = post.id;
+      const videoName = post.video_name;
+      const thumbnailName = post.thumbnail_name;
+
+      // getting video and thumbnail URLs
+      const videoURL = await s3Retrieve(videoName);
+      const thumbnailURL = await s3Retrieve(thumbnailName);
+
+      // adding video and thumbnail URL's as new attributes and deleting previous attributes
+      post.video_url = videoURL;
+      post.thumbnail_url = thumbnailURL;
+      delete post.video_name;
+      delete post.thumbnail_name;
+
+      let params = { // parameter to get post details from Post_Stats table in DynamoDB
+          TableName: "Post_Stats",
+          KeyConditionExpression: "post_id = :postId",
+          ExpressionAttributeValues: {
+              ":postId": postID
+          },
+      }
+
+      // request to Post_Stats table in dynamoDB to get likes count, comments count etc
+      const postStats = await getItemPartitionKey(params);
+
+      // adding attributes to post object
+      post.comments_count = postStats[0].comments_count;
+      post.like_count = postStats[0].like_count;
+      post.view_count = postStats[0].view_count;
+  }
+
+  return posts;
+}
 
 /* Deletes a specific post */
 router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
