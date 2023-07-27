@@ -64,7 +64,8 @@ CREATE TABLE recipes (
   recipe_equipment VARCHAR[],
   recipe_steps VARCHAR[],
   preparation_time INTEGER,
-  recipe_servings INTEGER
+  recipe_servings INTEGER,
+  serving_size INTEGER
 );
 
 CREATE TABLE blocked_users (
