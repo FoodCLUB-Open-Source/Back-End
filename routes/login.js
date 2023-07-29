@@ -45,7 +45,7 @@ router.post('/signup', rateLimiter(10, 1), async (req, res) => {
   };
 
   var attributeArray = [];
-  const passwordPlaceholder = NaN
+  const passwordHashed = await bcrypt.hash(password)
   const dateOfBirth = "01/01/2000"
 
   /* aws cognito assigns a UUID value to each user's sub attribute */
@@ -58,7 +58,7 @@ router.post('/signup', rateLimiter(10, 1), async (req, res) => {
     }
     try {
       const newUser = await appFunctions.pgQuery(`INSERT INTO users (username, email, password, date_of_birth) VALUES ($1, $2, $3, $4) RETURNING *`,
-      username, email, passwordPlaceholder, dateOfBirth);
+      username, email, passwordHashed, dateOfBirth);
     } catch (error) {
       return res.status(400).json(error.message)
     }
