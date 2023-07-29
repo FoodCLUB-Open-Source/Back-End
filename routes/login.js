@@ -32,7 +32,7 @@ router.post('/changepassword', rateLimiter(10, 1), async (req, res) => {
 
   cognitoUser.getSession((err, session) => {
     if (err) {
-      res.status(400).json(err.message)
+      return res.status(400).json(err.message)
     }
   });
 
