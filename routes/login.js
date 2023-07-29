@@ -50,5 +50,23 @@ router.post('/confirmverification', rateLimiter(10, 1), (req, res) => {
   });
 })
 
+/* Resend Verification Code */
+router.post('/resendverificationcode', rateLimiter(10, 1), (req, res) => {
+  var userData = {
+    Username: req.body.username,
+    Pool: userPool,
+  };
+
+  var cognitoUser = new AmazonCognitoId.CognitoUser(userData);
+
+  cognitoUser.resendConfirmationCode((err, result) => {
+    if (err) {
+      return res.status(400).json(err.message)
+    }
+    res.status(200).json({ message: 'new code sent successfully' })
+  });
+})
+
+
 
 module.exports = router;
