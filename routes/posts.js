@@ -168,14 +168,23 @@ router.post("/posts/:id", rateLimiter(5, 15), upload.any(), validatePostVideo(),
  */
 router.get("/post/:postid", rateLimiter(), validatePostId, async (req, res) => {
   try {
-      const postID = parseInt(req.params.postid); // retrieving post ID
-      const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
-      const postDetails = await pgQuery(query, postID);
-      const refinedPostDetails = await refinePostsData(postDetails.rows); // further refining posts data
-      return res.status(200).json({ data: refinedPostDetails }); // sending data to client
+    const postID = parseInt(req.params.postid); // retrieving post ID
+    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+    const postDetails = await pgQuery(query, postID);
+    const refinedPostDetails = await refinePostsData(postDetails.rows); // further refining posts data
+    return res.status(200).json({ data: refinedPostDetails }); // sending data to client
   } catch (error) {
-      console.error(error.message);
-      res.status(500).json({ message: error.message }); // server side error
+    console.error(error.message);
+    res.status(500).json({ message: error.message }); // server side error
+  }
+})
+
+router.get("post/homepage", rateLimiter(), validatePostId, async (req, res) => {
+  try {
+    
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ message: error.message }); // server side error
   }
 })
 
@@ -190,7 +199,7 @@ async function refinePostsData(posts) {
       const post = posts[i]; // retrieving a post
 
       // getting post details such as ID, video name and thumbnail name
-      const postID = post.id;
+      const postID = post.id.toString();
       const videoName = post.video_name;
       const thumbnailName = post.thumbnail_name;
 
