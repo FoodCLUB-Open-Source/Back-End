@@ -26,6 +26,7 @@ router.use("/login", require("./routes/login"));
 router.use("/posts", require("./routes/posts"));
 router.use("/comments", require("./routes/comments"));
 router.use("/likes_views", require("./routes/likes_views"));
+router.use("/recipes", require("./routes/recipes"));
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);

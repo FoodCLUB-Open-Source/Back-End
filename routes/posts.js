@@ -17,7 +17,6 @@ const upload = multer({ storage: storage })
 
 
 const Redis = require("../redisConfig")
-
 const rateLimiter = require("../middleware/rate_limiter")
 
 /* Testing Posts Route */
@@ -283,28 +282,8 @@ router.get("/homepage/posts", rateLimiter(), validateGetPosts(), async (req, res
   }
 })
 
-/* Getting Ingredient For Specific Post */
-router.get("/posts/recipe/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
-  try {
 
-    const errors = validationResult(req)
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
-
-    const recipeId = req.params.id
-    const specificRecepie = await pgQuery(`SELECT * FROM recipes WHERE recipe_id = $1`, recipeId)
-
-    res.json({"recipe": specificRecepie.rows[0]})
-
-  } catch (err) {
-    next(err)
-  }
-})
-
-
-/* Posting For Sending Video To Friend */
+/* Posting For Sending Video To Friend */ //could maybe be moved to a chat file after its implemented.
 router.post("/posts/sendvideo", rateLimiter(),  async (req, res, next) => {
   try {
     //Will need to update the messages table. and update a sent table.
