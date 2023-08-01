@@ -16,7 +16,7 @@ const numericVariables = [
 	"likes_count", "page_number", "page_size"
 ];
 const nanoIdVariables = ["story_id"];
-const dateVariables = ["updated_at, created_at"];
+const dateVariables = ["updated_at", "created_at"];
 
 const sanitisedInput = (value) => {
 	let sanitized = DOMPurify.sanitize(value);
@@ -32,14 +32,14 @@ const inputValidator = [
 			.isInt({ min: 0 })
 			.withMessage(`${id} must be a positive number`)
 			.notEmpty().withMessage(`${id} value must exist`)
-	)
+	)//
 	,
 	...nanoIdVariables.map(id => 
 		check(id)
 		.optional()
-		.isLength({ min: 21, max: 21 })
-    	.matches(/^[0-9A-Za-z_-]*$/)
-		.trim()
+		.isLength({ min: 20, max: 22 }).withMessage((value) => `${value} must be 21 letters long`)
+    	.matches(/^[0-9A-Za-z_-]*$/).withMessage((value) => `nano id ${value} must only contain a-z, A-z,0-9,_,-`)
+		.trim() 
 	)
 	,
 	check("email")
@@ -72,7 +72,7 @@ const inputValidator = [
 	,
 	check("gender")
 		.optional()
-		.isIn(['male', 'female', 'non-binary']).withMessage('Gender must be either male, female, or non-binary')
+		.isIn(['male', 'female']).withMessage('Gender must be either male, female, or non-binary')
 	,
 	check("user_bio")
 		.optional()
@@ -89,28 +89,33 @@ const inputValidator = [
 	...dateVariables.map(date => 
 		check(date)
 			.optional()
-			.isDate().withMessage(`${date} must be a valid date`)
 			.custom((value) => {
 				const currentDate = new Date();
 				const inputDate = new Date(value);
-		
+				
 				if (inputDate > currentDate) {
-					throw new Error(`${date} cannot be in the future`);
+					throw new Error(`${value} cannot be in the future`);
 				};
-		
+
+				const isoDateFormatRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+  				
+				if (!isoDateFormatRegex.test(value)){
+					throw new Error(`${value} must be in the correct format of : 2023-07-31T15:30:00.000Z`);
+				};
+				
 				return true;
 			})
 	)
 	,
-	check(["video_url", "thumbnail_url"])
+	check(["video_url", "thumbnail_url"])// NEEDS TESTING AFTER WE CAN UPLOAD FILES AGAIN
 		.optional()
 		.custom((value) => {
 			if (value.slice(0,37) !== process.env.CLOUDFRONT_URL){
-				throw new Error(`${value} is not calling the appropriate cloudfront url`)
-			}
+				throw new Error(`${value} is not calling the appropriate cloudfront url`);
+			};
 			if (value.length < 37){
-				throw new Error(`${value} must be at the very least 37 letters long`)
-			}
+				throw new Error(`${value} must be at the very least 37 letters long`);
+			};
 		})
 		.isURL().withMessage((value) => `Invalid URL format for ${value}`)
 		.trim()
@@ -126,7 +131,6 @@ const inputValidator = [
 	(req, res, next) => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
-			console.log("RAN HERE")
 		  return res.status(400).json({ errors: errors.array() });
 		};
 		next();
