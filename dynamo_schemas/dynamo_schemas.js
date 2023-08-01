@@ -3,22 +3,25 @@ const { v4: uuidv4 } = require('uuid');
 
 function setViews(userId, postId) {
 	return {
+		view_id: uuidv4(),
 		user_id: userId,
 		post_id: postId,
 		created_at: new Date().toISOString(),
-	};
-};
+	}
+}
 
 function setLikes(userId, postId) {
 	return {
+		like_id: uuidv4(),
 		user_id: userId,
 		post_id: postId,
 		created_at: new Date().toISOString(),
-	};
-};
+	}
+}
 
 function setComment(userId, postId, comment) {
 	return {
+		comment_id: uuidv4(),
 		user_id: userId,
 		post_id: postId,
 		comment: comment,
@@ -26,34 +29,37 @@ function setComment(userId, postId, comment) {
 		comment_reply_count: 0,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
-	};
-};
-
-function setCommentsLike(userId, comment_id) {
-	return {
-		user_id: userId,
-		comment_id: comment_id,
-		created_at: new Date().toISOString(),
-	};
-};
+	}
+}
 
 function setReplies(userId, commentId, reply) {
 	return {
+		reply_id: uuidv4(),
 		user_id: userId,
 		comment_id: commentId,
 		reply: reply,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
-	};
-};
+	}
+}
 
-function setStoryViews() {
-	return{
-		story_id: storyId,
+function setCommentsLike(userId, comment_id) {
+	return {
+		comment_like_id: uuidv4(),
 		user_id: userId,
-		created_at: new Date().toISOString()
-	};
-};
+		comment_id: comment_id,
+		created_at: new Date().toISOString(),
+	}
+}
+
+function setFollow(userId, followingId) {
+	return {
+		follow_id: uuidv4(),
+		follower_id : userId,
+		following_id : followingId,
+		created_at: new Date().toISOString(),
+	}
+}
 
 function setStory(userId, videoUrl, thumbnailUrl) {
 	return {
@@ -61,10 +67,9 @@ function setStory(userId, videoUrl, thumbnailUrl) {
 		user_id : userId,
 		video_url  : videoUrl,
 		thumbnail_url: thumbnailUrl,
-		view_count: 0,
 		created_at: new Date().toISOString(),
-	};
-};
+	}
+}
 
 function setPostStats(postId) {
 	return {
@@ -75,23 +80,13 @@ function setPostStats(postId) {
 	}
 }
 
-function setUserStats(postId) {
-	return {
-		user_id: postId,
-		follower_count: 0,
-		following_count: 0,
-		likes_count: 0
-	};
-};
-
 module.exports = { 
 	setViews, 
 	setLikes, 
 	setComment, 
 	setReplies, 
 	setCommentsLike, 
-	setStoryViews, 
+	setFollow, 
 	setStory,
 	setPostStats,
-	setUserStats
-};
+}
