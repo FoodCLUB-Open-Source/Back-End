@@ -39,11 +39,12 @@ router.get("/testing/:user_id/test/:post_id",inputValidator, async (req, res) =>
 /* Functions for Posts */
 /* returns the total likes and views per post */
 async function getPostStats(postId){
+
   let params = {
 		TableName: "Post_Stats",
 		KeyConditionExpression: "post_id = :postId",
 		ExpressionAttributeValues: {
-		  ":postId": postId
+		  ":postId": JSON.stringify(postId)
 		},
 	} 
 
@@ -88,14 +89,8 @@ async function checkLike(postId, userId) {
 
 
 /* Posting a post to the database */
-router.post("/posts/:id", rateLimiter(5, 15), upload.any(), validatePostVideo(), async (req, res, next) => {
+router.post("/posts/:user_id", inputValidator, rateLimiter(5, 15), upload.any(), async (req, res, next) => {
   try {
-
-    const errors = validationResult(req)
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
 
     const userId = parseInt(req.params.id)
     const { post_title, post_description, category_id_list, hashtag_id_list, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, recipe_preparation_time, recipe_serving } = req.body
@@ -149,7 +144,7 @@ router.post("/posts/:id", rateLimiter(5, 15), upload.any(), validatePostVideo(),
 /* Get a specific post and its category
   /api/posts/getpost/8?user_id=3
 */
-router.get("/posts/:id", rateLimiter(), validateGetPost(), async (req, res, next) => {
+router.get("/:id", inputValidator, rateLimiter() , async (req, res, next) => {
   try {
 
     const errors = validationResult(req)
@@ -161,23 +156,37 @@ router.get("/posts/:id", rateLimiter(), validateGetPost(), async (req, res, next
     const postId = parseInt(req.params.id)
     
     //NEED TO UPDATE THIS TO THE NEW CATEGORY SYSTEM
+    // const specificPost = await pgQuery(`
+    //   SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
+    //   FROM posts JOIN users ON posts.user_id = users.id JOIN categories ON posts.category_id = categories.category_id 
+    //   WHERE id = $1`
+    //   , postId
+    // )
+
     const specificPost = await pgQuery(`
-      SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
-      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id 
-      WHERE post_id = $1`
+      SELECT 
+      posts.id as post_id, posts.user_id, posts.title, posts.description, posts.video_name, posts.thumbnail_name, posts.created_at AS post_created_at,
+      users.username, users.profile_picture,
+      categories.name AS category_name
+      FROM posts 
+      JOIN users ON posts.user_id = users.id 
+      JOIN posts_categories ON posts.id = posts_categories.post_id 
+      JOIN categories ON posts_categories.category_name = categories.name
+      WHERE posts.id = $1`
       , postId
     )
 
-    if (!specificPost.rows[0]){ res.status(400).json({ error: `No Post With Id Of ${postId}`})}
+    console.log("https://ddhluc7rgemr3.cloudfront.net/".length)
 
-    const { post_id, user_id, post_title, post_description, video_name, thumbnail_name, name, category_id,
-    username, profile_picture, post_created_at, post_updated_at } = specificPost.rows[0]
+    if (!specificPost.rows[0]) res.status(400).json({ error: `No Post With Id Of ${postId}`})
+
+    const { post_id, user_id, title, description, video_name, thumbnail_name, post_created_at, username, profile_picture, category_name } = specificPost.rows[0]
 
     const [videoUrl, thumbnailUrl, postStats, liked] = await Promise.all([
       s3Retrieve(video_name),
       s3Retrieve(thumbnail_name),
-      getPostStats(postId),
-      checkLike(postId, parseInt(req.query.user_id))
+      getPostStats(post_id),
+      //checkLike(post_id, parseInt(req.query.user_id))
     ])
 
     const { view_count, like_count, comments_count } = postStats
@@ -185,20 +194,20 @@ router.get("/posts/:id", rateLimiter(), validateGetPost(), async (req, res, next
     const responseData = {
       post_id,
       user_id,
-      post_title,
-      post_description,
-      video_url: videoUrl,
-      thumbnail_url: thumbnailUrl,
-      category_name: name,
-      category_id,
+      title,
+      description,
+      videoUrl,
+      thumbnailUrl,
+      post_created_at,
       username,
       profile_picture,
-      post_created_at,
-      post_updated_at,
+      category_name,
       view_count,
       like_count,
       comments_count,
-      liked
+      liked,
+      video_name,
+      thumbnail_name,
     }
 
     res.json(responseData)

@@ -15,6 +15,7 @@ const numericVariables = [
 	"comments_count", "follower_count", "following_count",
 	"likes_count", "page_number", "page_size"
 ];
+const nanoIdVariables = ["story_id"];
 const dateVariables = ["updated_at, created_at"];
 
 const sanitisedInput = (value) => {
@@ -33,75 +34,13 @@ const inputValidator = [
 			.notEmpty().withMessage(`${id} value must exist`)
 	)
 	,
-	check("post_id_user_id")
+	...nanoIdVariables.map(id => 
+		check(id)
 		.optional()
-		.isLength({ min:3, max: 50 }).withMessage("post_id_user_id must be between 3 and 50 characters long")
-		.isString().withMessage(`post_id_user_id must be string`)
-		.custom((value) => {
-			const parts = value.split("|");
-
-			if (parts.length !== 2) {
-				  throw new Error("post_id_user_id must have two ids separated by '|'"); 
-			};
-
-			const firstPart = parseInt(parts[0]);
-			const secondPart = parseInt(parts[1]);
-
-			if (isNaN(firstPart) || isNaN(secondPart)) {
-				  throw new Error("post_id_user_id must contain valid integers before and after the |");
-			};
-
-			return true;
-		})
+		.isLength({ min: 21, max: 21 })
+    	.matches(/^[0-9A-Za-z_-]*$/)
 		.trim()
-		.customSanitizer(value => sanitisedInput(value))
-		,
-	check("post_id_created_at")
-		.optional()
-		.isLength({ min:5, max: 50}).withMessage("post_id_created_at must be inbetween 5 and 50 characters long")
-		.isString().withMessage(`post_id_created_at must be string`)
-		.custom((value) => {
-			const parts = value.split("|");
-
-			if (parts.length !== 2) {
-				throw new Error("post_id_created_at must have an id before the | and a valid date after"); 
-			};
-
-			const firstPart = parseInt(parts[0]);
-			const secondPart = parseInt(parts[1]);
-
-			if (isNaN(firstPart)) {
-				throw new Error("post_id_created_at must contain valid integer before the |");
-			};
-
-			if (isNaN(Date.parse(secondPart))) {
-				throw new Error("post_id_created_at must contain a valid date after the |");
-			};
-
-			return true;
-		})
-		.trim()
-		.customSanitizer(value => sanitisedInput(value))
-	,
-	check("comment_id_user_id")
-		.optional()
-		.isLength({ min: 3, max: 50 }).withMessage("comment_id_user_id must be between 3 and 50 characters long")
-		.custom((value) => {
-			const parts = value.split("|");
-
-			if (parts.length !== 2) {
-				throw new Error("comment_id_user_id must have two ids after and before the |"); 
-			}
-
-			const secondPart = parseInt(parts[1]);
-
-			if (isNaN(secondPart)) {
-				throw new Error("comment_id_user_id must contain valid integer after the |");
-			}
-			
-			return true;
-		})
-		.customSanitizer(value => sanitisedInput(value))
+	)
 	,
 	check("email")
 		.optional()
@@ -109,6 +48,7 @@ const inputValidator = [
 		.normalizeEmail()
 		.isLength({ min: 5, max: 30 }).withMessage('Email must be between 5 and 30 characters')
 		.customSanitizer(value => sanitisedInput(value))
+		.trim()
 	,
 	check("password")
 		.optional()
@@ -116,6 +56,7 @@ const inputValidator = [
 		.matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,1024}$/)
 		.withMessage('Password must have at least one uppercase letter, one lowercase letter, one number, and one special character')
 		.customSanitizer(value => sanitisedInput(value))
+		.trim()
 		,
 	check("phonenumber")
 		.optional()
@@ -127,6 +68,7 @@ const inputValidator = [
 		.isLength({ min: 2, max: 30 }).withMessage('Username must be between 2 and 30 characters long')
 		.isAlphanumeric().withMessage('Username must only contain letters and numbers')
 		.customSanitizer(value => sanitisedInput(value))
+		.trim()
 	,
 	check("gender")
 		.optional()
@@ -136,11 +78,13 @@ const inputValidator = [
 		.optional()
 		.isLength({ min:0, max:150 }).withMessage("user_bio needs to be between 0 and 150 characters long")
 		.customSanitizer(value => sanitisedInput(value))
+		.trim()
 	,
 	check("description")
 		.optional()
 		.isLength({ min:0, max:150 }).withMessage("description needs to be between 0 and 150 characters long")
 		.customSanitizer(value => sanitisedInput(value))
+		.trim()
 	,
 	...dateVariables.map(date => 
 		check(date)
@@ -158,10 +102,31 @@ const inputValidator = [
 			})
 	)
 	,
+	check(["video_url", "thumbnail_url"])
+		.optional()
+		.custom((value) => {
+			if (value.slice(0,37) !== process.env.CLOUDFRONT_URL){
+				throw new Error(`${value} is not calling the appropriate cloudfront url`)
+			}
+			if (value.length < 37){
+				throw new Error(`${value} must be at the very least 37 letters long`)
+			}
+		})
+		.isURL().withMessage((value) => `Invalid URL format for ${value}`)
+		.trim()
+	,
+
+	check("video_name", "thumbnail_name")
+		.optional()
+		.isLength({ min: 5 }).withMessage((value) => `${value} must be atleast 5 characters long`)
+		.customSanitizer(value => sanitisedInput(value))
+		.trim()
+	,
 
 	(req, res, next) => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
+			console.log("RAN HERE")
 		  return res.status(400).json({ errors: errors.array() });
 		};
 		next();
