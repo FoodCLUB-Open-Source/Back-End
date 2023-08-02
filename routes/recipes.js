@@ -3,6 +3,7 @@ const router = express.Router()
 
 const { pgQuery } = require('../functions/general_functions')
 const rateLimiter = require("../middleware/rate_limiter")
+const inputValidator = require("../middleware/input_validator")
 const Redis = require("../redisConfig")
 
 
@@ -26,7 +27,7 @@ router.get("/testing", rateLimiter(4, 15), async (req, res) => {
  * @returns {JSON} The recipe as a JSON object.
  */
 
-router.get("/:id", rateLimiter(), async (req, res, next) => {
+router.get("/:id", inputValidator, rateLimiter(), async (req, res, next) => {
 	try {
 
 		const recipeId = parseInt(req.params.id);
