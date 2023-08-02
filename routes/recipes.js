@@ -36,20 +36,19 @@ router.get("/:id", rateLimiter(), async (req, res, next) => {
 
 		if (!redisRecipe){
 			try{
-				const specificRecepie = await pgQuery(` 
+				const specificRecipe = await pgQuery(` 
 					SELECT 
-					recipes.id, recipes.post_id, recipes.recipe_description, recipes.recipe_equipment, recipes.recipe_steps,
-					recipes.preparation_time, recipes.recipe_servings, recipes.serving_size
+					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, recipe_servings, serving_size
 					FROM recipes 
 					WHERE id = $1`
 					, recipeId
 				);
 
-				if (specificRecepie.rows.length === 0) {
+				if (specificRecipe.rows.length === 0) {
 					return res.status(404).json({ error: 'Recipe not found' });
 				}
 
-				redisRecipe = specificRecepie.rows[0];
+				redisRecipe = specificRecipe.rows[0];
 				await Redis.multi()
 					.json.set(REDIS_KEY, '.', redisRecipe)
 					.expire(REDIS_KEY, 60 * 60)
@@ -57,7 +56,7 @@ router.get("/:id", rateLimiter(), async (req, res, next) => {
 			} catch (err) {
 				console.error(`Error fetching recipe ${recipeId}:`, err);
 				return next(err);
-			}
+			};
 		};
 
 		res.status(200).json({"recipe": redisRecipe});
