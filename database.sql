@@ -18,7 +18,8 @@ CREATE TABLE users (
   gender VARCHAR(10),
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  date_of_birth DATE NOT NULL
+  date_of_birth DATE,
+  dietary_preferences VARCHAR[]
 );
 
 CREATE TABLE posts (
@@ -39,7 +40,7 @@ CREATE TABLE categories (
 
 CREATE TABLE posts_categories (
   post_id INTEGER REFERENCES posts(id),
-  category_name VARCHAR(255) UNIQUE REFERENCES categories(name),
+  category_name VARCHAR(255) REFERENCES categories(name),
   PRIMARY KEY (post_id, category_name)
 );
 
@@ -64,7 +65,6 @@ CREATE TABLE recipes (
   recipe_equipment VARCHAR[],
   recipe_steps VARCHAR[],
   preparation_time INTEGER,
-  recipe_servings INTEGER,
   serving_size INTEGER
 );
 
@@ -91,12 +91,12 @@ CREATE TABLE report (
 );
 
 /* INSERTING DATA */
-INSERT INTO users (username, email, password, phone_number, profile_picture, user_bio, gender, date_of_birth)
-VALUES ('user1', 'user1@example.com', 'password1', '1234567890', 'https://example.com/profile1.jpg', 'User 1 bio', 'male', '2001-01-01'),
-       ('user2', 'user2@example.com', 'password2', '2345678901', 'https://example.com/profile2.jpg', 'User 2 bio', 'male', '2001-01-01'),
-       ('user3', 'user3@example.com', 'password3', '3456789012', 'https://example.com/profile3.jpg', 'User 3 bio', 'male', '2001-01-01'),
-       ('user4', 'user4@example.com', 'password4', '4567890123', 'https://example.com/profile4.jpg', 'User 4 bio', 'male', '2001-01-01'),
-       ('user5', 'user5@example.com', 'password5', '5678901234', 'https://example.com/profile5.jpg', 'User 5 bio', 'male', '2001-01-01');
+INSERT INTO users (username, email, password, phone_number, profile_picture, user_bio, gender, date_of_birth, dietary_preferences)
+VALUES ('user21', 'user21@example.com', 'password21', '1234567890', 'https://example.com/profile21.jpg', 'User 21 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user22', 'user22@example.com', 'password22', '2345678901', 'https://example.com/profile22.jpg', 'User 22 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user23', 'user23@example.com', 'password23', '3456789012', 'https://example.com/profile23.jpg', 'User 23 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user24', 'user24@example.com', 'password24', '4567890123', 'https://example.com/profile24.jpg', 'User 24 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user25', 'user25@example.com', 'password25', '5678901234', 'https://example.com/profile25.jpg', 'User 25 bio', 'male', '2001-01-01', '{vegan, italian}');
 
 INSERT INTO posts (user_id, title, description, video_name, thumbnail_name)
 VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg'),
@@ -179,12 +179,12 @@ VALUES (6, '#food'),
        (6, '#yummy'),
        (6, '#foodclub');
        
-INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, recipe_servings)
-VALUES (1, 'Recipe 1', '{"ingredient 1", "ingredient 2", "ingredient 3"}', '{"equipment 1", "equipment 2"}', '{"step 1", "step 2", "step 3"}', 30, 4),
-       (2, 'Recipe 2', '{"ingredient 4", "ingredient 5", "ingredient 6"}', '{"equipment 3", "equipment 4"}', '{"step 1", "step 2", "step 3"}', 45, 6),
-       (3, 'Recipe 3', '{"ingredient 7", "ingredient 8", "ingredient 9"}', '{"equipment 5", "equipment 6"}', '{"step 1", "step 2", "step 3"}', 60, 8),
-       (4, 'Recipe 4', '{"ingredient 10", "ingredient 11", "ingredient 12"}', '{"equipment 7", "equipment 8"}', '{"step 1", "step 2", "step 3"}', 75, 10),
-       (5, 'Recipe 5', '{"ingredient 13", "ingredient 14", "ingredient 15"}', '{"equipment 9", "equipment 10"}', '{"step 1", "step 2", "step 3"}', 90, 12);
+INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size)
+VALUES (6, 'Recipe 1', '{"(ingredient 1, 100g)", "(ingredient 2, 200g)", "(ingredient 3, 300g)"}', '{"equipment 1", "equipment 2"}', '{"step 1", "step 2", "step 3"}', 30, 4),
+       (7, 'Recipe 2', '{"(ingredient 4, 100g)", "(ingredient 5, 200g)", "(ingredient 6, 300g)"}', '{"equipment 3", "equipment 4"}', '{"step 1", "step 2", "step 3"}', 45, 6),
+       (8, 'Recipe 3', '{"(ingredient 7, 100g)", "(ingredient 8, 200g)", "(ingredient 9, 300g)"}', '{"equipment 5", "equipment 6"}', '{"step 1", "step 2", "step 3"}', 60, 8),
+       (9, 'Recipe 4', '{"(ingredient 10, 100g)", "(ingredient 11, 200g)", "(ingredient 12, 300g)"}', '{"equipment 7", "equipment 8"}', '{"step 1", "step 2", "step 3"}', 75, 10),
+       (10, 'Recipe 5', '{"(ingredient 13, 100g)", "(ingredient 14, 200g)", "(ingredient 15, 300g)"}', '{"equipment 9", "equipment 10"}', '{"step 1", "step 2", "step 3"}', 90, 12);
 
 INSERT INTO blocked_users (user_id, blocked_user_id)
 VALUES (1, 2),
