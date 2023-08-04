@@ -1,33 +1,30 @@
-const express = require("express")
-const router = express.Router()
+import { Router } from "express";
 
-const { setComment, setReplies } = require("../dynamo_schemas/dynamo_schemas")
-const { getItemPartitionKey, putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
-const { } = require('../functions/validators/comments_validators')
+import rateLimiter from "../middleware/rate_limiter.js";
 
-const rateLimiter = require("../middleware/rate_limiter")
+import { setComment, setReplies } from "../dynamo_schemas/dynamo_schemas.js";
+import { getItemPartitionKey, putItem, updateItem, deleteItem } from "../functions/dynamoDB_functions.js";
+
+const router = Router();
 
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
 	try {
-	  
-	  res.json({ "Testing": "Working Comments" })
+	  res.json({ "Testing": "Working Comments" });
 	} catch (err) {
-	  console.error(err.message)
+	  console.error(err.message);
 	}
-})
-
+});
 
 /* Posting Comment For Specific Post */
 router.post("/posts/comments/:id", rateLimiter(),  async (req, res, next) => {
 	try {
+		const postId = parseInt(req.params.id);
+		const { user_id, comment } = req.body;
 
-		const postId = parseInt(req.params.id)
-		const { user_id, comment } = req.body
+		const commentSchema = setComment(user_id, postId, comment);
 
-		const commentSchema = setComment(user_id, postId, comment)
-
-		await putItem("Comments", commentSchema)
+		await putItem("Comments", commentSchema);
 
 		const params = {
 			TableName: 'Post_Stats',
@@ -41,38 +38,19 @@ router.post("/posts/comments/:id", rateLimiter(),  async (req, res, next) => {
 			ReturnValues: 'UPDATED_NEW'
 		};
 
-		await updateItem(params)
+		await updateItem(params);
 
-		console.log("Comment Posted")
-		res.json({ "Status": "Comment Posted" })
-		
+		console.log("Comment Posted");
+		res.json({ "Status": "Comment Posted" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+});
 
 /* Getting 30 most liked Comments For Specific Post */
 router.get("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 	try {
-		const postId = parseInt(req.params.id)
+		const postId = parseInt(req.params.id);
 		
 		const params = {
 			TableName: "Comments",
@@ -90,27 +68,24 @@ router.get("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 		
 		//return the user details aswell
 		//maybe make it so that the user that is requesting the comments. his comments are first.
-		const results = await getItemPartitionKey(params)
+		const results = await getItemPartitionKey(params);
 
-		console.log(results)
+		console.log(results);
 
-		console.log("Comments Fetched")
-		res.json({ "Testing": "Working Posts", "Results": results })
-  
+		console.log("Comments Fetched");
+		res.json({ "Testing": "Working Posts", "Results": results });
 	} catch (err) {
-	  next(err)
+	  next(err);
 	}
-})
+});
 
 
 /* Update Comment For Specific Post */ 
 router.put("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 	try {
-
-		const commentId = req.params.id
-		const { comment, post_id } = req.body
-
-
+		const commentId = req.params.id;
+		const { comment, post_id } = req.body;
+		
 		const params = {
 			TableName: "Comments",
 			Key: {
@@ -128,23 +103,21 @@ router.put("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 			ReturnValues: "UPDATED_NEW"
 		};
 
-		await updateItem(params)
+		await updateItem(params);
 
-		console.log("Comment Updated")
-		res.json({ Status: "Comment Updated" })
-		
+		console.log("Comment Updated");
+		res.json({ Status: "Comment Updated" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Delete Comment For Specific Post */
 router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 	try {
-
-		let commentId = req.params.id
-		let { post_id } = req.body
-		post_id = parseInt(post_id)
+		let commentId = req.params.id;
+		let { post_id } = req.body;
+		post_id = parseInt(post_id);
 
 		let params = {
 			TableName: "Comments",
@@ -152,9 +125,9 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 				post_id: post_id, 
 				comment_id: commentId
 			}
-		}
+		};
 		
-		await deleteItem(params)
+		await deleteItem(params);
 
 		params = {
 			TableName: 'Post_Stats',
@@ -168,22 +141,19 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 			ReturnValues: 'UPDATED_NEW'
 		};
 
-		await updateItem(params)
+		await updateItem(params);
 
-		console.log("Comment Deleted")
-		res.json({ Status: "Comment Deleted" })
-
+		console.log("Comment Deleted");
+		res.json({ Status: "Comment Deleted" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
-
+});
 
 /* get 20 Replies For Specific Comment */
 router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
 	try {
-
-		const commentId = req.params.id
+		const commentId = req.params.id;
 
 		const params = {
 			TableName: "Replies",
@@ -201,29 +171,25 @@ router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 		
 		//return the user details aswell
 		//maybe make it so that the user that is requesting the comments. his comments are first.
+		
+		const results = await getItemPartitionKey(params);
 
-
-		const results = await getItemPartitionKey(params)
-
-		console.log("Comments Fetched")
-		res.json({ "Testing": "Working Posts", "Results": results })
-
-
+		console.log("Comments Fetched");
+		res.json({ "Testing": "Working Posts", "Results": results });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Posting Reply For Specific Comment */
 router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
 	try {
+		let commentId = req.params.id;
+		const { user_id, post_id, reply } = req.body;
 
-		let commentId = req.params.id
-		const { user_id, post_id, reply } = req.body
+		const replySchema = setReplies(user_id, commentId, reply);
 
-		const replySchema = setReplies(user_id, commentId, reply)
-
-		await putItem("Replies", replySchema)
+		await putItem("Replies", replySchema);
 		
 		const params = {
 			TableName: 'Comments',
@@ -238,22 +204,20 @@ router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next
 			ReturnValues: 'UPDATED_NEW'
 		};
 
-		await updateItem(params)
+		await updateItem(params);
 
-		console.log("Reply Posted")
-		res.json({ "Status": "Reply Posted" })
-
+		console.log("Reply Posted");
+		res.json({ "Status": "Reply Posted" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* update Reply For Specific Comment */
 router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
 	try {
-
-		const replyId = req.params.id
-		const { reply, comment_id } = req.body
+		const replyId = req.params.id;
+		const { reply, comment_id } = req.body;
 
 		const params = {
 			TableName: "Replies",
@@ -272,34 +236,32 @@ router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 			ReturnValues: "UPDATED_NEW"
 		};
 
-		await updateItem(params)
+		await updateItem(params);
 
-		console.log("Reply Updated")
-		res.json({ Status: "Reply Updated" })
-
-
+		console.log("Reply Updated");
+		res.json({ Status: "Reply Updated" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Delete Reply For Specific Comment */
 router.delete("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
 	try {
+		let replyId = req.params.id;
+		const { comment_id, post_id } = req.body;
 
-		let replyId = req.params.id
-		const { comment_id, post_id } = req.body
-
-		console.log(comment_id, post_id, replyId)
+		console.log(comment_id, post_id, replyId);
+		
 		let params = {
 			TableName: "Replies",
 			Key: {
 				comment_id: comment_id, 
 				reply_id: replyId
 			}
-		}
+		};
 		
-		await deleteItem(params)
+		await deleteItem(params);
 
 		params = {
 			TableName: 'Comments',
@@ -314,14 +276,13 @@ router.delete("/posts/comments/replies/:id", rateLimiter(),  async (req, res, ne
 			ReturnValues: 'UPDATED_NEW'
 		};
 
-		await updateItem(params)
+		await updateItem(params);
 
-		console.log("Reply Deleted")
-		res.json({ Status: "Reply Deleted" })
-
+		console.log("Reply Deleted");
+		res.json({ Status: "Reply Deleted" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
-  module.exports = router;
+export default router;

@@ -1,15 +1,19 @@
 {
-  "name": "foodclub",
+  "name": "foodclub-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.js",
+  "description": "The FoodCLUB Backend API",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "devStart": "doppler run -- nodemon server.js",
     "start": "doppler run -- node server.js"
   },
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FoodCLUBDevelopment/Backend.git"
+  },
+  "author": "FoodCLUBDevelopment",
   "license": "ISC",
+  "homepage": "https://github.com/FoodCLUBDevelopment/Backend#readme",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.328.0",
     "@aws-sdk/client-s3": "^3.319.0",

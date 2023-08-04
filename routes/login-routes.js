@@ -1,7 +1,7 @@
 /* For login system routes */
+import { Router } from "express";
 
-const express = require("express");
-const router = express.Router();
+const router = Router();
 
 /* Testing Login Route */
 router.get("/testing", async (req, res) => {
@@ -12,5 +12,4 @@ router.get("/testing", async (req, res) => {
   }
 });
 
-
-module.exports = router;
+export default router;

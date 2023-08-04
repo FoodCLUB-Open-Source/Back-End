@@ -1,13 +1,11 @@
 /* Socket Configuration */
+import { Server } from "socket.io";
 
-const socketIO = require("socket.io");
-const chatSockets = require("./socket/chat");
-
-let io;
+import chatSockets from "./socket/chat.js";
 
 /* Initialises a socket server */
-function init(server) {
-  io = socketIO(server, {
+const initSocket = (server) => {
+  const io = new Server(server, {
     cors: {
       origin: "*", // Replace this with your client's origin or an array of allowed origins
       methods: ["GET", "POST"],
@@ -28,5 +26,4 @@ function init(server) {
   });
 }
 
-
-module.exports = { init };
+export default initSocket;
