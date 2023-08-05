@@ -10,14 +10,7 @@ const crypto = require('crypto')
 const bcrypt = require('bcrypt')
 const appFunctions = require('../functions/general_functions')
 const rateLimiter = require('../middleware/rate_limiter')
-
-const poolData = {
-  UserPoolId: process.env.USER_POOL_ID,
-  ClientId: process.env.CLIENTID
-};
-
-
-const userPool = new AmazonCognitoId.CognitoUserPool(poolData);
+const { userPool } = require('../cognito')
 
 /* Testing Login Route */
 router.get("/testing", async (req, res) => {
