@@ -12,21 +12,17 @@ const appFunctions = require('../functions/general_functions')
 const rateLimiter = require('../middleware/rate_limiter')
 
 const poolData = {
-  UserPoolId: "eu-west-2_KdYKyXzvR",
-  ClientId: "3oga7396va7mjl4qsemqk0at7u"
+  UserPoolId: process.env.USER_POOL_ID,
+  ClientId: process.env.CLIENT_ID
 };
 
-const pool_region = "eu-west-2";
-
 const userPool = new AmazonCognitoId.CognitoUserPool(poolData);
-
-router.use(bodyParser.urlencoded({ extended: false }))
 
 /* Sign out of application*/
 
 router.post('/signout', rateLimiter(10,1), (req, res) => {
 
-  var cognitoUser = userPool.getCurrentUser()
+  const cognitoUser = userPool.getCurrentUser()
 
   if (cognitoUser != null) {
     cognitoUser.signOut();
