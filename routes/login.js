@@ -137,4 +137,24 @@ router.post('/signout', rateLimiter(10,1), (req, res) => {
   };
 })
 
+/* Change password */
+
+router.post('/changepassword', rateLimiter(10, 1), async (req, res) => {
+
+  const cognitoUser = userPool.getCurrentUser()  
+
+  cognitoUser.getSession((err, session) => {
+    if (err) {
+      return res.status(400).json(err.message)
+    }
+  });
+
+  cognitoUser.changePassword(req.body.oldPassword, req.body.newPassword, (err, result) => {
+    if (err) {
+      return res.status(400).json(err.message);
+    }
+    return res.status(201).json({ message: 'password changed successfully' });
+  });
+})
+
 module.exports = router
