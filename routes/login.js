@@ -12,15 +12,12 @@ const appFunctions = require('../functions/general_functions')
 const rateLimiter = require('../middleware/rate_limiter')
 
 const poolData = {
-  UserPoolId: "eu-west-2_KdYKyXzvR",
-  ClientId: "3oga7396va7mjl4qsemqk0at7u"
+  UserPoolId: process.env.USER_POOL_ID,
+  ClientId: process.env.CLIENTID
 };
 
-const pool_region = "eu-west-2";
 
 const userPool = new AmazonCognitoId.CognitoUserPool(poolData);
-
-router.use(bodyParser.urlencoded({ extended: false }))
 
 /* Testing Login Route */
 router.get("/testing", async (req, res) => {
@@ -35,31 +32,32 @@ router.get("/testing", async (req, res) => {
 /* Sign in */
 
 router.post('/signin', (req, res) => {
-  var username = req.body.username;
+  const username = req.body.username;
   
-  var authenticationDetails = new AmazonCognitoId.AuthenticationDetails({
+  const authenticationDetails = new AmazonCognitoId.AuthenticationDetails({
     Username: username,
     Password: req.body.password
   });
 
-  var userData = {
+  const userData = {
     Username: username,
     Pool: userPool
   };
 
-  var cognitoUser = new AmazonCognitoId.CognitoUser(userData);
+  const cognitoUser = new AmazonCognitoId.CognitoUser(userData);
   
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: (result) =>{
-      var idToken = result.getIdToken().getJwtToken();
-      var accessToken = result.getAccessToken().getJwtToken();
-      var refreshToken = result.getRefreshToken().getToken();
-      res.status(200).json({ message: 'user authenticated successfully' });
+      const idToken = result.getIdToken().getJwtToken();
+      const accessToken = result.getAccessToken().getJwtToken();
+      const refreshToken = result.getRefreshToken().getToken();
+      user = pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
+      res.status(200).json(user);
       AWS.config.region = pool_region;
     },
     onFailure: (err) => {
       res.status(400).json({
-        header: 'incorrect sign-in details',
+        header: 'sign in error',
         message: err.message});
     }
   });  
