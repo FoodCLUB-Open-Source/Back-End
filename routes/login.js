@@ -56,6 +56,38 @@ router.post('/signup', rateLimiter(10, 1), async (req, res) => {
   });  
 })
 
+/* Confirm verification code */
+router.post('/confirmverification', rateLimiter(10, 1), (req, res) => {
+  const userData = {
+    Username: req.body.username,
+    Pool: userPool,
+  };
+
+  const cognitoUser = new AmazonCognitoId.CognitoUser(userData);
+
+  cognitoUser.confirmRegistration(req.body.verificationCode, true, (err, result) => {
+    if (err) {
+      return res.status(400).json(err.message)
+    }
+    return res.status(201).json({message: 'user verified'})
+  });
+})
+
+/* Resend Verification Code */
+router.post('/resendverificationcode', rateLimiter(10, 1), (req, res) => {
+  const userData = {
+    Username: req.body.username,
+    Pool: userPool,
+  };
+
+  const cognitoUser = new AmazonCognitoId.CognitoUser(userData);
+
+  cognitoUser.resendConfirmationCode((err, result) => {
+    if (err) {
+      return res.status(400).json(err.message)
+    }
+    res.status(200).json({ message: 'new code sent successfully' })
+  });
 
 
 module.exports = router;
