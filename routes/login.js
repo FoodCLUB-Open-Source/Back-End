@@ -12,7 +12,7 @@ const crypto = require('crypto')
 const bcrypt = require('bcrypt')
 const appFunctions = require('../functions/general_functions')
 const rateLimiter = require('../middleware/rate_limiter')
-const userPool = require('../cognito')
+const { userPool } = require('../cognito')
 
 /* Testing Login Route */
 router.get("/testing", async (req, res) => {
