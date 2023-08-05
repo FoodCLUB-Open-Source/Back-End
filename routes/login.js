@@ -122,4 +122,19 @@ router.post('/signin', rateLimiter(10,1), (req, res) => {
   });  
 });
 
+
+/* Sign out of application*/
+
+router.post('/signout', rateLimiter(10,1), (req, res) => {
+
+  const cognitoUser = userPool.getCurrentUser()
+
+  if (cognitoUser != null) {
+    cognitoUser.signOut();
+    res.status(200).json({message: 'user successfully logged out'});
+  } else {
+    res.status(500).json({message: 'cannot log user out'});
+  };
+})
+
 module.exports = router
