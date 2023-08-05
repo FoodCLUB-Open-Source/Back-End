@@ -86,10 +86,11 @@ router.post('/resendverificationcode', rateLimiter(10, 1), (req, res) => {
     }
     res.status(200).json({ message: 'new code sent successfully' })
   });
+})
 
  /* Sign in */
 
-router.post('/signin', (req, res) => {
+router.post('/signin', rateLimiter(10,1), (req, res) => {
   const username = req.body.username;
   
   const authenticationDetails = new AmazonCognitoId.AuthenticationDetails({
