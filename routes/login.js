@@ -1,12 +1,10 @@
-/* For login system routes */
-
 const express = require("express");
 const router = express.Router();
 const bodyParser = require('body-parser');
 const http = require("http");
 const { pgQuery } = require("../functions/general_functions");
 const AmazonCognitoId = require("amazon-cognito-identity-js");
-const AWS = require('aws-sdk');
+const AWS = require('aws-sdk/global');
 
 const crypto = require('crypto')
 const bcrypt = require('bcrypt')
@@ -88,6 +86,40 @@ router.post('/resendverificationcode', rateLimiter(10, 1), (req, res) => {
     }
     res.status(200).json({ message: 'new code sent successfully' })
   });
+})
 
+ /* Sign in */
 
-module.exports = router;
+router.post('/signin', rateLimiter(10,1), (req, res) => {
+  const username = req.body.username;
+  
+  const authenticationDetails = new AmazonCognitoId.AuthenticationDetails({
+    Username: username,
+    Password: req.body.password
+  });
+
+  const userData = {
+    Username: username,
+    Pool: userPool
+  };
+
+  const cognitoUser = new AmazonCognitoId.CognitoUser(userData);
+  
+  cognitoUser.authenticateUser(authenticationDetails, {
+    onSuccess: (result) =>{
+      const idToken = result.getIdToken().getJwtToken();
+      const accessToken = result.getAccessToken().getJwtToken();
+      const refreshToken = result.getRefreshToken().getToken();
+      user = pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
+      res.status(200).json(user);
+      AWS.config.region = pool_region;
+    },
+    onFailure: (err) => {
+      res.status(400).json({
+        header: 'sign in error',
+        message: err.message});
+    }
+  });  
+});
+
+module.exports = router
