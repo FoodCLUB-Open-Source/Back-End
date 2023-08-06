@@ -10,6 +10,31 @@ Navigate to a new folder for the Backend repo and run
 git clone https://github.com/FoodCLUBDevelopment/Backend.git
 ```
 
+## Dependencies
+
+In order to install FoodCLUB dependencies, you will need to generate a personal access token on GitHub and save it as an environment variable on your machine.
+
+To generate a token, follow [this guide](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic). You will need to ensure that your token has the scope `read:packages`.
+
+![GitHub PAT Select Scopes](./assets/github-pat-select-scopes.png)
+
+### Saving Your Token As An Environment Variable
+
+### macOS
+To determine your shell type, run the command `echo $SHELL` in your terminal.
+
+Add the line `export FOODCLUB_PACKAGES_TOKEN=your_token` to either the file `~/.zshrc` if your shell type is `zsh` or `~/.bashrc` if your shell type is `bash`.
+
+To save the changes, run `source ~/.zshrc` or `source ~/.bashrc`.
+
+Test your changes using `echo $FOODCLUB_PACKAGES_TOKEN`.
+
+### Windows
+
+Run the command `set FOODCLUB_PACKAGES_TOKEN=your_token` in the command line.
+
+Test your changes using `echo %FOODCLUB_PACKAGES_TOKEN%`.
+
 ## Installing Doppler
 
 > You will need to request access to the [Doppler team](https://dashboard.doppler.com/workplace/8de8a8f6e6b4e48d28bb/projects) before proceeding.
