@@ -31,9 +31,9 @@ Test your changes using `echo $FOODCLUB_PACKAGES_TOKEN`.
 
 ### Windows
 
-Run the command `set FOODCLUB_PACKAGES_TOKEN=your_token` in the command line.
+Run the command `setx FOODCLUB_PACKAGES_TOKEN "your_token"` in the command line.
 
-Test your changes using `echo %FOODCLUB_PACKAGES_TOKEN%`.
+Test your changes by closing the current command line, opening a new one and running `echo %FOODCLUB_PACKAGES_TOKEN%`.
 
 ## Installing Doppler
 
