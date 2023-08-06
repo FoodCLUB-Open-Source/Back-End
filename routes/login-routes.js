@@ -5,7 +5,7 @@ import { Router } from "express";
 
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { cognitoUserPool } from "../cognito.js";
+import cognitoUserPool from "../cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 
 const router = Router();

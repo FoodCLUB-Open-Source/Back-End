@@ -6,4 +6,6 @@ export const poolData = {
   ClientId: process.env.CLIENT_ID
 };
 
-export const cognitoUserPool = new CognitoUserPool(poolData);
+const cognitoUserPool = new CognitoUserPool(poolData);
+
+export default cognitoUserPool;
