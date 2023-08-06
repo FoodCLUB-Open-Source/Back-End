@@ -1,7 +1,6 @@
 /* Establishing connection to the dynamoDB */
-
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocument } = require('@aws-sdk/lib-dynamodb');
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({
   region: process.env.DYNAMODB_REGION,
@@ -13,4 +12,4 @@ const client = new DynamoDBClient({
 
 const dynamoDB = DynamoDBDocument.from(client);
 
-module.exports = dynamoDB;
+export default dynamoDB;

@@ -1,13 +1,15 @@
 /* Backend Config */
-const http = require("http");
-const app = require("./app");
-const socket = require("./socketconfig");
+import { createServer } from "http";
+
+import app from "./app.js";
+
+import initSocket from "./socketconfig.js";
 
 /* Server Config */
-const server = http.createServer(app);
+const server = createServer(app);
 
 /* Socket Config */
-socket.init(server);
+initSocket(server);
 
 /* Server Start */
 const PORT = process.env.PORT || 3000;

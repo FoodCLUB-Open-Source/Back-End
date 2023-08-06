@@ -1,37 +1,36 @@
-const express = require("express")
-const router = express.Router()
+import { Router } from "express";
+import { validationResult } from "express-validator";
 
-const { putItem, updateItem, deleteItem } = require('../functions/dynamoDB_functions');
-const { setLikes, setViews, setCommentsLike } = require("../dynamo_schemas/dynamo_schemas")
-const rateLimiter = require("../middleware/rate_limiter")
+import rateLimiter from "../middleware/rate_limiter.js";
 
-const { validatePostView, validatePostLike, validateDeleteLike, validatePostComment, validateDeleteComment } = require('../functions/validators/like_view_validator')
-const { validationResult } = require('express-validator')
+import { deleteItem, putItem, updateItem } from "../functions/dynamoDB_functions.js";
+import { setCommentsLike, setLikes, setViews } from "../dynamo_schemas/dynamo_schemas.js";
+import { validateDeleteComment, validateDeleteLike, validatePostComment, validatePostLike, validatePostView } from "../functions/validators/like_view_validator.js";
+
+const router = Router();
 
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
 	try {
-		
-		res.json({ "Testing": "Working Posts" })
+		res.json({ "Testing": "Working Posts" });
 	} catch (err) {
-		console.error(err.message)
+		console.error(err.message);
 	}
-})
+});
 
 /* Posting For Viewing Specific Video */
 router.post("/posts/view/:id", rateLimiter(), validatePostView(), async (req, res, next) => {
 	try {
-
-		const errors = validationResult(req)
+		const errors = validationResult(req);
   
 		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() })
+			return res.status(400).json({ errors: errors.array() });
 		}
 
-		const postId = parseInt(req.params.id)
-		const { user_id } = req.body
+		const postId = parseInt(req.params.id);
+		const { user_id } = req.body;
 
-		const viewSchema = setViews(parseInt(user_id), postId)
+		const viewSchema = setViews(parseInt(user_id), postId);
 		
 		const params = {
 			TableName: 'Post_Stats',
@@ -48,29 +47,28 @@ router.post("/posts/view/:id", rateLimiter(), validatePostView(), async (req, re
 		await Promise.all([
 			putItem("Views", viewSchema),
 			updateItem(params)
-		])
+		]);
 		
-		console.log("Post Viewed")
-		res.json({ Status: "Post Viewed" })
+		console.log("Post Viewed");
+		res.json({ Status: "Post Viewed" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Posting For Liking Specific Video */
 router.post("/posts/like/:id", rateLimiter(), validatePostLike(), async (req, res, next) => {
 	try {
-
-		const errors = validationResult(req)
+		const errors = validationResult(req);
   
 		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() })
+			return res.status(400).json({ errors: errors.array() });
 		}
 
-		const postId = parseInt(req.params.id)
-		const { user_id } = req.body
+		const postId = parseInt(req.params.id);
+		const { user_id } = req.body;
 
-		const likeSchema = setLikes(parseInt(user_id), postId)
+		const likeSchema = setLikes(parseInt(user_id), postId);
 		
 		const params = {
 			TableName: 'Post_Stats',
@@ -87,29 +85,26 @@ router.post("/posts/like/:id", rateLimiter(), validatePostLike(), async (req, re
 		await Promise.all([
 			putItem("Likes", likeSchema),
 			updateItem(params)
-		])
+		]);
 		
-		console.log("Post Liked")
-		res.json({ Status: "Post Likes" })
-
+		console.log("Post Liked");
+		res.json({ Status: "Post Likes" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Deleting Like On Specific Video */
 router.delete("/posts/like/:id", rateLimiter(), validateDeleteLike(), async (req, res, next) => {
 	try {
-
-		const errors = validationResult(req)
+		const errors = validationResult(req);
   
 		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() })
+			return res.status(400).json({ errors: errors.array() });
 		}
 
-		const postId = parseInt(req.params.id)
-		const { user_id } = req.body
-
+		const postId = parseInt(req.params.id);
+		const { user_id } = req.body;
 		
 		const deleteParams = {
 			TableName: 'Post_Stats',
@@ -129,36 +124,35 @@ router.delete("/posts/like/:id", rateLimiter(), validateDeleteLike(), async (req
 				post_id: postId,
 				user_id: parseInt(user_id)
 			}
-		}
+		};
+		
 		await Promise.all([
 			updateItem(deleteParams),
 			deleteItem(updateParams)
-		])
+		]);
 
-		console.log("Post Unliked")
-		res.json({ Status: "Post Unliked" })
-
+		console.log("Post Unliked");
+		res.json({ Status: "Post Unliked" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Posting a like for a specific comment */
 router.post("/posts/comment/like/:id", rateLimiter(), validatePostComment(), async (req, res, next) => {
 	try {
-
-		const errors = validationResult(req)
+		const errors = validationResult(req);
   
 		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() })
+			return res.status(400).json({ errors: errors.array() });
 		}
 
-		const commentId = req.params.id
-		const { user_id, post_id } = req.body
+		const commentId = req.params.id;
+		const { user_id, post_id } = req.body;
 
-		const commentLikeSchema = setCommentsLike(parseInt(user_id), commentId)
+		const commentLikeSchema = setCommentsLike(parseInt(user_id), commentId);
 	
-		params = {
+		const params = {
 			TableName: 'Comments',
 			Key: {
 				'post_id': parseInt(post_id),
@@ -174,21 +168,19 @@ router.post("/posts/comment/like/:id", rateLimiter(), validatePostComment(), asy
 		await Promise.all([
 			putItem("Comment_Likes", commentLikeSchema),
 			updateItem(params)
-		])
+		]);
 
-		res.json({ "Status": "Comment Liked" })
-
+		res.json({ "Status": "Comment Liked" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
 /* Deleting Like On Specific Comment */
 router.delete("/posts/comment/like/:id", rateLimiter(), validateDeleteComment(), async (req, res, next) => {
 	try {
-
-		const commentId = req.params.id
-		const { comment_like_id, post_id } = req.body
+		const commentId = req.params.id;
+		const { comment_like_id, post_id } = req.body;
 
 		const deleteParams = {
 			TableName: "Comment_Likes",
@@ -196,7 +188,7 @@ router.delete("/posts/comment/like/:id", rateLimiter(), validateDeleteComment(),
 				comment_id: commentId,
 				comment_like_id: comment_like_id
 			}
-		}
+		};
 		
 		const updateParams = {
 			TableName: 'Comments',
@@ -214,14 +206,13 @@ router.delete("/posts/comment/like/:id", rateLimiter(), validateDeleteComment(),
 		await Promise.all([
 			deleteItem(deleteParams),
 			updateItem(updateParams)
-		])
+		]);
 
-		console.log("Comment Unliked")
-		res.json({ Status: "Comment Unliked" })
-
+		console.log("Comment Unliked");
+		res.json({ Status: "Comment Unliked" });
 	} catch (err) {
-		next(err)
+		next(err);
 	}
-})
+});
 
-module.exports = router;
+export default router;

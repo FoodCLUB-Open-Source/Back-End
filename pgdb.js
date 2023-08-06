@@ -1,8 +1,7 @@
 /* Establish connection with postgreSQL database */
+import pg from "pg";
 
-const { Pool } = require('pg');
-
-const pool = new Pool({
+const pgPool = new pg.Pool({
   user: process.env.DB_PG_USER,
   host: process.env.DB_PG_HOST,
   database: process.env.DB_PG_NAME,
@@ -13,4 +12,4 @@ const pool = new Pool({
   },
 });
 
-module.exports = pool;
+export default pgPool;
