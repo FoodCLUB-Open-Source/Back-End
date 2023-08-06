@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { validationResult } from "express-validator";
 
+import getDynamoRequestBuilder from "../dynamoDB.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { deleteItem, putItem, updateItem } from "../functions/dynamoDB_functions.js";
 import { setCommentsLike, setLikes, setViews } from "../dynamo_schemas/dynamo_schemas.js";
 import { validateDeleteComment, validateDeleteLike, validatePostComment, validatePostLike, validatePostView } from "../functions/validators/like_view_validator.js";
 
@@ -32,21 +32,15 @@ router.post("/posts/view/:id", rateLimiter(), validatePostView(), async (req, re
 
 		const viewSchema = setViews(parseInt(user_id), postId);
 		
-		const params = {
-			TableName: 'Post_Stats',
-			Key: {
-			  'post_id': postId,
-			},
-			UpdateExpression: 'set view_count = view_count + :val',
-			ExpressionAttributeValues: {
-				':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
+		const putViewsRequest = getDynamoRequestBuilder("Views").put(viewSchema);
+		
+		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
+			.update("post_id", postId)
+			.updateAttribute("view_count").increment();
 		
 		await Promise.all([
-			putItem("Views", viewSchema),
-			updateItem(params)
+			putViewsRequest.exec(),
+			updatePostStatsRequest.exec()
 		]);
 		
 		console.log("Post Viewed");
@@ -70,21 +64,15 @@ router.post("/posts/like/:id", rateLimiter(), validatePostLike(), async (req, re
 
 		const likeSchema = setLikes(parseInt(user_id), postId);
 		
-		const params = {
-			TableName: 'Post_Stats',
-			Key: {
-				'post_id': postId,
-			},
-			UpdateExpression: 'set like_count = like_count + :val',
-			ExpressionAttributeValues: {
-				':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
+		const putLikesRequest = getDynamoRequestBuilder("Likes").put(likeSchema);
+		
+		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
+			.update("post_id", postId)
+			.updateAttribute("like_count").increment();
 		
 		await Promise.all([
-			putItem("Likes", likeSchema),
-			updateItem(params)
+			putLikesRequest.exec(),
+			updatePostStatsRequest.exec()
 		]);
 		
 		console.log("Post Liked");
@@ -106,29 +94,17 @@ router.delete("/posts/like/:id", rateLimiter(), validateDeleteLike(), async (req
 		const postId = parseInt(req.params.id);
 		const { user_id } = req.body;
 		
-		const deleteParams = {
-			TableName: 'Post_Stats',
-			Key: {
-				'post_id': postId,
-			},
-			UpdateExpression: 'set like_count = like_count - :val',
-			ExpressionAttributeValues: {
-				':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
+		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
+			.update("post_id", postId)
+			.updateAttribute("like_count").decrement();
 		
-		const updateParams = {
-			TableName: "Likes",
-			Key: {
-				post_id: postId,
-				user_id: parseInt(user_id)
-			}
-		};
+		const deleteLikesRequest = getDynamoRequestBuilder("Likes")
+			.delete("post_id", postId)
+			.withSortKey("user_id", parseInt(user_id));
 		
 		await Promise.all([
-			updateItem(deleteParams),
-			deleteItem(updateParams)
+			updatePostStatsRequest.exec(),
+			deleteLikesRequest.exec()
 		]);
 
 		console.log("Post Unliked");
@@ -151,23 +127,17 @@ router.post("/posts/comment/like/:id", rateLimiter(), validatePostComment(), asy
 		const { user_id, post_id } = req.body;
 
 		const commentLikeSchema = setCommentsLike(parseInt(user_id), commentId);
-	
-		const params = {
-			TableName: 'Comments',
-			Key: {
-				'post_id': parseInt(post_id),
-				'comment_id': commentId
-			},
-			UpdateExpression: 'set comment_like_count = comment_like_count + :val',
-			ExpressionAttributeValues: {
-				':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
+		
+		const putCommentLikesRequest = getDynamoRequestBuilder("Comment_Likes").put(commentLikeSchema);
+		
+		const updateCommentsRequest = getDynamoRequestBuilder("Comments")
+			.update("post_id", parseInt(post_id))
+			.withSortKey("comment_id", commentId)
+			.updateAttribute("comment_like_count").increment();
 		
 		await Promise.all([
-			putItem("Comment_Likes", commentLikeSchema),
-			updateItem(params)
+			putCommentLikesRequest.exec(),
+			updateCommentsRequest.exec()
 		]);
 
 		res.json({ "Status": "Comment Liked" });
@@ -181,31 +151,19 @@ router.delete("/posts/comment/like/:id", rateLimiter(), validateDeleteComment(),
 	try {
 		const commentId = req.params.id;
 		const { comment_like_id, post_id } = req.body;
-
-		const deleteParams = {
-			TableName: "Comment_Likes",
-			Key: {
-				comment_id: commentId,
-				comment_like_id: comment_like_id
-			}
-		};
 		
-		const updateParams = {
-			TableName: 'Comments',
-			Key: {
-				'post_id': parseInt(post_id),
-				'comment_id': commentId
-			},
-			UpdateExpression: 'set comment_like_count = comment_like_count - :val',
-			ExpressionAttributeValues: {
-				':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
+		const deleteCommentLikesRequest = getDynamoRequestBuilder("Comment_Likes")
+			.delete("comment_like_id", comment_like_id)
+			.withSortKey("comment_id", commentId);
+		
+		const updateCommentsRequest = getDynamoRequestBuilder("Comments")
+			.update("comment_id", commentId)
+			.withSortKey("post_id", parseInt(post_id))
+			.updateAttribute("comment_like_count").decrement();
 		
 		await Promise.all([
-			deleteItem(deleteParams),
-			updateItem(updateParams)
+			deleteCommentLikesRequest.exec(),
+			updateCommentsRequest.exec()
 		]);
 
 		console.log("Comment Unliked");

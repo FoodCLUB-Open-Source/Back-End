@@ -1,9 +1,10 @@
 import { Router } from "express";
+import { update } from "@foodclubdevelopment/dynamo-request-builder/attributes";
 
+import getDynamoRequestBuilder from "../dynamoDB.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 import { setComment, setReplies } from "../dynamo_schemas/dynamo_schemas.js";
-import { getItemPartitionKey, putItem, updateItem, deleteItem } from "../functions/dynamoDB_functions.js";
 
 const router = Router();
 
@@ -23,22 +24,15 @@ router.post("/posts/comments/:id", rateLimiter(),  async (req, res, next) => {
 		const { user_id, comment } = req.body;
 
 		const commentSchema = setComment(user_id, postId, comment);
-
-		await putItem("Comments", commentSchema);
-
-		const params = {
-			TableName: 'Post_Stats',
-			Key: {
-			  'post_id': postId,
-			},
-			UpdateExpression: 'set comments_count = comments_count + :val',
-			ExpressionAttributeValues: {
-			  ':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
-
-		await updateItem(params);
+		
+		await getDynamoRequestBuilder("Comments")
+			.put(commentSchema)
+			.exec();
+		
+		await getDynamoRequestBuilder("Post_Stats")
+			.update("post_id", postId)
+			.updateAttribute("comments_count").increment()
+			.exec();
 
 		console.log("Comment Posted");
 		res.json({ "Status": "Comment Posted" });
@@ -51,24 +45,15 @@ router.post("/posts/comments/:id", rateLimiter(),  async (req, res, next) => {
 router.get("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 	try {
 		const postId = parseInt(req.params.id);
-		
-		const params = {
-			TableName: "Comments",
-			IndexName: "post_id_comment_like_count_index",
-			KeyConditionExpression: "#pid = :pid",
-			ExpressionAttributeNames: {
-				"#pid": "post_id",
-			},
-			ExpressionAttributeValues: {
-				":pid": postId,
-			},
-			ScanIndexForward: false, // to sort in descending order
-			Limit: 30
-		};
-		
+
 		//return the user details aswell
 		//maybe make it so that the user that is requesting the comments. his comments are first.
-		const results = await getItemPartitionKey(params);
+		const results = await getDynamoRequestBuilder("Comments")
+			.query("post_id", postId)
+			.useIndex("post_id_comment_like_count_index")
+			.scanIndexDescending()
+			.limit(30)
+			.exec();
 
 		console.log(results);
 
@@ -86,24 +71,11 @@ router.put("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 		const commentId = req.params.id;
 		const { comment, post_id } = req.body;
 		
-		const params = {
-			TableName: "Comments",
-			Key: {
-				"post_id": post_id,
-				"comment_id": commentId
-			},
-			UpdateExpression: "set #cmt = :c, updated_at = :u",
-			ExpressionAttributeNames: {
-				"#cmt": "comment"
-			},
-			ExpressionAttributeValues: {
-				":c": comment,
-				":u": new Date().toISOString()
-			},
-			ReturnValues: "UPDATED_NEW"
-		};
-
-		await updateItem(params);
+		await getDynamoRequestBuilder("Comments")
+			.update("post_id", post_id)
+			.withSortKey("comment_id", commentId)
+			.operations(update("comment").set(comment), update("updated_at").set(new Date().toISOString()))
+			.exec();
 
 		console.log("Comment Updated");
 		res.json({ Status: "Comment Updated" });
@@ -118,30 +90,16 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 		let commentId = req.params.id;
 		let { post_id } = req.body;
 		post_id = parseInt(post_id);
-
-		let params = {
-			TableName: "Comments",
-			Key: {
-				post_id: post_id, 
-				comment_id: commentId
-			}
-		};
 		
-		await deleteItem(params);
-
-		params = {
-			TableName: 'Post_Stats',
-			Key: {
-			  'post_id': post_id,
-			},
-			UpdateExpression: 'set comments_count = comments_count - :val',
-			ExpressionAttributeValues: {
-			  ':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
-
-		await updateItem(params);
+		await getDynamoRequestBuilder("Comments")
+			.delete("post_id", post_id)
+			.withSortKey("comment_id", commentId)
+			.exec();
+		
+		await getDynamoRequestBuilder("Post_Stats")
+			.update("post_id", post_id)
+			.updateAttribute("comments_count").decrement()
+			.exec();
 
 		console.log("Comment Deleted");
 		res.json({ Status: "Comment Deleted" });
@@ -155,24 +113,15 @@ router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 	try {
 		const commentId = req.params.id;
 
-		const params = {
-			TableName: "Replies",
-			IndexName: "comment_id-created_at-index",
-			KeyConditionExpression: "#cid = :cid",
-			ExpressionAttributeNames: {
-				"#cid": "comment_id",
-			},
-			ExpressionAttributeValues: {
-				":cid": commentId,
-			},
-			ScanIndexForward: false, // to sort in descending order
-			Limit: 20
-		};
-		
 		//return the user details aswell
 		//maybe make it so that the user that is requesting the comments. his comments are first.
-		
-		const results = await getItemPartitionKey(params);
+
+		const results = await getDynamoRequestBuilder("Replies")
+			.query("comment_id", commentId)
+			.useIndex("comment_id-created_at-index")
+			.scanIndexDescending()
+			.limit(20)
+			.exec();
 
 		console.log("Comments Fetched");
 		res.json({ "Testing": "Working Posts", "Results": results });
@@ -188,23 +137,16 @@ router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next
 		const { user_id, post_id, reply } = req.body;
 
 		const replySchema = setReplies(user_id, commentId, reply);
-
-		await putItem("Replies", replySchema);
 		
-		const params = {
-			TableName: 'Comments',
-			Key: {
-			  'post_id': post_id,
-			  'comment_id': commentId
-			},
-			UpdateExpression: 'set comment_reply_count = comment_reply_count + :val',
-			ExpressionAttributeValues: {
-			  ':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
-
-		await updateItem(params);
+		await getDynamoRequestBuilder("Replies")
+			.put(replySchema)
+			.exec();
+		
+		await getDynamoRequestBuilder("Comments")
+			.update("post_id", post_id)
+			.withSortKey("comment_id", commentId)
+			.updateAttribute("comment_reply_count").increment()
+			.exec();
 
 		console.log("Reply Posted");
 		res.json({ "Status": "Reply Posted" });
@@ -218,25 +160,12 @@ router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 	try {
 		const replyId = req.params.id;
 		const { reply, comment_id } = req.body;
-
-		const params = {
-			TableName: "Replies",
-			Key: {
-				"comment_id": comment_id,
-				"reply_id": replyId
-			},
-			UpdateExpression: "set #rply = :r, updated_at = :u",
-			ExpressionAttributeNames: {
-				"#rply": "reply"
-			},
-			ExpressionAttributeValues: {
-				":r": reply,
-				":u": new Date().toISOString()
-			},
-			ReturnValues: "UPDATED_NEW"
-		};
-
-		await updateItem(params);
+		
+		await getDynamoRequestBuilder("Replies")
+			.update("reply_id", replyId)
+			.withSortKey("comment_id", comment_id)
+			.operations(update("reply").set(reply), update("updated_at").set(new Date().toISOString()))
+			.exec();
 
 		console.log("Reply Updated");
 		res.json({ Status: "Reply Updated" });
@@ -253,30 +182,16 @@ router.delete("/posts/comments/replies/:id", rateLimiter(),  async (req, res, ne
 
 		console.log(comment_id, post_id, replyId);
 		
-		let params = {
-			TableName: "Replies",
-			Key: {
-				comment_id: comment_id, 
-				reply_id: replyId
-			}
-		};
+		await getDynamoRequestBuilder("Replies")
+			.delete("reply_id", replyId)
+			.withSortKey("comment_id", comment_id)
+			.exec();
 		
-		await deleteItem(params);
-
-		params = {
-			TableName: 'Comments',
-			Key: {
-			  'post_id': post_id,
-			  'comment_id': comment_id
-			},
-			UpdateExpression: 'set comment_reply_count = comment_reply_count - :val',
-			ExpressionAttributeValues: {
-			  ':val': 1
-			},
-			ReturnValues: 'UPDATED_NEW'
-		};
-
-		await updateItem(params);
+		await getDynamoRequestBuilder("Comments")
+			.update("post_id", post_id)
+			.withSortKey("comment_id", comment_id)
+			.updateAttribute("comment_reply_count").decrement()
+			.exec();
 
 		console.log("Reply Deleted");
 		res.json({ Status: "Reply Deleted" });

@@ -3,11 +3,11 @@ import multer, { memoryStorage } from "multer";
 import { Router } from "express";
 import { validationResult } from "express-validator";
 
+import getDynamoRequestBuilder from "../dynamoDB.js";
 import inputValidator from "../middleware/input_validator.js";
 import pgPool from "../pgdb.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { getItemPrimaryKey, getItemPartitionKey, putItem, deleteItem } from "../functions/dynamoDB_functions.js";
 import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { setPostStats } from "../dynamo_schemas/dynamo_schemas.js";
 import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
@@ -29,46 +29,20 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
 
 /* Functions for Posts */
 /* returns the total likes and views per post */
-const getPostStats = async (postId) => {
-  let params = {
-		TableName: "Post_Stats",
-		KeyConditionExpression: "post_id = :postId",
-		ExpressionAttributeValues: {
-		  ":postId": JSON.stringify(postId)
-		},
-	};
-
-  const stats = await getItemPartitionKey(params);
-
-  return stats[0];
-} 
+const getPostStats = async (postId) => getDynamoRequestBuilder("Post_Stats")
+  .query("post_id", JSON.stringify(postId))
+  .execSingle();
 
 /* returns the total likes and views per post */
-const removeLikesViews = async (postId) => {
-  let params = {
-		TableName: "Post_Stats",
-		Key: {
-      post_id: postId
-    }
-	};
-
-  await deleteItem(params);
-
-  return "Deleted Posts";
-} 
+const removeLikesViews = async (postId) => await getDynamoRequestBuilder("Post_Stats")
+  .delete("post_id", postId)
+  .exec();
 
 /* Checks if a user has liked a post or not, returns true or false */
-const checkLike = async (postId, userId) => {
-  const params ={
-    TableName: "Likes",
-    Key: {
-      post_id: postId,
-      user_id: userId
-    }
-  };
-
-  return await getItemPrimaryKey(params);
-}
+const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes")
+  .query("post_id", postId)
+  .whereSortKey("user_id").eq(userId)
+  .execSingle();
 
 /* Posting a post to the database */
 router.post("/posts/:user_id", inputValidator, rateLimiter(5, 15), upload.any(), async (req, res, next) => {
@@ -104,7 +78,10 @@ router.post("/posts/:user_id", inputValidator, rateLimiter(5, 15), upload.any(),
       await client.query(updatePostQuery, postUpdateValues);
 
       const postStatsSchema = setPostStats(post_id);
-      await putItem("Post_Stats", postStatsSchema);
+      
+      await getDynamoRequestBuilder("Post_Stats")
+        .put(postStatsSchema)
+        .exec();
 
       console.log("Video Posted" + post_id);
       await client.query('COMMIT');
