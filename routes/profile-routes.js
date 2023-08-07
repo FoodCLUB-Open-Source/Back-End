@@ -29,8 +29,4 @@ router.get("/profile/:userid/following", rateLimiter(), async (req, res) => {
     }
 });
 
-router.get("profile/test", async(req, res) => {
-    return res.status(200).json({data: true});
-})
-
 export default router;
