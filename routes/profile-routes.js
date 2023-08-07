@@ -8,14 +8,14 @@ const router = Router();
 /**
  * Retrieves users that are followed by the user
  * 
- * @route GET /profile/:userid/following
+ * @route GET /profile/:user_id/following
  * @param {string} req.params.userid - The ID of the user to retrieve users that are followed by the user
  * @param {string} req.query.pageNumber - The pageNumber for pagination
  * @param {string} req.query.pageSize - The pageSize for pagination
  * @returns {Object} - An object containing details of the users that are followed by the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/profile/:userid/following", rateLimiter(),inputValidator, async (req, res) => {
+router.get("/profile/:user_id/following", rateLimiter(),inputValidator, async (req, res) => {
     try {
         const userID = req.params.userid; // getting userID and converting to integer
         const { pageNumber, pageSize } = req.query; // getting page number and page size
