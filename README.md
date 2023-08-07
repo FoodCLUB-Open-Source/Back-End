@@ -37,6 +37,8 @@ Test your changes by closing the current command line, opening a new one and run
 
 ## Installing Doppler
 
+We use Doppler to centrally manage our backend secrets. When we start the backend server, the Doppler CLI retrieves the latest secrets and injects them into the process as environment variables.
+
 > You will need to request access to the [Doppler team](https://dashboard.doppler.com/workplace/8de8a8f6e6b4e48d28bb/projects) before proceeding.
 
 Install the [Doppler CLI](https://docs.doppler.com/docs/install-cli).
