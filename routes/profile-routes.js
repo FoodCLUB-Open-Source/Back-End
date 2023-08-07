@@ -1,6 +1,7 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import { pgQuery, s3Retrieve } from "../functions/general_functions.js";
+import inputValidator from "../middleware/input_validator.js";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const router = Router();
  * @returns {Object} - An object containing details of the users that are followed by the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/profile/:userid/following", rateLimiter(), async (req, res) => {
+router.get("/profile/:userid/following", rateLimiter(),inputValidator, async (req, res) => {
     try {
         const userID = req.params.userid; // getting userID and converting to integer
         const { pageNumber, pageSize } = req.query; // getting page number and page size
