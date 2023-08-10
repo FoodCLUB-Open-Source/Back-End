@@ -10,7 +10,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 
 import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { setPostStats } from "../dynamo_schemas/dynamo_schemas.js";
-import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
+import { validateGetCategoryPost, validateGetPosts, validateParamId,validateCategory } from "../functions/validators/posts_validators.js";
 
 const router = Router();
 const storage = memoryStorage();
@@ -308,6 +308,57 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
 
     res.json({"posts": processedPosts});
   } catch (err) {
+    next(err);
+  }
+});
+
+/* Get Specific Posts By Category */
+router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+
+    // Return validation errors if present
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    // Extract category ID from URL parameters
+    const categoryId = req.params.id;
+    
+    // Pagination settings
+    const pageSize = 15; // Number of posts per page
+    const currentPage = parseInt(req.query.page) || 1; // Current page number from query parameter
+    const offset = (currentPage - 1) * pageSize;
+
+    // SQL query to fetch specific category posts
+    const query = `
+      SELECT *
+      FROM posts p
+      INNER JOIN posts_categories pc ON p.id = pc.post_id
+      WHERE pc.category_name IN (SELECT name FROM categories WHERE id = $1)
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3;
+    `;
+
+    // Execute the query with parameters
+    const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
+
+    // Process the posts to add video and thumbnail URLs, view_count ,like_count
+    const processedPosts = await Promise.all(
+      specificCategoryPosts.rows.map(async (post) => {
+        const videoUrl = await s3Retrieve(post.video_name);
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
+
+        const { video_name, thumbnail_name, ...rest } = post;
+
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+      })
+    );
+
+    // Respond with an object containing the "posts" key and the 15 array of objects with post information
+    res.status(200).json({ "posts": processedPosts });
+  } catch (err) {
+    // Pass the error to the error handling middleware
     next(err);
   }
 });
