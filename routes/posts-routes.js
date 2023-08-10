@@ -11,6 +11,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { setPostStats } from "../dynamo_schemas/dynamo_schemas.js";
 import { validateGetCategoryPost, validateGetPosts, validateParamId,validateCategory } from "../functions/validators/posts_validators.js";
+import redis from "../redisConfig.js";
 
 const router = Router();
 const storage = memoryStorage();
@@ -312,25 +313,41 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
   }
 });
 
+
 /* Get Specific Posts By Category */
 router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, next) => {
   try {
     const errors = validationResult(req);
 
-    // Return validation errors if present
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    // Extract category ID from URL parameters
     const categoryId = req.params.id;
-    
-    // Pagination settings
-    const pageSize = 15; // Number of posts per page
-    const currentPage = parseInt(req.query.page) || 1; // Current page number from query parameter
+    const currentPage = parseInt(req.query.page) || 1;
+    const pageSize = 15;
     const offset = (currentPage - 1) * pageSize;
 
-    // SQL query to fetch specific category posts
+    // Key for Redis cache
+    const cacheKey = `category:${categoryId}:page:${currentPage}`;
+
+    // Check if data is already cached
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      
+      // Return cached data if available
+      // IMPORTANT: If you update a post, remember to delete this cache
+      // For example, if you update post with ID 2:
+      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
+      // await redis.del('category:' + categoryId + ':page:' + currentPage);
+      const cachedPosts = JSON.parse(cachedData);
+
+      //For testing cache proccess
+      console.log("cache data  is working ");
+      return res.status(200).json(cachedPosts);
+    }
+
     const query = `
       SELECT *
       FROM posts p
@@ -340,10 +357,8 @@ router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, 
       LIMIT $2 OFFSET $3;
     `;
 
-    // Execute the query with parameters
     const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
 
-    // Process the posts to add video and thumbnail URLs, view_count ,like_count
     const processedPosts = await Promise.all(
       specificCategoryPosts.rows.map(async (post) => {
         const videoUrl = await s3Retrieve(post.video_name);
@@ -355,10 +370,11 @@ router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, 
       })
     );
 
-    // Respond with an object containing the "posts" key and the 15 array of objects with post information
+    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
+    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+
     res.status(200).json({ "posts": processedPosts });
   } catch (err) {
-    // Pass the error to the error handling middleware
     next(err);
   }
 });
