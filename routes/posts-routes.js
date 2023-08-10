@@ -318,14 +318,20 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
 router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, next) => {
   try {
     const errors = validationResult(req);
-
+    
+    // Return validation errors if present
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Extract category ID from URL parameters
     const categoryId = req.params.id;
-    const currentPage = parseInt(req.query.page) || 1;
-    const pageSize = 15;
+
+    // Pagination settings
+    // Number of posts per page
+    const pageSize = 15; 
+    // Current page number from query parameter
+    const currentPage = parseInt(req.query.page) || 1; 
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
@@ -348,6 +354,7 @@ router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, 
       return res.status(200).json(cachedPosts);
     }
 
+    // SQL query to fetch specific category posts
     const query = `
       SELECT *
       FROM posts p
@@ -357,8 +364,10 @@ router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, 
       LIMIT $2 OFFSET $3;
     `;
 
+    // Execute the query with parameters
     const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
 
+    // Process the posts to add video and thumbnail URLs, view_count ,like_count
     const processedPosts = await Promise.all(
       specificCategoryPosts.rows.map(async (post) => {
         const videoUrl = await s3Retrieve(post.video_name);
@@ -373,6 +382,7 @@ router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
 
+    // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({ "posts": processedPosts });
   } catch (err) {
     next(err);
