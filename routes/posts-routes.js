@@ -242,25 +242,6 @@ router.get("/homepage/posts", rateLimiter(), validateGetPosts(), async (req, res
 });
 
 
-/* Posting For Sending Video To Friend */ //could maybe be moved to a chat file after its implemented.
-/* Getting Ingredient For Specific Post */
-router.get("/posts/recipe/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const recipeId = req.params.id;
-    const specificRecepie = await pgQuery(`SELECT * FROM recipes WHERE recipe_id = $1`, recipeId);
-
-    res.json({"recipe": specificRecepie.rows[0]});
-  } catch (err) {
-    next(err);
-  }
-});
-
 /* Posting For Sending Video To Friend */
 router.post("/posts/sendvideo", rateLimiter(),  async (req, res, next) => {
   try {
