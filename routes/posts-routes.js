@@ -1,6 +1,6 @@
 /* For video/image posting routes */
 import multer, { memoryStorage } from "multer";
-import { Router } from "express";
+import { response, Router } from "express";
 import { validationResult } from "express-validator";
 
 import getDynamoRequestBuilder from "../dynamoDB.js";
@@ -8,7 +8,7 @@ import inputValidator from "../middleware/input_validator.js";
 import pgPool from "../pgdb.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { setPostStats } from "../dynamo_schemas/dynamo_schemas.js";
 import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
 
@@ -311,5 +311,46 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
     next(err);
   }
 });
+
+
+/* Deletes a specific post */
+router.delete("/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+
+  const postId = req.params.id;
+
+  try {
+    // Fetch post details from the database
+    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, postId);
+
+    // Ensure the post is present in the database or not
+    if (post.rows.length === 0) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    const { video_name, thumbnail_name } = post.rows[0];
+
+    // Perform actions within a database transaction
+    const query= [`DELETE FROM posts WHERE id = $1`,]
+    const values=  [[postId],]
+    await makeTransactions(query, values);
+    
+    // Delete files from S3 and remove likes/views
+    await Promise.all([
+      s3Delete(video_name),
+      s3Delete(thumbnail_name),
+      removeLikesViews(parseInt(postId)),
+    ]);
+
+    res.json({ "Status": "Post Deleted" });
+  } catch (error) {
+    next(error);
+  }
+});
+
 
 export default router;
