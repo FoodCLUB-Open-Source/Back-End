@@ -1,10 +1,13 @@
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const requestLogging = require("./middleware/logging");
+import bodyParser from "body-parser";
+import cors from "cors";
+import express, { Router } from "express";
+
+import requestLogging from "./middleware/logging.js";
+
+import { commentsRouter, likesViewRouter, loginRouter, postsRouter } from "./routes/index.js";
 
 const app = express();
-const router = express.Router();
+const router = Router();
 
 const SOCKET_ADDRESS = process.env.SOCKET_ADDRESS;
 
@@ -32,4 +35,4 @@ const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
 
 
-module.exports = app;
+export default app;

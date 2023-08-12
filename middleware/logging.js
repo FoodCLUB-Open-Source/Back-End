@@ -12,4 +12,4 @@ const requestLogging = (req, res, next) => {
   next();
 }
 
-module.exports = requestLogging;
+export default requestLogging;

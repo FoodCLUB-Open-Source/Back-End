@@ -1,7 +1,8 @@
 /* Establishing connection to the dynamoDB */
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 
-const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocument } = require('@aws-sdk/lib-dynamodb');
+import DynamoRequestBuilderCreator from "@foodclubdevelopment/dynamo-request-builder";
 
 const client = new DynamoDBClient({
   region: process.env.DYNAMODB_REGION,
@@ -11,6 +12,10 @@ const client = new DynamoDBClient({
   },
 });
 
-const dynamoDB = DynamoDBDocument.from(client);
+export const dynamoDB = DynamoDBDocument.from(client);
 
-module.exports = dynamoDB;
+const requestBuilderCreator = new DynamoRequestBuilderCreator(dynamoDB);
+
+const getDynamoRequestBuilder = (tableName) => requestBuilderCreator.create(tableName);
+
+export default getDynamoRequestBuilder;
