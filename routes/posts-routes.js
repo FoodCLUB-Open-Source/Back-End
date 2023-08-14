@@ -329,7 +329,7 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
-    const cacheKey = ` CATEGORY|${categoryId}|PAGE|${currentPage}`;
+    const cacheKey = `CATEGORY|${categoryId}|PAGE|${currentPage}`;
 
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
