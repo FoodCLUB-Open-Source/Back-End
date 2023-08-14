@@ -173,7 +173,7 @@ router.get("/:id", inputValidator, rateLimiter() , async (req, res, next) => {
 });
 
 /* Deletes a specific post */
-router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
+router.delete("/posts/:post_id", rateLimiter(), validateParamId(), async (req, res, next) => {
   try {
     const errors = validationResult(req);
   
@@ -181,7 +181,7 @@ router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, n
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const postId = req.params.id;
+    const postId = req.params.post_id;
 
     const post = await pgQuery(`SELECT * FROM posts WHERE post_id = $1`, postId);
 
@@ -314,14 +314,9 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
 
 
 /* Deletes a specific post */
-router.delete("/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
-  const errors = validationResult(req);
-
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const postId = req.params.id;
+router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  
+  const postId = req.params.post_id;
 
   try {
     // Fetch post details from the database
@@ -335,8 +330,8 @@ router.delete("/:id", rateLimiter(), validateParamId(), async (req, res, next) =
     const { video_name, thumbnail_name } = post.rows[0];
 
     // Perform actions within a database transaction
-    const query= [`DELETE FROM posts WHERE id = $1`,]
-    const values=  [[postId],]
+    const query = [`DELETE FROM posts WHERE id = $1`];
+    const values = [[postId]];
     await makeTransactions(query, values);
     
     // Delete files from S3 and remove likes/views
