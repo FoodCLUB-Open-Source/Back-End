@@ -10,7 +10,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 
 import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { setPostStats } from "../dynamo_schemas/dynamo_schemas.js";
-import { validateGetCategoryPost, validateGetPosts, validateParamId,validateCategory } from "../functions/validators/posts_validators.js";
+import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
 import redis from "../redisConfig.js";
 
 const router = Router();
@@ -315,17 +315,11 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
 
 
 /* Get Specific Posts By Category */
-router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, next) => {
+router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
     
-    // Return validation errors if present
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     // Extract category ID from URL parameters
-    const categoryId = req.params.id;
+    const categoryId = req.params.category_id;
 
     // Pagination settings
     // Number of posts per page
@@ -335,7 +329,7 @@ router.get("/category/:id", rateLimiter(), validateCategory(), async (req, res, 
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
-    const cacheKey = `category:${categoryId}:page:${currentPage}`;
+    const cacheKey = ` CATEGORY|${categoryId}|PAGE|${currentPage}`;
 
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);

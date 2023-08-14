@@ -198,12 +198,3 @@ export const validateGetCategoryPost = () => [
 		.trim()
 		.escape(),
 ];
-
-/* Used to validate posts/category/:id */
-export const validateCategory = () => [
-	param('id')
-		.notEmpty().withMessage('Category Id is required')
-		.trim()
-		.escape(),
-];
-
