@@ -17,7 +17,7 @@ const router = Router();
  */
 router.get("/profile/:user_id/following", rateLimiter(), inputValidator, async (req, res) => {
     try {
-        const userID = req.params.user_id; // getting userID and converting to integer
+        const userID = req.params.user_id; // getting userID
         const { pageNumber, pageSize } = req.query; // getting page number and page size
 
         const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
