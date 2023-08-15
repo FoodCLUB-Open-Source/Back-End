@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
-import { pgQuery, s3Retrieve } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Retrieve } from "../functions/general_functions.js";
 import inputValidator from "../middleware/input_validator.js";
 
 const router = Router();
@@ -30,4 +30,53 @@ router.get("/profile/:user_id/following", rateLimiter(), inputValidator, async (
     }
 });
 
+/*Unfollowing A User*/
+router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        // Extract user IDs from request parameters
+        const user_id = req.params.user_id;
+        const user_following_id = req.params.user_following_id;
+        
+        // Verify the existence of the user based on their ID
+        const verifyUserExistence = await pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
+        if (verifyUserExistence.rows.length === 0) {
+            return res.status(400).json({ "error": "User not found" });
+        }
+        
+        // Verify the existence of the user being followed based on their ID
+        const verifyFollowingUserExistence = await pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
+        if (verifyFollowingUserExistence.rows.length === 0) {
+            return res.status(400).json({ "error": "Following user not found" });
+        }
+  
+        // Check is the user follow the target user
+        const checkFollow = await pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
+    
+        if (checkFollow.rows.length === 0) {
+            return res.status(400).json({ "error": "Not following user" });
+        }
+    
+        // Delete the following relationship from the database
+        const query = [
+            `DELETE FROM following WHERE user_id = $1 AND user_following_id = $2`
+        ];
+        const values = [[user_id, user_following_id]];
+
+        // helper function of database transaction
+        const result = await makeTransactions(query, values);
+    
+        if (result.length === 0) {
+            return res.status(400).json({ "error": "Follow not deleted" });
+        }
+    
+        // Respond with success message
+        return res.status(200).json({ "success": "user Follow" });
+  
+    }
+    catch (err) {
+        // Handle errors
+        next(err);
+    }
+  });
+  
 export default router;
