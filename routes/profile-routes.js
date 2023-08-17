@@ -8,7 +8,7 @@ const router = Router();
 /**
  * Retrieves users that are followed by the user
  * 
- * @route GET /profile/:user_id/following
+ * @route GET /:user_id/following
  * @param {string} req.params.user_id - The ID of the user to retrieve users that are followed by the user
  * @param {string} req.query.pageNumber - The pageNumber for pagination
  * @param {string} req.query.pageSize - The pageSize for pagination
@@ -33,7 +33,7 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
 /**
  * Retrieves users that follow the user
  * 
- * @route GET /profile/:userid/followers
+ * @route GET /:userid/followers
  * @param {string} req.params.user_id - The ID of the user to retrieve users that follow the user
  * @param {string} req.query.pageNumber - The pageNumber for pagination
  * @param {string} req.query.pageSize - The pageSize for pagination
