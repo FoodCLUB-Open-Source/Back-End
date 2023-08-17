@@ -19,7 +19,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-  origin: [SOCKET_ADDRESS, "http://localhost:3001/"],
+  origin: [SOCKET_ADDRESS],
   credentials: true
 }));
 app.use(bodyParser.urlencoded({ extended: true }));
