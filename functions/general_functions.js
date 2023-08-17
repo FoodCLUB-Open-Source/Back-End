@@ -53,8 +53,9 @@ export const makeTransactions = async (queries, values) => {
 };
 
 /*DRY upload to s3 function */
-export const s3Upload = async (file) => {
-  const randomName = file.originalname + crypto.randomBytes(32).toString('hex');
+export const s3Upload = async (file, path) => {
+
+  const randomName = path + file.originalname + crypto.randomBytes(32).toString('hex');
 
   /* Resize the image to the what is specified (DOESNT WORK WITH VIDEOS) */
   //const buffer = await sharp(file.buffer).resize({height: 1920, width: 1080, fit: "contain"}).toBuffer()
@@ -81,10 +82,10 @@ export const s3Retrieve = (fileName) => getSignedUrl({
 });
 
 /* Deletes a image in the s3 bucket */
-export const s3Delete = async (fileName) => {
+export const s3Delete = async (fileName, path) => {
   const params ={
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: fileName,
+    Key: path+fileName,
   };
 
   const s3GetCommand = new DeleteObjectCommand(params);
