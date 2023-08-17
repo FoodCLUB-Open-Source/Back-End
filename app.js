@@ -4,7 +4,7 @@ import express, { Router } from "express";
 
 import requestLogging from "./middleware/logging.js";
 
-import { commentsRouter, likesViewRouter, loginRouter, postsRouter } from "./routes/index.js";
+import { commentsRouter, likesViewRouter, loginRouter, postsRouter, profileRouter } from "./routes/index.js";
 
 const app = express();
 const router = Router();
