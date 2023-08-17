@@ -34,24 +34,31 @@ router.get("/profile/:user_id/following", rateLimiter(), inputValidator, async (
 router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameters
-        const user_id = req.params.user_id;
-        const user_following_id = req.params.user_following_id;
+        const { user_id, user_following_id } = req.params;
+        
+        // Wrap each query in a function that returns a promise
+        const verifyUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
+        const verifyFollowingUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
+        const checkFollowQuery = () => pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
+          
+        // Use Promise.all() to run all queries concurrently
+        const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
+            verifyUserExistenceQuery(),
+            verifyFollowingUserExistenceQuery(),
+            checkFollowQuery()
+        ]);
         
         // Verify the existence of the user based on their ID
-        const verifyUserExistence = await pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
         if (verifyUserExistence.rows.length === 0) {
             return res.status(400).json({ "error": "User not found" });
         }
-        
+
         // Verify the existence of the user being followed based on their ID
-        const verifyFollowingUserExistence = await pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
         if (verifyFollowingUserExistence.rows.length === 0) {
             return res.status(400).json({ "error": "Following user not found" });
         }
-  
-        // Check is the user follow the target user
-        const checkFollow = await pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
-    
+
+        // Check if the user follows the target user
         if (checkFollow.rows.length === 0) {
             return res.status(400).json({ "error": "Not following user" });
         }
