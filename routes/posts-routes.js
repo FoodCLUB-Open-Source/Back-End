@@ -172,6 +172,48 @@ router.get("/:id", inputValidator, rateLimiter() , async (req, res, next) => {
   }
 });
 
+/**
+ * Retrieves post details of a specific post based off post ID
+ * 
+ * @route GET /post/:post_id
+ * @param {string} req.params.post_id - The ID of the post to retrieve details for
+ * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
+ * @throws {Error} - If there is error retrieving post details or validation issues
+ */
+router.get("/post/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const postID = req.params.post_id; // retrieving post ID
+
+    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+
+    const postDetails = await pgQuery(query, postID); // performing query
+
+    // getting video_name and thumbnail_name URL's
+    const [videoUrl, thumbnailUrl] = await Promise.all([
+      s3Retrieve(postDetails.rows[0].video_name),
+      s3Retrieve(postDetails.rows[0].thumbnail_name),
+    ]);
+
+    // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
+    const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(postID)).exec();
+    const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(postID)).exec();
+
+    // adding URLs to posts data and removing video_name and thumbnail_name
+    postDetails.rows[0].video_url = videoUrl;
+    postDetails.rows[0].thumbnail_url = thumbnailUrl;
+    delete postDetails.rows[0].video_name;
+    delete postDetails.rows[0].thumbnail_name;
+
+    // adding post total likes and views count to posts data
+    postDetails.rows[0].total_likes = postLikeCount.length;
+    postDetails.rows[0].total_views = postViewCount.length;
+
+    return res.status(200).json({ data: postDetails.rows }); // sending data to client
+  } catch (error) {
+    next(error); // server side error
+  }
+});
+
 /* Deletes a specific post */
 router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
   try {
