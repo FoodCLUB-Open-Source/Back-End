@@ -14,7 +14,7 @@ const router = Router();
  * @returns {status} - A status indicating successful removal of post from bookmarks
  * @throws {Error} - If there are error removing post
  */
-router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, async (req, res) => {
+router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         const userID = req.params.user_id; // retrieving user ID
         const postID = req.params.post_id; // retrieving post ID
@@ -28,8 +28,7 @@ router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidat
             res.status(400).json({message: 'Removal unsuccessful. Ensure data exists in database'}); // else unsuccessful response code is sent
         }
     } catch (error) {
-        console.error(error.message);
-        res.status(500).json({ message: error.message }); // server side error
+        next(error) // server side error
     }
 });
 
