@@ -188,6 +188,10 @@ router.get("/post/:post_id", rateLimiter(), inputValidator, async (req, res, nex
 
     const postDetails = await pgQuery(query, postID); // performing query
 
+    if (postDetails.rows.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
     // getting video_name and thumbnail_name URL's
     const [videoUrl, thumbnailUrl] = await Promise.all([
       s3Retrieve(postDetails.rows[0].video_name),
