@@ -15,7 +15,7 @@ const router = Router();
  * @returns {Object} - An object containing details of the users that are followed by the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/profile/:user_id/following", rateLimiter(), inputValidator, async (req, res) => {
+router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res) => {
     try {
         const userID = req.params.user_id; // getting userID
         const { pageNumber, pageSize } = req.query; // getting page number and page size
@@ -40,7 +40,7 @@ router.get("/profile/:user_id/following", rateLimiter(), inputValidator, async (
  * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/profile/:user_id/followers", rateLimiter(), inputValidator, async (req, res) => {
+router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res) => {
     try {
         const userID = req.params.user_id; // getting userID
         const { pageNumber, pageSize } = req.query; // getting page number and page size
