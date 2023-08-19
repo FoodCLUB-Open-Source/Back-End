@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
-import { makeTransactions, makeTransactions, pgQuery, s3Retrieve } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Retrieve } from "../functions/general_functions.js";
 import inputValidator from "../middleware/input_validator.js";
 
 const router = Router();
