@@ -4,7 +4,7 @@ import express, { Router } from "express";
 
 import requestLogging from "./middleware/logging.js";
 
-import { commentsRouter, likesViewRouter, loginRouter, postsRouter, profileRouter } from "./routes/index.js";
+import { commentsRouter, likesViewRouter, loginRouter, postsRouter, profileRouter, bookmarksRouter } from "./routes/index.js";
 
 const app = express();
 const router = Router();
@@ -25,11 +25,12 @@ app.use(cors({
 app.use(bodyParser.urlencoded({ extended: true }));
 
 /*  All Routes  */
-router.use("/login", require("./routes/login"));
-router.use("/posts", require("./routes/posts"));
-router.use("/comments", require("./routes/comments"));
-router.use("/likes_views", require("./routes/likes_views"));
-router.use("/recipes", require("./routes/recipes"));
+router.use("/login", loginRouter);
+router.use("/posts", postsRouter);
+router.use("/comments", commentsRouter);
+router.use("/likes_views", likesViewRouter);
+router.use("/bookmarks", bookmarksRouter);
+router.use("/profile", profileRouter);
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
