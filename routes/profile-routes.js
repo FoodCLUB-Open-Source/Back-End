@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
-import { pgQuery, s3Retrieve } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Retrieve } from "../functions/general_functions.js";
 import inputValidator from "../middleware/input_validator.js";
 
 const router = Router();
@@ -52,5 +52,59 @@ router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res
         next(error) // server side error
     }
 });
+
+/*Following A User*/
+router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        // Extract user IDs from request parameter
+        const {user_id, user_following_id} = req.params;
+        
+        const verifyUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
+        const verifyFollowingUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
+        const checkFollowQuery = pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
+      
+        const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
+          verifyUserExistenceQuery,
+          verifyFollowingUserExistenceQuery,
+          checkFollowQuery
+        ]);
+          
+        // Verify the existence of the user based on their ID
+        if (verifyUserExistence.rows.length === 0) {
+           return res.status(400).json({ "error": "User not found" });
+        }
+        
+        // Verify the existence of the user being followed based on their ID
+        if (verifyFollowingUserExistence.rows.length === 0) {
+           return res.status(400).json({ "error": "Following user not found" });
+        }
+        
+        // Check if the user is already following the target user     
+        if (checkFollow.rows.length !== 0) {
+           return res.status(400).json({ "error": "Already following user" });
+        }
+        
+        // Insert a new following relationship into the database
+        const query = [
+        `INSERT INTO following (user_id, user_following_id, created_at) VALUES ($1, $2, NOW()) RETURNING *`
+        ];
+        const values = [[user_id, user_following_id]];
+        
+        //helper function of database transactions
+        const result = await makeTransactions(query, values);
+  
+        if (result.length === 0) {
+           return res.status(400).json({ "error": "Follow not created" });
+        }
+  
+        // Respond with success message
+        return res.status(200).json({ "success": "Follow created" });
+  
+    } catch (err) {
+       // Handle errors
+       next(err);
+    }
+  });
+  
 
 export default router;
