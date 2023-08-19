@@ -225,4 +225,24 @@ router.post('/deleteuser', rateLimiter(10, 1), (req, res) => {
   });
 })
 
+
+router.post('/update/:attribute', (req, res) => {
+  const attributeList = [];
+  const newAttribute = {
+	Name: req.params.attribute,
+	Value: req.body.attribute,
+  };
+  const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
+  attributeList.push(updatedAttribute);
+
+  cognitoUser.updateAttributes(attributeList, function(err, result) {
+    if (err) {
+      res.status(401).json(err.message);
+      return;
+    }
+    console.log('call result: ' + result);
+  });
+})
+
+
 export default router;
