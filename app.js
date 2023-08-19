@@ -29,7 +29,7 @@ router.use("/login", loginRouter);
 router.use("/posts", postsRouter);
 router.use("/comments", commentsRouter);
 router.use("/likes_views", likesViewRouter);
-router.use("/profile_page", profileRouter);
+router.use("/profile", profileRouter);
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
