@@ -153,4 +153,76 @@ router.post('/changepassword', rateLimiter(10, 1), async (req, res) => {
   });
 })
 
+router.post('/forgotpasswordcode', async (req, res) => {
+  var username = req.body.username;
+
+  var userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+  var cognitoUser = new CognitoUser(userData);
+  
+  cognitoUser.forgotPassword({
+    onSuccess: (data) => {
+      res.status(200).json({ message: 'Verification code sent' });
+    },
+    onFailure: (err) => {
+      res.status(400).json(err.message)
+    },
+  });
+})
+
+router.post('/forgotpasswordcode/newpassword', (req, res) => {
+  var username = req.body.username;
+
+  var userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+  var cognitoUser = new CognitoUser(userData);
+
+  var verificationCode = req.body.verificationCode;
+  var newPassword = req.body.newPassword;
+  cognitoUser.confirmPassword(verificationCode, newPassword, {
+    onSuccess() {
+      res.status(201).json({ message: 'password reset successfully'})
+    },
+    onFailure(err) {
+      res.status(400).json(err.message);
+    },
+  });
+})
+/* Global signout invalidates all user tokens */ 
+
+router.post('/globalsignout', rateLimiter(10, 1), (req, res) => {
+  var cognitoUser = cognitoUserPool.getCurrentUser()
+
+  if (cognitoUser != null) {
+    cognitoUser.globalSignOut();
+    res.status(200).json({message: 'user successfully logged out: sign in required'});
+  } else {
+    res.status(500).json({message: 'cannot log user out'});
+  }
+})
+
+/* Delete a user */
+ 
+router.post('/deleteuser', rateLimiter(10, 1), (req, res) => {
+  const username = req.body.username
+
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+
+  const cognitoUser = new CognitoUser(userData);
+
+  cognitoUser.deleteUser((err, result) => {
+    if (err) {
+      return res.status(400).json(err.message);
+    }
+    res.status(200).json({ message: `user, ${username}, deleted` });
+  });
+})
+
 export default router;
