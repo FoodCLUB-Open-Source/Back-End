@@ -9,7 +9,6 @@ import pgPool from "../pgdb.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
-import { setPostStats } from "../dynamo_schemas/dynamo_schemas.js";
 import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
 
 const router = Router();
@@ -44,52 +43,63 @@ const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes
   .whereSortKey("user_id").eq(userId)
   .execSingle();
 
-/* Posting a post to the database */
-router.post("/posts/:user_id", inputValidator, rateLimiter(5, 15), upload.any(), async (req, res, next) => {
-  try {
-    const userId = parseInt(req.params.id);
-    const { post_title, post_description, category_id_list, hashtag_id_list, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, recipe_preparation_time, recipe_serving } = req.body;
 
+/* Posting a post to the database roll backs are included incase any query goes wrong. */
+router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
+  try {
+
+    const userId = parseInt(req.params.user_id);
+    const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
+    let { recipe_ingredients, recipe_equipment, recipe_steps } = req.body;
+
+    recipe_ingredients = JSON.parse(recipe_ingredients);
+    recipe_equipment = JSON.parse(recipe_equipment);
+    recipe_steps = JSON.parse(recipe_steps);
+
+    const S3_POST_PATH = "posts/active/";
     //Used to upload to s3 bucket
     const [newVideoName, newThumbNaileName] = await Promise.all([
-      s3Upload(req.files[0]),
-      s3Upload(req.files[1])
+      s3Upload(req.files[0], S3_POST_PATH),
+      s3Upload(req.files[1], S3_POST_PATH)
     ]);
 
     const client = await pgPool.connect();
 
     try {
       await client.query('BEGIN');
-
-      const insertRecipeQuery = 'INSERT INTO recipes (recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, recipe_servings) VALUES ($1, $2, $3, $4, $5, $6) RETURNING recipe_id';
-      const recipeValues = [recipe_description, JSON.parse(recipe_ingredients), JSON.parse(recipe_equipment), JSON.parse(recipe_steps), recipe_preparation_time, recipe_serving];
-      const { rows } = await client.query(insertRecipeQuery, recipeValues);
-
-      const { recipe_id } = rows[0];
-
-      const insertPostQuery = 'INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id_list, hashtag_id_list, recipe_id, post_created_at, post_updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) RETURNING *';
-      const postValues = [userId, post_title, post_description, newVideoName, newThumbNaileName, JSON.parse(category_id_list), JSON.parse(hashtag_id_list), recipe_id];
+      
+      const insertPostQuery = 'INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id';
+      const postValues = [userId, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
       
       const { post_id } = newPost.rows[0];
 
-      const updatePostQuery = 'UPDATE recipes SET post_id = $1 WHERE recipe_id = $2';
-      const postUpdateValues = [post_id, recipe_id];
-      await client.query(updatePostQuery, postUpdateValues);
-
-      const postStatsSchema = setPostStats(post_id);
+      const insertRecipeQuery = 'INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())';
+      const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
       
-      await getDynamoRequestBuilder("Post_Stats")
-        .put(postStatsSchema)
-        .exec();
+      const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
+      const postUpdateValues = [post_id, category];
+      
+      const [recipe_table, category_table] = await Promise.all([
+        client.query(insertRecipeQuery, recipeValues),
+        client.query(updatePostQuery, postUpdateValues)
+      ]);
 
-      console.log("Video Posted" + post_id);
       await client.query('COMMIT');
+      
+      console.log("Video Posted" + post_id);
+      res.status(200).json({ Status: "Video Posted" });
 
-      res.json(newPost.rows[0]);
     } catch (err) {
+
+      await Promise.all([
+        s3Delete(req.files[0], S3_POST_PATH),
+        s3Delete(req.files[1], S3_POST_PATH)
+      ]);
+
       await client.query('ROLLBACK');
       next(err);
+
     } finally {
       client.release();
     }
