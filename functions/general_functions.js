@@ -96,16 +96,12 @@ export const s3Delete = async (fileName) => {
 export async function updatePosts(userPosts) {
   const updatedPostsPromises = await userPosts.map(async (post)=> {
 
-    // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
-    const postLikeCountPromise = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec();
-    const postViewCountPromise = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec();
-
-    // getting video_name and thumbnail_name URL's
+    // getting video_name and thumbnail_name URL's, likes and views of the post
     const [videoUrl, thumbnailUrl, postLikeCount, postViewCount] = await Promise.all([
         s3Retrieve(post.video_name),
         s3Retrieve(post.thumbnail_name),
-        postLikeCountPromise,
-        postViewCountPromise
+        getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
+        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec()
     ]);
   
     // adding URLs to posts data and removing video_name and thumbnail_name

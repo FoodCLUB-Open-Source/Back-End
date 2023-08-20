@@ -22,48 +22,26 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
         const { page_number, page_size } = req.query; // getting page number and page size
 
         // QUERIES
-
-        // USERNAME & PROFILE PICTURE
-        const userNameQuery = 'SELECT username, profile_picture FROM users WHERE id = $1'; // query to get username and profile picture of user from postgres
-        const userNameProfilePromise = await pgQuery(userNameQuery, userID);
-
-        // USER FOLLOWERS, LIKES & FOLLOWING
-        
-        // user follower count
-        const userFollowersQuery = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1'; // returns the users that follow the user
-        const userFollowersPromise = await pgQuery(userFollowersQuery, userID);
-
-        // user following count
-        const userFollowingQuery = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1'; // returns the users that are followed by the user
-        const userFollowingPromise = await pgQuery(userFollowingQuery, userID);
-
-        // user like count
-        const userLikeQueryPromise = await getDynamoRequestBuilder("Likes").query("user_id", parseInt(userID)).useIndex("user_id-created_at-index").exec(); // returns the posts user has liked
-
-        // USER POSTS {implemented with pagination}
-        const userPostsQuery = 'SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)'; // query to get users posts according to page number and page size
-        const userPostsPromise = await pgQuery(userPostsQuery, userID, page_number, page_size);
-
-        // TOP CREATORS
+        const userNameQuery = 'SELECT username, profile_picture FROM users WHERE id = $1'; // username and profile picture query
+        const userFollowersQuery = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1'; // user followers query
+        const userFollowingQuery = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1'; // user following query
+        const userPostsQuery = 'SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)'; // user posts query with pagination
         const topCreatorsQuery = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT 8'; // top creators query, returns 8 random users that the user does not follow
-        const topCreatorsPromise = await pgQuery(topCreatorsQuery, userID);
 
         // EXECUTING QUERIES
-
-        const [userNameProfile, userFollowers, userFollowing, userLikeQuery, userPosts, topCreators] = await Promise.all([
-            userNameProfilePromise,
-            userFollowersPromise,
-            userFollowingPromise,
-            userLikeQueryPromise,
-            userPostsPromise,
-            topCreatorsPromise
+        const [userNameProfile, userFollowers, userFollowing, userLikes, userPosts, topCreators] = await Promise.all([
+            pgQuery(userNameQuery, userID),
+            pgQuery(userFollowersQuery, userID),
+            pgQuery(userFollowingQuery, userID),
+            getDynamoRequestBuilder("Likes").query("user_id", parseInt(userID)).useIndex("user_id-created_at-index").exec(), // user likes query
+            pgQuery(userPostsQuery, userID, page_number, page_size),
+            pgQuery(topCreatorsQuery, userID)
         ]);
 
         // SETTING VALUES
-
         const userFollowersCount = userFollowers.rowCount; // total user follower count
         const userFollowingCount = userFollowing.rowCount; // total user following count
-        const userLikesCount = userLikeQuery.length; // total user likes count
+        const userLikesCount = userLikes.length; // total user likes count
         const updatedPostsData = await updatePosts(userPosts.rows); // updating post objects to include further information
 
         // storing data as object
