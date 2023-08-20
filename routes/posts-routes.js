@@ -32,10 +32,16 @@ const getPostStats = async (postId) => getDynamoRequestBuilder("Post_Stats")
   .query("post_id", JSON.stringify(postId))
   .execSingle();
 
-/* returns the total likes and views per post */
-const removeLikesViews = async (postId) => await getDynamoRequestBuilder("Post_Stats")
-  .delete("post_id", postId)
-  .exec();
+/* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
+const removeLikesViews = async (postId) => {
+  await getDynamoRequestBuilder("Likes")
+    .delete("post_id", postId)
+    .exec();
+
+  await getDynamoRequestBuilder("Views")
+    .delete("post_id", postId)
+    .exec();
+};
 
 /* Checks if a user has liked a post or not, returns true or false */
 const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes")
