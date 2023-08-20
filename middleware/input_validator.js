@@ -13,7 +13,7 @@ const numericVariables = [
 	"user_id", "post_id", "recipe_id", 
 	"comment_like_count", "like_count", "view_count",
 	"comments_count", "follower_count", "following_count",
-	"likes_count", "page_number", "page_size"
+	"likes_count", "page_number", "page_size","user_following_id",
 ];
 const nanoIdVariables = ["story_id"];
 const dateVariables = ["updated_at", "created_at"];
