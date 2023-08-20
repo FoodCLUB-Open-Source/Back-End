@@ -108,77 +108,49 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
   }
 });
 
-/* Get a specific post and its category
-  /api/posts/getpost/8?user_id=3
-*/
-router.get("/:id", inputValidator, rateLimiter() , async (req, res, next) => {
+/**
+ * Retrieves post details of a specific post based off post ID
+ * 
+ * @route GET /post/:post_id
+ * @param {string} req.params.post_id - The ID of the post to retrieve details for
+ * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
+ * @throws {Error} - If there is error retrieving post details or validation issues
+ */
+router.get("/post/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    const postID = req.params.post_id; // retrieving post ID
+
+    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+
+    const postDetails = await pgQuery(query, postID); // performing query
+
+    if (postDetails.rows.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
     }
 
-    const postId = parseInt(req.params.id);
-    
-    //NEED TO UPDATE THIS TO THE NEW CATEGORY SYSTEM
-    // const specificPost = await pgQuery(`
-    //   SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
-    //   FROM posts JOIN users ON posts.user_id = users.id JOIN categories ON posts.category_id = categories.category_id 
-    //   WHERE id = $1`
-    //   , postId
-    // )
-
-    const specificPost = await pgQuery(`
-      SELECT 
-      posts.id as post_id, posts.user_id, posts.title, posts.description, posts.video_name, posts.thumbnail_name, posts.created_at AS post_created_at,
-      users.username, users.profile_picture,
-      categories.name AS category_name
-      FROM posts 
-      JOIN users ON posts.user_id = users.id 
-      JOIN posts_categories ON posts.id = posts_categories.post_id 
-      JOIN categories ON posts_categories.category_name = categories.name
-      WHERE posts.id = $1`
-      , postId
-    );
-
-    console.log("https://ddhluc7rgemr3.cloudfront.net/".length);
-
-    if (!specificPost.rows[0]) res.status(400).json({ error: `No Post With Id Of ${postId}`});
-
-    const { post_id, user_id, title, description, video_name, thumbnail_name, post_created_at, username, profile_picture, category_name } = specificPost.rows[0];
-
-    const [videoUrl, thumbnailUrl, postStats, liked] = await Promise.all([
-      s3Retrieve(video_name),
-      s3Retrieve(thumbnail_name),
-      getPostStats(post_id),
-      //checkLike(post_id, parseInt(req.query.user_id))
+    // getting video_name and thumbnail_name URL's
+    const [videoUrl, thumbnailUrl] = await Promise.all([
+      s3Retrieve(postDetails.rows[0].video_name),
+      s3Retrieve(postDetails.rows[0].thumbnail_name),
     ]);
 
-    const { view_count, like_count, comments_count } = postStats;
-    
-    const responseData = {
-      post_id,
-      user_id,
-      title,
-      description,
-      videoUrl,
-      thumbnailUrl,
-      post_created_at,
-      username,
-      profile_picture,
-      category_name,
-      view_count,
-      like_count,
-      comments_count,
-      liked,
-      video_name,
-      thumbnail_name,
-    };
+    // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
+    const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(postID)).exec();
+    const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(postID)).exec();
 
-    res.json(responseData);
-  } catch (err) {
-    next(err);
+    // adding URLs to posts data and removing video_name and thumbnail_name
+    postDetails.rows[0].video_url = videoUrl;
+    postDetails.rows[0].thumbnail_url = thumbnailUrl;
+    delete postDetails.rows[0].video_name;
+    delete postDetails.rows[0].thumbnail_name;
+
+    // adding post total likes and views count to posts data
+    postDetails.rows[0].total_likes = postLikeCount.length;
+    postDetails.rows[0].total_views = postViewCount.length;
+
+    return res.status(200).json({ data: postDetails.rows }); // sending data to client
+  } catch (error) {
+    next(error); // server side error
   }
 });
 
