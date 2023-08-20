@@ -190,7 +190,7 @@ router.get("/:id", inputValidator, rateLimiter() , async (req, res, next) => {
  * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
  * @throws {Error} - If there is error retrieving post details or validation issues
  */
-router.get("/post/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const postID = req.params.post_id; // retrieving post ID
 
