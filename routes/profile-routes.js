@@ -1,9 +1,73 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
-import { makeTransactions, pgQuery, s3Retrieve } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, updatePosts } from "../functions/general_functions.js";
 import inputValidator from "../middleware/input_validator.js";
+import getDynamoRequestBuilder from "../dynamoDB.js";
 
 const router = Router();
+
+/**
+ * Retrieves profile page data based on the received user ID 
+ * 
+ * @route GET /:userid
+ * @param {string} req.params.user_id - The ID of the user to retrieve profile page data for
+ * @param {string} req.query.page_number - The page number for pagination. In this API pagination is only implemented for user posts
+ * @param {string} req.query.page_size - The page size for pagination. In this API pagination is only implemented for user posts
+ * @returns {Object} - An object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
+ * @throws {Error} - If there is error retrieving user profile page data or validation issues
+ */
+router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        const userID = req.params.user_id; // getting userID and converting to integer
+        const { page_number, page_size } = req.query; // getting page number and page size
+
+        // USERNAME & PROFILE PICTURE
+        const userNameQuery = 'SELECT username, profile_picture FROM users WHERE id = $1'; // query to get username and profile picture of user from postgres
+        const userNameProfile = await pgQuery(userNameQuery, userID);
+
+        // USER FOLLOWERS, LIKES & FOLLOWING
+        
+        // user follower count
+        const userFollowersQuery = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1'; // returns the users that follow the user
+        const userFollowers = await pgQuery(userFollowersQuery, userID);
+        const userFollowersCount = userFollowers.rowCount; // total user follower count
+
+        // user following count
+        const userFollowingQuery = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1'; // returns the users that are followed by the user
+        const userFollowing = await pgQuery(userFollowingQuery, userID);
+        const userFollowingCount = userFollowing.rowCount; // total user following count
+
+        // user like count
+        const userLikeQuery = await getDynamoRequestBuilder("Likes").query("user_id", parseInt(userID)).useIndex("user_id-created_at-index").exec(); // returns the posts user has liked
+        const userLikesCount = userLikeQuery.length; // total user likes count
+
+        // USER POSTS {implemented with pagination}
+        const userPostsQuery = 'SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)'; // query to get users posts according to page number and page size
+        const userPosts = await pgQuery(userPostsQuery, userID, page_number, page_size);
+        
+        const updatedPostsData = await updatePosts(userPosts.rows); // updating post objects to include further information
+
+        // TOP CREATORS
+        const topCreatorsQuery = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT 8'; // top creators query, returns 8 random users that the user does not follow
+        const topCreators = await pgQuery(topCreatorsQuery, userID);
+
+        // storing data as object
+        const userDataObject = {
+            username: userNameProfile.rows[0].username,
+            profile_picture: userNameProfile.rows[0].profile_picture,
+            total_user_likes: userLikesCount,
+            total_user_followers: userFollowersCount,
+            total_user_following: userFollowingCount,
+            user_posts: updatedPostsData,
+            top_creators: topCreators.rows
+        }
+
+        return res.status(200).json({ data: userDataObject }); // sending data to client
+
+    } catch (error) {
+        next(error); // server side error
+    }
+});
 
 /**
  * Retrieves users that are followed by the user
