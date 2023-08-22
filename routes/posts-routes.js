@@ -323,4 +323,34 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
   }
 });
 
+// Remove A Video Like 
+router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { post_id, user_id } = req.params;
+
+    // Check if the like exists
+    const checkLikeExistance = await getDynamoRequestBuilder("Likes")
+      .query("post_id", parseInt(post_id))
+      .whereSortKey("user_id")
+      .eq(parseInt(user_id))
+      .exec();
+
+    if (checkLikeExistance && checkLikeExistance.length > 0) {
+
+      // Like exists, proceed to delete it
+      await getDynamoRequestBuilder("Likes")
+        .delete("post_id", parseInt(post_id))
+        .withSortKey("user_id", parseInt(user_id))
+        .exec();
+      res.json({ "Status": "Post Unliked" });
+    } else {
+      
+      // Like does not exist
+      res.json({ "Status": "Post Like Not Found" });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
