@@ -339,10 +339,10 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
     if (checkLikeExistence.length === 0) {
       // Like does not exist, proceed to like
       await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
-      res.json({ "Status": "Post Liked" });
+      res.status(200).json({ "Status": "Post Liked" });
     } else {
       // Like already exists
-      res.json({ "Status": "Post Like Already Exists" });
+      res.status(409).json({ "Status": "Post Like Already Exists" });
     }
   } catch (err) {
     next(err);
