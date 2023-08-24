@@ -342,11 +342,10 @@ router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, asy
         .delete("post_id", parseInt(post_id))
         .withSortKey("user_id", parseInt(user_id))
         .exec();
-      res.json({ "Status": "Post Unliked" });
+      res.status(200).json({ "Status": "Post Unliked" });
     } else {
-      
       // Like does not exist
-      res.json({ "Status": "Post Like Not Found" });
+      res.status(404).json({ "Status": "Post Like Not Found" });
     }
   } catch (err) {
     next(err);
