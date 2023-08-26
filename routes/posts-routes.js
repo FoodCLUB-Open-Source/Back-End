@@ -486,8 +486,6 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
   }
 });
 
-<<<<<<< HEAD
-=======
 // Remove A Video Like 
 router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
@@ -517,5 +515,4 @@ router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, asy
     next(err);
   }
 });
->>>>>>> 9671fe149ccf4b75f6bd59f5744b471bd4c7a62a
 export default router;
