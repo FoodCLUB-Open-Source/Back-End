@@ -103,12 +103,13 @@ router.post('/signin', rateLimiter(10,1), (req, res) => {
   const cognitoUser = new CognitoUser(userData);
   
   cognitoUser.authenticateUser(authenticationDetails, {
-    onSuccess: (result) =>{
+    onSuccess: async (result) =>{
       const idToken = result.getIdToken().getJwtToken();
       const accessToken = result.getAccessToken().getJwtToken();
       const refreshToken = result.getRefreshToken().getToken();
-      const user = pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
-      res.status(200).json(user);
+      const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
+      res.status(200).json(
+        ...user.rows);
     },
     onFailure: (err) => {
       res.status(400).json({
