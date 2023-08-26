@@ -4,6 +4,7 @@ import { hash } from "bcrypt";
 import { Router } from "express";
 
 import rateLimiter from "../middleware/rate_limiter.js";
+import inputValidator from "../middleware/input_validator.js";
 
 import cognitoUserPool from "../cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
@@ -21,7 +22,8 @@ router.get("/testing", async (req, res) => {
 });
 
 /* Sign up */ 
-router.post('/signup', rateLimiter(10, 1), async (req, res) => {
+router.post('/signup', inputValidator, rateLimiter(10, 1), async (req, res) => {
+  
   const { username, email, password } = req.body;
   
   if (!(username && email && password)) {
@@ -30,7 +32,6 @@ router.post('/signup', rateLimiter(10, 1), async (req, res) => {
 
   const attributeArray = [];
   const passwordHashed = await hash(password, 10)
-  const dateOfBirth = "01/01/2000"
 
   /* aws cognito assigns a UUID value to each user's sub attribute */
   attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
@@ -41,36 +42,42 @@ router.post('/signup', rateLimiter(10, 1), async (req, res) => {
       return res.status(400).json({message: err.message});
     }
     try {
-      const newUser = await pgQuery(`INSERT INTO users (username, email, password, date_of_birth) VALUES ($1, $2, $3, $4) RETURNING *`,
-      username, email, passwordHashed, dateOfBirth);
+      await pgQuery(`INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
+      username, email, passwordHashed);
     } catch (error) {
       return res.status(400).json(error.message)
     }
     return res.status(201).json({user: result.user});
   });  
-})
+});
 
 /* Confirm verification code */
-router.post('/confirmverification', rateLimiter(10, 1), (req, res) => {
+router.post('/confirmverification', inputValidator, rateLimiter(10, 1), (req, res) => {
+
+  const {username, verificationCode} = req.body;
+
   const userData = {
-    Username: req.body.username,
+    Username: username,
     Pool: cognitoUserPool,
   };
 
   const cognitoUser = new CognitoUser(userData);
 
-  cognitoUser.confirmRegistration(req.body.verificationCode, true, (err, result) => {
+  cognitoUser.confirmRegistration(verificationCode, true, (err, result) => {
     if (err) {
       return res.status(400).json(err.message)
     }
     return res.status(201).json({message: 'user verified'})
   });
-})
+});
 
 /* Resend Verification Code */
-router.post('/resendverificationcode', rateLimiter(10, 1), (req, res) => {
+router.post('/resendverificationcode',inputValidator, rateLimiter(10, 1), (req, res) => {
+
+  const { username } = req.body;
+
   const userData = {
-    Username: req.body.username,
+    Username: username,
     Pool: cognitoUserPool,
   };
 
@@ -82,16 +89,17 @@ router.post('/resendverificationcode', rateLimiter(10, 1), (req, res) => {
     }
     res.status(200).json({ message: 'new code sent successfully' })
   });
-})
+});
 
  /* Sign in */
 
-router.post('/signin', rateLimiter(10,1), (req, res) => {
-  const username = req.body.username;
+router.post('/signin',inputValidator, rateLimiter(10,1), (req, res) => {
+
+  const {username, password} = req.body;
   
   const authenticationDetails = new AuthenticationDetails({
     Username: username,
-    Password: req.body.password
+    Password: password
   });
 
   const userData = {
@@ -103,12 +111,9 @@ router.post('/signin', rateLimiter(10,1), (req, res) => {
   
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
-      const idToken = result.getIdToken().getJwtToken();
-      const accessToken = result.getAccessToken().getJwtToken();
-      const refreshToken = result.getRefreshToken().getToken();
       const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
-      res.status(200).json(
-        ...user.rows);
+      console.log(user.rows)
+      res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
       res.status(400).json({
@@ -123,7 +128,7 @@ router.post('/signin', rateLimiter(10,1), (req, res) => {
 
 router.post('/signout', rateLimiter(10,1), (req, res) => {
 
-  const cognitoUser = cognitoUserPool.getCurrentUser()
+  const cognitoUser = cognitoUserPool.getCurrentUser();
 
   if (cognitoUser != null) {
     cognitoUser.signOut();
@@ -131,11 +136,13 @@ router.post('/signout', rateLimiter(10,1), (req, res) => {
   } else {
     res.status(500).json({message: 'cannot log user out'});
   };
-})
+});
 
 /* Change password */
 
-router.post('/changepassword', rateLimiter(10, 1), async (req, res) => {
+router.post('/changepassword',inputValidator, rateLimiter(10, 1), async (req, res) => {
+
+  const {oldPassword, newPassword} = req.body;
 
   const cognitoUser = cognitoUserPool.getCurrentUser()  
 
@@ -145,22 +152,23 @@ router.post('/changepassword', rateLimiter(10, 1), async (req, res) => {
     }
   });
   
-  cognitoUser.changePassword(req.body.oldPassword, req.body.newPassword, (err, result) => {
+  cognitoUser.changePassword(oldPassword, newPassword, (err, result) => {
     if (err) {
       return res.status(400).json(err.message);
     }
     return res.status(201).json({ message: 'password changed successfully' });
   });
-})
+});
 
 router.post('/forgotpasswordcode', async (req, res) => {
-  var username = req.body.username;
+  const { username } = req.body;
 
-  var userData = {
+  const userData = {
     Username: username,
     Pool: cognitoUserPool,
   };
-  var cognitoUser = new CognitoUser(userData);
+
+  const cognitoUser = new CognitoUser(userData);
   
   cognitoUser.forgotPassword({
     onSuccess: (data) => {
@@ -170,19 +178,18 @@ router.post('/forgotpasswordcode', async (req, res) => {
       res.status(400).json(err.message)
     },
   });
-})
+});
 
 router.post('/forgotpasswordcode/newpassword', (req, res) => {
-  var username = req.body.username;
+  const { username, verificationCode, newPassword } = req.body;
 
-  var userData = {
+  const userData = {
     Username: username,
     Pool: cognitoUserPool,
   };
-  var cognitoUser = new CognitoUser(userData);
 
-  var verificationCode = req.body.verificationCode;
-  var newPassword = req.body.newPassword;
+  const cognitoUser = new CognitoUser(userData);
+
   cognitoUser.confirmPassword(verificationCode, newPassword, {
     onSuccess() {
       res.status(201).json({ message: 'password reset successfully'})
@@ -191,11 +198,12 @@ router.post('/forgotpasswordcode/newpassword', (req, res) => {
       res.status(400).json(err.message);
     },
   });
-})
+});
 /* Global signout invalidates all user tokens */ 
 
 router.post('/globalsignout', rateLimiter(10, 1), (req, res) => {
-  var cognitoUser = cognitoUserPool.getCurrentUser()
+
+  const cognitoUser = cognitoUserPool.getCurrentUser();
 
   if (cognitoUser != null) {
     cognitoUser.globalSignOut();
@@ -203,12 +211,13 @@ router.post('/globalsignout', rateLimiter(10, 1), (req, res) => {
   } else {
     res.status(500).json({message: 'cannot log user out'});
   }
-})
+});
 
 /* Delete a user */
  
 router.post('/deleteuser', rateLimiter(10, 1), (req, res) => {
-  const username = req.body.username
+
+  const username = req.body.username;
 
   const userData = {
     Username: username,
@@ -223,26 +232,32 @@ router.post('/deleteuser', rateLimiter(10, 1), (req, res) => {
     }
     res.status(200).json({ message: `user, ${username}, deleted` });
   });
-})
+});
 
 
 router.post('/update/:attribute', (req, res) => {
+
+  const { attribute } = req.params;
+  const { newUserAttribute } = req.body;
+
   const attributeList = [];
+
   const newAttribute = {
-	Name: req.params.attribute,
-	Value: req.body.attribute,
+    Name: attribute,
+    Value: newUserAttribute,
   };
+
   const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
   attributeList.push(updatedAttribute);
 
-  cognitoUser.updateAttributes(attributeList, function(err, result) {
+  CognitoUser.updateAttributes(attributeList, function(err, result) {
     if (err) {
       res.status(401).json(err.message);
       return;
     }
     console.log('call result: ' + result);
   });
-})
+});
 
 
 export default router;

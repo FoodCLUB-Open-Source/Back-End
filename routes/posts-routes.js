@@ -10,6 +10,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 
 import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
+import redis from "../redisConfig.js";
 
 const router = Router();
 const storage = memoryStorage();
@@ -283,6 +284,182 @@ router.get("/categoryposts/:id", rateLimiter(), inputValidator, async (req, res,
   }
 });
 
+
+/* Get Specific Posts By Category */
+router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    
+    // Extract category ID from URL parameters
+    const categoryId = req.params.category_id;
+
+    // Pagination settings
+    // Number of posts per page
+    const pageSize = 15; 
+    // Current page number from query parameter
+    const currentPage = parseInt(req.query.page) || 1; 
+    const offset = (currentPage - 1) * pageSize;
+
+    // Key for Redis cache
+    const cacheKey = `CATEGORY|${categoryId}|PAGE|${currentPage}`;
+
+    // Check if data is already cached
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      
+      // Return cached data if available
+      // IMPORTANT: If you update a post, remember to delete this cache
+      // For example, if you update post with ID 2:
+      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
+      // await redis.del('category:' + categoryId + ':page:' + currentPage);
+      const cachedPosts = JSON.parse(cachedData);
+
+      //For testing cache proccess
+      console.log("cache data  is working ");
+      return res.status(200).json(cachedPosts);
+    }
+
+    // SQL query to fetch specific category posts
+    const query = `
+      SELECT *
+      FROM posts p
+      INNER JOIN posts_categories pc ON p.id = pc.post_id
+      WHERE pc.category_name IN (SELECT name FROM categories WHERE id = $1)
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3;
+    `;
+
+    // Execute the query with parameters
+    const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
+
+    // Process the posts to add video and thumbnail URLs, view_count ,like_count
+    const processedPosts = await Promise.all(
+      specificCategoryPosts.rows.map(async (post) => {
+        const videoUrl = await s3Retrieve(post.video_name);
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
+
+        const { video_name, thumbnail_name, ...rest } = post;
+
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+      })
+    );
+
+   // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
+   await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+
+   // Respond with an object containing the "posts" key and the 15 array of objects with post information
+   res.status(200).json({ "posts": processedPosts });
+ } catch (err) {
+   next(err);
+ }
+});
+
+
+/* Get Specific Posts By Category */
+router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    
+    // Extract category ID from URL parameters
+    const categoryId = req.params.category_id;
+
+    // Pagination settings
+    // Number of posts per page
+    const pageSize = 15; 
+    // Current page number from query parameter
+    const currentPage = parseInt(req.query.page) || 1; 
+    const offset = (currentPage - 1) * pageSize;
+
+    // Key for Redis cache
+    const cacheKey = `CATEGORY|${categoryId}|PAGE|${currentPage}`;
+
+    // Check if data is already cached
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      
+      // Return cached data if available
+      // IMPORTANT: If you update a post, remember to delete this cache
+      // For example, if you update post with ID 2:
+      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
+      // await redis.del('category:' + categoryId + ':page:' + currentPage);
+      const cachedPosts = JSON.parse(cachedData);
+
+      //For testing cache proccess
+      console.log("cache data  is working ");
+      return res.status(200).json(cachedPosts);
+    }
+
+    // SQL query to fetch specific category posts
+    const query = `
+      SELECT *
+      FROM posts p
+      INNER JOIN posts_categories pc ON p.id = pc.post_id
+      WHERE pc.category_name IN (SELECT name FROM categories WHERE id = $1)
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3;
+    `;
+
+    // Execute the query with parameters
+    const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
+
+    // Process the posts to add video and thumbnail URLs, view_count ,like_count
+    const processedPosts = await Promise.all(
+      specificCategoryPosts.rows.map(async (post) => {
+        const videoUrl = await s3Retrieve(post.video_name);
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
+
+        const { video_name, thumbnail_name, ...rest } = post;
+
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+      })
+    );
+
+   // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
+   await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+
+   // Respond with an object containing the "posts" key and the 15 array of objects with post information
+   res.status(200).json({ "posts": processedPosts });
+ } catch (err) {
+   next(err);
+ }
+});
+
+
+/* Deletes a specific post */
+router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  
+  const postId = req.params.post_id;
+
+  try {
+    // Fetch post details from the database
+    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, postId);
+
+    // Ensure the post is present in the database or not
+    if (post.rows.length === 0) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    const { video_name, thumbnail_name } = post.rows[0];
+
+    // Perform actions within a database transaction
+    const query = [`DELETE FROM posts WHERE id = $1`];
+    const values = [[postId]];
+    await makeTransactions(query, values);
+    
+    // Delete files from S3 and remove likes/views
+    await Promise.all([
+      s3Delete(video_name),
+      s3Delete(thumbnail_name),
+      removeLikesViews(parseInt(postId)),
+    ]);
+
+    res.json({ "Status": "Post Deleted" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 //Process A Video Like
 router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
@@ -309,4 +486,36 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
   }
 });
 
+<<<<<<< HEAD
+=======
+// Remove A Video Like 
+router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { post_id, user_id } = req.params;
+
+    // Check if the like exists
+    const checkLikeExistance = await getDynamoRequestBuilder("Likes")
+      .query("post_id", parseInt(post_id))
+      .whereSortKey("user_id")
+      .eq(parseInt(user_id))
+      .exec();
+
+    if (checkLikeExistance && checkLikeExistance.length > 0) {
+
+      // Like exists, proceed to delete it
+      await getDynamoRequestBuilder("Likes")
+        .delete("post_id", parseInt(post_id))
+        .withSortKey("user_id", parseInt(user_id))
+        .exec();
+      res.status(200).json({ "Status": "Post Unliked" });
+    } else {
+
+      // Like does not exist
+      res.status(404).json({ "Status": "Post Like Not Found" });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+>>>>>>> 9671fe149ccf4b75f6bd59f5744b471bd4c7a62a
 export default router;
