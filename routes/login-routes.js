@@ -103,12 +103,13 @@ router.post('/signin', rateLimiter(10,1), (req, res) => {
   const cognitoUser = new CognitoUser(userData);
   
   cognitoUser.authenticateUser(authenticationDetails, {
-    onSuccess: (result) =>{
+    onSuccess: async (result) =>{
       const idToken = result.getIdToken().getJwtToken();
       const accessToken = result.getAccessToken().getJwtToken();
       const refreshToken = result.getRefreshToken().getToken();
-      const user = pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
-      res.status(200).json(user);
+      const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username)
+      res.status(200).json(
+        ...user.rows);
     },
     onFailure: (err) => {
       res.status(400).json({
@@ -152,5 +153,97 @@ router.post('/changepassword', rateLimiter(10, 1), async (req, res) => {
     return res.status(201).json({ message: 'password changed successfully' });
   });
 })
+
+router.post('/forgotpasswordcode', async (req, res) => {
+  var username = req.body.username;
+
+  var userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+  var cognitoUser = new CognitoUser(userData);
+  
+  cognitoUser.forgotPassword({
+    onSuccess: (data) => {
+      res.status(200).json({ message: 'Verification code sent' });
+    },
+    onFailure: (err) => {
+      res.status(400).json(err.message)
+    },
+  });
+})
+
+router.post('/forgotpasswordcode/newpassword', (req, res) => {
+  var username = req.body.username;
+
+  var userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+  var cognitoUser = new CognitoUser(userData);
+
+  var verificationCode = req.body.verificationCode;
+  var newPassword = req.body.newPassword;
+  cognitoUser.confirmPassword(verificationCode, newPassword, {
+    onSuccess() {
+      res.status(201).json({ message: 'password reset successfully'})
+    },
+    onFailure(err) {
+      res.status(400).json(err.message);
+    },
+  });
+})
+/* Global signout invalidates all user tokens */ 
+
+router.post('/globalsignout', rateLimiter(10, 1), (req, res) => {
+  var cognitoUser = cognitoUserPool.getCurrentUser()
+
+  if (cognitoUser != null) {
+    cognitoUser.globalSignOut();
+    res.status(200).json({message: 'user successfully logged out: sign in required'});
+  } else {
+    res.status(500).json({message: 'cannot log user out'});
+  }
+})
+
+/* Delete a user */
+ 
+router.post('/deleteuser', rateLimiter(10, 1), (req, res) => {
+  const username = req.body.username
+
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+
+  const cognitoUser = new CognitoUser(userData);
+
+  cognitoUser.deleteUser((err, result) => {
+    if (err) {
+      return res.status(400).json(err.message);
+    }
+    res.status(200).json({ message: `user, ${username}, deleted` });
+  });
+})
+
+
+router.post('/update/:attribute', (req, res) => {
+  const attributeList = [];
+  const newAttribute = {
+	Name: req.params.attribute,
+	Value: req.body.attribute,
+  };
+  const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
+  attributeList.push(updatedAttribute);
+
+  cognitoUser.updateAttributes(attributeList, function(err, result) {
+    if (err) {
+      res.status(401).json(err.message);
+      return;
+    }
+    console.log('call result: ' + result);
+  });
+})
+
 
 export default router;
