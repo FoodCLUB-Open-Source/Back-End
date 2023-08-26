@@ -1,14 +1,14 @@
 /* For video/image posting routes */
 import multer, { memoryStorage } from "multer";
-import { Router } from "express";
+import { response, Router } from "express";
 import { validationResult } from "express-validator";
-
+import { setLikes } from "../dynamo_schemas/dynamo_schemas.js";
 import getDynamoRequestBuilder from "../dynamoDB.js";
 import inputValidator from "../middleware/input_validator.js";
 import pgPool from "../pgdb.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
 
 const router = Router();
@@ -32,10 +32,16 @@ const getPostStats = async (postId) => getDynamoRequestBuilder("Post_Stats")
   .query("post_id", JSON.stringify(postId))
   .execSingle();
 
-/* returns the total likes and views per post */
-const removeLikesViews = async (postId) => await getDynamoRequestBuilder("Post_Stats")
-  .delete("post_id", postId)
-  .exec();
+/* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
+const removeLikesViews = async (postId) => {
+  await getDynamoRequestBuilder("Likes")
+    .delete("post_id", postId)
+    .exec();
+
+  await getDynamoRequestBuilder("Views")
+    .delete("post_id", postId)
+    .exec();
+};
 
 /* Checks if a user has liked a post or not, returns true or false */
 const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes")
@@ -155,7 +161,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
 });
 
 /* Deletes a specific post */
-router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, next) => {
+router.delete("/posts/:post_id", rateLimiter(), validateParamId(), async (req, res, next) => {
   try {
     const errors = validationResult(req);
   
@@ -163,7 +169,7 @@ router.delete("/posts/:id", rateLimiter(), validateParamId(), async (req, res, n
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const postId = req.params.id;
+    const postId = req.params.post_id;
 
     const post = await pgQuery(`SELECT * FROM posts WHERE post_id = $1`, postId);
 
@@ -277,4 +283,69 @@ router.get("/categoryposts/:id", rateLimiter(), inputValidator, async (req, res,
   }
 });
 
+<<<<<<< HEAD
+
+/* Deletes a specific post */
+router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  
+  const postId = req.params.post_id;
+
+  try {
+    // Fetch post details from the database
+    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, postId);
+
+    // Ensure the post is present in the database or not
+    if (post.rows.length === 0) {
+      return res.status(404).json({ error: "Post not found." });
+    }
+
+    const { video_name, thumbnail_name } = post.rows[0];
+
+    // Perform actions within a database transaction
+    const query = [`DELETE FROM posts WHERE id = $1`];
+    const values = [[postId]];
+    await makeTransactions(query, values);
+    
+    // Delete files from S3 and remove likes/views
+    await Promise.all([
+      s3Delete(video_name),
+      s3Delete(thumbnail_name),
+      removeLikesViews(parseInt(postId)),
+    ]);
+
+    res.json({ "Status": "Post Deleted" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+
+=======
+//Process A Video Like
+router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { post_id, user_id } = req.params;
+    const likeSchema = setLikes(parseInt(user_id), parseInt(post_id));
+
+    // Check if the like exists
+    const checkLikeExistence = await getDynamoRequestBuilder("Likes")
+      .query("post_id", parseInt(post_id))
+      .whereSortKey("user_id")
+      .eq(parseInt(user_id))
+      .exec();
+
+    if (checkLikeExistence.length === 0) {
+      // Like does not exist, proceed to like
+      await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
+      res.status(200).json({ "Status": "Post Liked" });
+    } else {
+      // Like already exists
+      res.status(409).json({ "Status": "Post Like Already Exists" });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+>>>>>>> aea74f885e03119ef97f24759720df5212e7a5a3
 export default router;
