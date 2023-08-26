@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
-import { pgQuery } from "../functions/general_functions.js";
+import { pgQuery, updatePosts } from "../functions/general_functions.js";
 
 const router = Router();
 
@@ -27,7 +27,7 @@ router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidat
             res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
         }
     } catch (error) {
-        next(error) // server side error
+        next(error); // server side error
     }
 });
 
@@ -53,7 +53,30 @@ router.post("/post/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, a
             res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
         }
     } catch (error) {
-        next(error) // server side error
+        next(error); // server side error
+    }
+});
+
+/**
+ * Gets posts which have been bookmarked of a user
+ * 
+ * @route GET /profile/:user_id/bookmark/
+ * @param {string} req.params.user_id - The ID of the user
+ * @returns {Array} - An array of objects containing details of the post the user has bookmarked 
+ * @throws {Error} - If there are errors fetching bookmarked posts
+ */
+router.get("/profile/:user_id/bookmark", rateLimiter(), inputValidator, async(req, res, next) => {
+    try {
+        const { user_id } = req.params; // retrieving userID
+        const { page_number, page_size } = req.query; // getting page number and page size
+
+        const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
+        const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
+        const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows); // updating post objects to include further information
+        
+        return res.status(200).json({ data: updatedPostsData }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
+    } catch (error) {
+        next(error); // server side error
     }
 });
 
