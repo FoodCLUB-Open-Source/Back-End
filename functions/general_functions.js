@@ -6,6 +6,7 @@ import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 
 import pgPool from "../pgdb.js";
 import s3Client from "../s3Client.js";
+import getDynamoRequestBuilder from "../dynamoDB.js";
 
 /* DRY secure postgreSQl query function */
 /* Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) */
@@ -53,8 +54,9 @@ export const makeTransactions = async (queries, values) => {
 };
 
 /*DRY upload to s3 function */
-export const s3Upload = async (file) => {
-  const randomName = file.originalname + crypto.randomBytes(32).toString('hex');
+export const s3Upload = async (file, path) => {
+
+  const randomName = path + file.originalname + crypto.randomBytes(32).toString('hex');
 
   /* Resize the image to the what is specified (DOESNT WORK WITH VIDEOS) */
   //const buffer = await sharp(file.buffer).resize({height: 1920, width: 1080, fit: "contain"}).toBuffer()
@@ -81,12 +83,42 @@ export const s3Retrieve = (fileName) => getSignedUrl({
 });
 
 /* Deletes a image in the s3 bucket */
-export const s3Delete = async (fileName) => {
+export const s3Delete = async (fileName, path) => {
   const params ={
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: fileName,
+    Key: path+fileName,
   };
 
   const s3GetCommand = new DeleteObjectCommand(params);
   await s3Client.send(s3GetCommand);
 };
+
+/* Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT ) */
+export async function updatePosts(userPosts) {
+  const updatedPostsPromises = await userPosts.map(async (post)=> {
+
+    // getting video_name and thumbnail_name URL's, likes and views of the post
+    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount] = await Promise.all([
+        s3Retrieve(post.video_name),
+        s3Retrieve(post.thumbnail_name),
+        getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
+        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec()
+    ]);
+  
+    // adding URLs to posts data and removing video_name and thumbnail_name
+    post.video_url = videoUrl;
+    post.thumbnail_url = thumbnailUrl;
+    delete post.video_name;
+    delete post.thumbnail_name;
+  
+    // adding post total likes and views count to posts data
+    post.total_likes = postLikeCount.length;
+    post.total_views = postViewCount.length;
+
+    return post;
+  });
+
+  const updatedPosts = await Promise.all(updatedPostsPromises);
+
+  return updatedPosts;
+}
