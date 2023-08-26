@@ -30,7 +30,7 @@ router.post('/signup', rateLimiter(10, 1), async (req, res) => {
   }
 
   const attributeArray = [];
-  const passwordHashed = await hash(password)
+  const passwordHashed = await hash(password, 10)
   const dateOfBirth = "01/01/2000"
 
   /* aws cognito assigns a UUID value to each user's sub attribute */
