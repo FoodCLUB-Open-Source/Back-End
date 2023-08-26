@@ -283,44 +283,6 @@ router.get("/categoryposts/:id", rateLimiter(), inputValidator, async (req, res,
   }
 });
 
-<<<<<<< HEAD
-
-/* Deletes a specific post */
-router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  
-  const postId = req.params.post_id;
-
-  try {
-    // Fetch post details from the database
-    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, postId);
-
-    // Ensure the post is present in the database or not
-    if (post.rows.length === 0) {
-      return res.status(404).json({ error: "Post not found." });
-    }
-
-    const { video_name, thumbnail_name } = post.rows[0];
-
-    // Perform actions within a database transaction
-    const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [[postId]];
-    await makeTransactions(query, values);
-    
-    // Delete files from S3 and remove likes/views
-    await Promise.all([
-      s3Delete(video_name),
-      s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(postId)),
-    ]);
-
-    res.json({ "Status": "Post Deleted" });
-  } catch (error) {
-    next(error);
-  }
-});
-
-
-=======
 //Process A Video Like
 router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
@@ -347,5 +309,4 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
   }
 });
 
->>>>>>> aea74f885e03119ef97f24759720df5212e7a5a3
 export default router;
