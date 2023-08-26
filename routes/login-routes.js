@@ -21,7 +21,6 @@ router.get("/testing", async (req, res) => {
 });
 
 /* Sign up */ 
-
 router.post('/signup', rateLimiter(10, 1), async (req, res) => {
   const { username, email, password } = req.body;
   

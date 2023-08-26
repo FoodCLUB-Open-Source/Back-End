@@ -4,7 +4,7 @@ import express, { Router } from "express";
 
 import requestLogging from "./middleware/logging.js";
 
-import { commentsRouter, likesViewRouter, loginRouter, postsRouter, profileRouter, bookmarksRouter } from "./routes/index.js";
+import { commentsRouter, likesViewRouter, loginRouter, postsRouter, profileRouter, bookmarksRouter, recipeRouter } from "./routes/index.js";
 
 const app = express();
 const router = Router();
@@ -31,6 +31,7 @@ router.use("/comments", commentsRouter);
 router.use("/likes_views", likesViewRouter);
 router.use("/bookmarks", bookmarksRouter);
 router.use("/profile", profileRouter);
+router.use("/recipe", recipeRouter);
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
