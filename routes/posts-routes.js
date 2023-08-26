@@ -2,7 +2,7 @@
 import multer, { memoryStorage } from "multer";
 import { Router } from "express";
 import { validationResult } from "express-validator";
-
+import { setLikes } from "../dynamo_schemas/dynamo_schemas.js";
 import getDynamoRequestBuilder from "../dynamoDB.js";
 import inputValidator from "../middleware/input_validator.js";
 import pgPool from "../pgdb.js";
@@ -318,6 +318,32 @@ router.get("/categoryposts/:id", rateLimiter(), validateGetCategoryPost(), async
     );
 
     res.json({"posts": processedPosts});
+  } catch (err) {
+    next(err);
+  }
+});
+
+//Process A Video Like
+router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { post_id, user_id } = req.params;
+    const likeSchema = setLikes(parseInt(user_id), parseInt(post_id));
+
+    // Check if the like exists
+    const checkLikeExistence = await getDynamoRequestBuilder("Likes")
+      .query("post_id", parseInt(post_id))
+      .whereSortKey("user_id")
+      .eq(parseInt(user_id))
+      .exec();
+
+    if (checkLikeExistence.length === 0) {
+      // Like does not exist, proceed to like
+      await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
+      res.status(200).json({ "Status": "Post Liked" });
+    } else {
+      // Like already exists
+      res.status(409).json({ "Status": "Post Like Already Exists" });
+    }
   } catch (err) {
     next(err);
   }
