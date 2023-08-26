@@ -16,16 +16,41 @@ const router = Router();
  */
 router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
-        const userID = req.params.user_id; // retrieving user ID
-        const postID = req.params.post_id; // retrieving post ID
+        const { user_id, post_id } = req.params; // retrieving userID and postID
 
         const query = 'DELETE FROM bookmarks WHERE user_id = $1 AND post_id = $2'; // query to remove post from bookmarks
-        const postgresQuery = await pgQuery(query, userID, postID);
+        const postgresQuery = await pgQuery(query, user_id, post_id);
 
         if (postgresQuery.rowCount === 1) { // if statement to check if removal was successful
             res.status(200).json({ message: 'Post is no longer bookmarked' }); // if true success response code is sent
         } else {
-            res.status(400).json({message: 'Removal unsuccessful. Ensure data exists in database'}); // else unsuccessful response code is sent
+            res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
+        }
+    } catch (error) {
+        next(error) // server side error
+    }
+});
+
+/**
+ * Bookmarks a post
+ * 
+ * @route POST /post/:user_id/bookmark/:post_id
+ * @param {string} req.params.user_id - The ID of the user
+ * @param {string} req.params.post_id - The ID of the post to bookmark
+ * @returns {status} - A status indicating successful bookmark of post
+ * @throws {Error} - If there are errors bookmarking post
+ */
+router.post("/post/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        const { user_id, post_id } = req.params; // retrieving userID and postID
+
+        const query = 'INSERT INTO bookmarks (user_id, post_id, created_at) VALUES ($1, $2, NOW())'; // query to add a post to bookmarks
+        const postgresQuery = await pgQuery(query, user_id, post_id);
+
+        if (postgresQuery.rowCount === 1) { // if statement to check if was added
+            res.status(200).json({ message: 'Post bookmarked' }); // if true success response code is sent
+        } else {
+            res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
         }
     } catch (error) {
         next(error) // server side error
