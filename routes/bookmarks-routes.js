@@ -65,7 +65,7 @@ router.post("/post/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, a
  * @returns {Array} - An array of objects containing details of the post the user has bookmarked 
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
-router.get("/profile/:user_id/bookmark", rateLimiter(), inputValidator, async(req, res, next) => {
+router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => {
     try {
         const { user_id } = req.params; // retrieving userID
         const { page_number, page_size } = req.query; // getting page number and page size
