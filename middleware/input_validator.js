@@ -96,6 +96,11 @@ const inputValidator = [
 				return true;
 			})
 	),
+	check("verificationCode")
+		.optional()
+		.isInt()
+		.isLength({ min: 6, max: 6 })
+	,
 	check(["video_url", "thumbnail_url"])// NEEDS TESTING AFTER WE CAN UPLOAD FILES AGAIN
 		.optional()
 		.custom((value) => {

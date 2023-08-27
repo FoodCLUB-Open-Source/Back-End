@@ -1,11 +1,11 @@
-const express = require("express")
-const router = express.Router()
+import express from "express";
 
-const { pgQuery } = require('../functions/general_functions')
-const rateLimiter = require("../middleware/rate_limiter")
-const inputValidator = require("../middleware/input_validator")
-const Redis = require("../redisConfig")
+import { pgQuery } from "../functions/general_functions.js";
+import rateLimiter from "../middleware/rate_limiter.js";
+import inputValidator from "../middleware/input_validator.js";
+import Redis from"../redisConfig.js";
 
+const router = express.Router();
 
 /* Testing Posts Route */
 router.get("/testing", rateLimiter(4, 15), async (req, res) => {
@@ -68,4 +68,4 @@ router.get("/:id", inputValidator, rateLimiter(), async (req, res, next) => {
 	};
 });
 
-module.exports = router;
+export default router;
