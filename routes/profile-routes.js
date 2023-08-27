@@ -88,7 +88,39 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
     }
 });
 
-/*Unfollowing A User*/
+/**
+ * Retrieves users that follow the user
+ * 
+ * @route GET /:userid/followers
+ * @param {string} req.params.user_id - The ID of the user to retrieve users that follow the user
+ * @query {string} req.query.page_number - The pageNumber for pagination
+ * @query {string} req.query.page_size - The pageSize for pagination
+ * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
+ * @throws {Error} - If there is error retrieving user details or validation issues
+ */
+router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        const userID = req.params.user_id; // getting userID
+        const { page_number, page_size } = req.query; // getting page number and page size
+
+        const query = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that follow the user with pagination
+        const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+        return res.status(200).json({ data: userFollowers.rows }); // sends details to client
+    } catch (error) {
+        next(error) // server side error
+    }
+});
+
+/**
+ * Unfollows a user
+ * 
+ * @route GET /:userid
+ * @param {string} req.params.user_id - The ID of the user that is unfollowing another user
+ * @param {string} req.params.user_following_id - The ID of the user that is getting unfollowed
+ * @returns {Object} - With a successful message
+ * @throws {Error} - This must not unfollow the user
+ */
 router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameters
@@ -143,55 +175,6 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
         next(err);
     }
   });
-  
-/**
- * Retrieves users that follow the user
- * 
- * @route GET /:userid/followers
- * @param {string} req.params.user_id - The ID of the user to retrieve users that follow the user
- * @query {string} req.query.page_number - The pageNumber for pagination
- * @query {string} req.query.page_size - The pageSize for pagination
- * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
- * @throws {Error} - If there is error retrieving user details or validation issues
- */
-router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res, next) => {
-    try {
-        const userID = req.params.user_id; // getting userID
-        const { page_number, page_size } = req.query; // getting page number and page size
-
-        const query = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that follow the user with pagination
-        const userFollowers = await pgQuery(query, userID, page_number, page_size);
-
-        return res.status(200).json({ data: userFollowers.rows }); // sends details to client
-    } catch (error) {
-        next(error) // server side error
-    }
-});
-
-/**
- * Top creators query
- * 
- * @route GET /:user_id/topcreators
- * @param {string} req.query.user_id - The ID of the user to retrieve top creator users for
- * @query {string} req.query.page_number - The pageNumber for pagination
- * @query {string} req.query.page_size - The pageSize for pagination
- * @returns {Array} - An array of objects containing details of the users to follow
- * @throws {Error} - If there is error retrieving user details or validation issues
- */
-router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, res, next) => {
-    try {
-
-        const userID = req.params.user_id; // retrieving userID
-        const { page_number, page_size } = req.query; // getting page number and page size
-
-        const query = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT $3 OFFSET (($2 - 1) * $3)'; // top creators query, returns random users that the user does not follow
-        const userFollowers = await pgQuery(query, userID, page_number, page_size);
-
-        return res.status(200).json({ data: userFollowers.rows }); // sends details to client
-    } catch (error) {
-        next(error) // server side error
-    }
-});
 
 /*Following A User*/
 router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
@@ -244,7 +227,31 @@ router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(),
        // Handle errors
        next(err);
     }
-  });
-  
+});
+
+/**
+ * Top creators query
+ * 
+ * @route GET /:user_id/topcreators
+ * @param {string} req.query.user_id - The ID of the user to retrieve top creator users for
+ * @query {string} req.query.page_number - The pageNumber for pagination
+ * @query {string} req.query.page_size - The pageSize for pagination
+ * @returns {Array} - An array of objects containing details of the users to follow
+ * @throws {Error} - If there is error retrieving user details or validation issues
+ */
+router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+
+        const userID = req.params.user_id; // retrieving userID
+        const { page_number, page_size } = req.query; // getting page number and page size
+
+        const query = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT $3 OFFSET (($2 - 1) * $3)'; // top creators query, returns random users that the user does not follow
+        const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+        return res.status(200).json({ data: userFollowers.rows }); // sends details to client
+    } catch (error) {
+        next(error) // server side error
+    }
+});
 
 export default router;
