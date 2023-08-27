@@ -71,7 +71,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
  */
 router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) => {
 
-  const {username, verification_code} = req.body;
+  const { username, verification_code } = req.body;
 
   const userData = {
     Username: username,
@@ -126,7 +126,7 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
  */
 router.post('/signin', inputValidator, rateLimiter(), (req, res) => {
 
-  const {username, password} = req.body;
+  const { username, password } = req.body;
   
   const authenticationDetails = new AuthenticationDetails({
     Username: username,
@@ -183,7 +183,7 @@ router.post('/signout', rateLimiter(), (req, res) => {
  */
 router.post('/change_password', inputValidator, rateLimiter(), async (req, res) => {
 
-  const {old_password, new_password} = req.body;
+  const { old_password, new_password } = req.body;
 
   const cognitoUser = cognitoUserPool.getCurrentUser();
 
@@ -210,7 +210,7 @@ router.post('/change_password', inputValidator, rateLimiter(), async (req, res) 
  * @returns {status} - A successful status indicates code is sent
  * @throws {Error} - If there are errors dont send a code
  */
-router.post('/forgot_password/verification_code', async (req, res) => {
+router.post('/forgot_password/verification_code', inputValidator, rateLimiter(), async (req, res) => {
 
   const { username } = req.body;
 
@@ -241,7 +241,7 @@ router.post('/forgot_password/verification_code', async (req, res) => {
  * @returns {status} - A successful status indicates new password has been set
  * @throws {Error} - If there are errors dont chagne the password
  */
-router.post('/forgot_password_code/new_password', (req, res) => {
+router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(), (req, res) => {
 
   const { username, verification_code, new_password } = req.body;
 
@@ -284,7 +284,7 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
 
 
 //Change this to a function to be used in the profile Routes.
-router.delete('/delete_user', rateLimiter(10, 1), (req, res) => {
+router.delete('/delete_user', rateLimiter(), (req, res) => {
 
   const username = req.body.username;
 
