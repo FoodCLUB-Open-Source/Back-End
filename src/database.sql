@@ -24,7 +24,7 @@ CREATE TABLE users (
 
 CREATE TABLE posts (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT,
   video_name VARCHAR(255) NOT NULL,
@@ -39,27 +39,27 @@ CREATE TABLE categories (
 );
 
 CREATE TABLE posts_categories (
-  post_id INTEGER REFERENCES posts(id),
-  category_name VARCHAR(255) REFERENCES categories(name),
+  post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+  category_name VARCHAR(255) REFERENCES categories(name) ON DELETE CASCADE,
   PRIMARY KEY (post_id, category_name)
 );
 
 CREATE TABLE bookmarks (
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    post_id INTEGER NOT NULL REFERENCES posts(id),
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, post_id)
 );
 
 CREATE TABLE posts_hashtags (
-  post_id INTEGER REFERENCES posts(id),
+  post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
   hashtag_name VARCHAR(255) NOT NULL,
   PRIMARY KEY (post_id, hashtag_name)
 );
 
 CREATE TABLE recipes (
   id SERIAL PRIMARY KEY,
-  post_id INTEGER REFERENCES posts(id),
+  post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
   recipe_description TEXT,
   recipe_ingredients VARCHAR[],
   recipe_equipment VARCHAR[],
@@ -70,23 +70,23 @@ CREATE TABLE recipes (
 );
 
 CREATE TABLE blocked_users (
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  blocked_user_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, blocked_user_id)
 );
 
 CREATE TABLE following (
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  user_following_id INTEGER NOT NULL REFERENCES users(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_following_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, user_following_id)
 );
 
 CREATE TABLE report (
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  reported_user_id INTEGER NOT NULL REFERENCES users(id),
-  post_id INTEGER NOT NULL REFERENCES posts(id),
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reported_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id, post_id)
 );
