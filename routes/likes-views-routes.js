@@ -18,7 +18,7 @@ router.get("/testing", async (req, res) => {
 });
 
 /* Posting For Viewing Specific Video */
-router.post("/posts/view/:id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.post("/view/:id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
 		const errors = validationResult(req);
   
