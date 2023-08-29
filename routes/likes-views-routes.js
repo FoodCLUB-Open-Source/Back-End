@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { validationResult } from "express-validator";
 
-import getDynamoRequestBuilder from "../dynamoDB.js";
 import rateLimiter from "../middleware/rate_limiter.js";
+import inputValidator from "../middleware/input_validator.js";
 
 import { setCommentsLike, setLikes, setViews } from "../dynamo_schemas/dynamo_schemas.js";
-import { validateDeleteComment, validateDeleteLike, validatePostComment, validatePostLike, validatePostView } from "../functions/validators/like_view_validator.js";
+import getDynamoRequestBuilder from "../dynamoDB.js";
 
 const router = Router();
 
@@ -19,7 +18,7 @@ router.get("/testing", async (req, res) => {
 });
 
 /* Posting For Viewing Specific Video */
-router.post("/posts/view/:id", rateLimiter(), validatePostView(), async (req, res, next) => {
+router.post("/posts/view/:id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
 		const errors = validationResult(req);
   
@@ -50,72 +49,64 @@ router.post("/posts/view/:id", rateLimiter(), validatePostView(), async (req, re
 	}
 });
 
-/* Posting For Liking Specific Video */
-router.post("/posts/like/:id", rateLimiter(), validatePostLike(), async (req, res, next) => {
+//Process A Video Like
+router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
-		const errors = validationResult(req);
+	  const { post_id, user_id } = req.params;
+	  const likeSchema = setLikes(parseInt(user_id), parseInt(post_id));
   
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		}
-
-		const postId = parseInt(req.params.id);
-		const { user_id } = req.body;
-
-		const likeSchema = setLikes(parseInt(user_id), postId);
-		
-		const putLikesRequest = getDynamoRequestBuilder("Likes").put(likeSchema);
-		
-		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
-			.update("post_id", postId)
-			.updateAttribute("like_count").increment();
-		
-		await Promise.all([
-			putLikesRequest.exec(),
-			updatePostStatsRequest.exec()
-		]);
-		
-		console.log("Post Liked");
-		res.json({ Status: "Post Likes" });
+	  // Check if the like exists
+	  const checkLikeExistence = await getDynamoRequestBuilder("Likes")
+		.query("post_id", parseInt(post_id))
+		.whereSortKey("user_id")
+		.eq(parseInt(user_id))
+		.exec();
+  
+	  if (checkLikeExistence.length === 0) {
+		// Like does not exist, proceed to like
+		await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
+		res.status(200).json({ "Status": "Post Liked" });
+	  } else {
+		// Like already exists
+		res.status(409).json({ "Status": "Post Like Already Exists" });
+	  }
 	} catch (err) {
-		next(err);
+	  next(err);
 	}
-});
-
-/* Deleting Like On Specific Video */
-router.delete("/posts/like/:id", rateLimiter(), validateDeleteLike(), async (req, res, next) => {
+  });
+  
+  // Remove A Video Like 
+  router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
-		const errors = validationResult(req);
+	  const { post_id, user_id } = req.params;
   
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		}
-
-		const postId = parseInt(req.params.id);
-		const { user_id } = req.body;
-		
-		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
-			.update("post_id", postId)
-			.updateAttribute("like_count").decrement();
-		
-		const deleteLikesRequest = getDynamoRequestBuilder("Likes")
-			.delete("post_id", postId)
-			.withSortKey("user_id", parseInt(user_id));
-		
-		await Promise.all([
-			updatePostStatsRequest.exec(),
-			deleteLikesRequest.exec()
-		]);
-
-		console.log("Post Unliked");
-		res.json({ Status: "Post Unliked" });
+	  // Check if the like exists
+	  const checkLikeExistance = await getDynamoRequestBuilder("Likes")
+		.query("post_id", parseInt(post_id))
+		.whereSortKey("user_id")
+		.eq(parseInt(user_id))
+		.exec();
+  
+	  if (checkLikeExistance && checkLikeExistance.length > 0) {
+  
+		// Like exists, proceed to delete it
+		await getDynamoRequestBuilder("Likes")
+		  .delete("post_id", parseInt(post_id))
+		  .withSortKey("user_id", parseInt(user_id))
+		  .exec();
+		res.status(200).json({ "Status": "Post Unliked" });
+	  } else {
+  
+		// Like does not exist
+		res.status(404).json({ "Status": "Post Like Not Found" });
+	  }
 	} catch (err) {
-		next(err);
+	  next(err);
 	}
-});
+  });
 
 /* Posting a like for a specific comment */
-router.post("/posts/comment/like/:id", rateLimiter(), validatePostComment(), async (req, res, next) => {
+router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
 		const errors = validationResult(req);
   
@@ -147,7 +138,7 @@ router.post("/posts/comment/like/:id", rateLimiter(), validatePostComment(), asy
 });
 
 /* Deleting Like On Specific Comment */
-router.delete("/posts/comment/like/:id", rateLimiter(), validateDeleteComment(), async (req, res, next) => {
+router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
 		const commentId = req.params.id;
 		const { comment_like_id, post_id } = req.body;

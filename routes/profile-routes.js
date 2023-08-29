@@ -180,7 +180,7 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
 router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameter
-        const {user_id, user_following_id} = req.params;
+        const { user_id, user_following_id } = req.params;
         
         const verifyUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
         const verifyFollowingUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);

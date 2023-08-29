@@ -1,16 +1,15 @@
 /* For video/image posting routes */
+import { Router } from "express";
 import multer, { memoryStorage } from "multer";
-import { response, Router } from "express";
 import { validationResult } from "express-validator";
-import { setLikes } from "../dynamo_schemas/dynamo_schemas.js";
-import getDynamoRequestBuilder from "../dynamoDB.js";
+
 import inputValidator from "../middleware/input_validator.js";
-import pgPool from "../pgdb.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
-import { validateGetCategoryPost, validateGetPosts, validateParamId } from "../functions/validators/posts_validators.js";
+import getDynamoRequestBuilder from "../dynamoDB.js";
 import redis from "../redisConfig.js";
+import pgPool from "../pgdb.js";
 
 const router = Router();
 const storage = memoryStorage();
@@ -28,10 +27,6 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
 });
 
 /* Functions for Posts */
-/* returns the total likes and views per post */
-const getPostStats = async (postId) => getDynamoRequestBuilder("Post_Stats")
-  .query("post_id", JSON.stringify(postId))
-  .execSingle();
 
 /* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
 const removeLikesViews = async (postId) => {
@@ -51,7 +46,15 @@ const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes
   .execSingle();
 
 
-/* Posting a post to the database roll backs are included incase any query goes wrong. */
+/**
+ * Uploading a Post, video and recipe
+ * 
+ * @route POST /:userid
+ * @param {string} req.params.user_id - The ID of the user to retrieve profile page data for
+ * @body {string} req.body - This contains all of the information needed for creating a post.
+ * @returns {Object} - Returns a status of video posted if successful
+ * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
+ */
 router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
   try {
 
@@ -87,14 +90,14 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
       const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
       const postUpdateValues = [post_id, category];
       
-      const [recipe_table, category_table] = await Promise.all([
+      await Promise.all([
         client.query(insertRecipeQuery, recipeValues),
         client.query(updatePostQuery, postUpdateValues)
       ]);
 
       await client.query('COMMIT');
       
-      console.log("Video Posted" + post_id);
+      console.log("Video Posted " + post_id);
       res.status(200).json({ Status: "Video Posted" });
 
     } catch (err) {
@@ -121,15 +124,14 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
  * @route GET /post/:post_id
  * @param {string} req.params.post_id - The ID of the post to retrieve details for
  * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
- * @throws {Error} - If there is error retrieving post details or validation issues
+ * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
 router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const postID = req.params.post_id; // retrieving post ID
-    console.log("RAN")
-    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+    const { post_id } = req.params; // retrieving post ID
 
-    const postDetails = await pgQuery(query, postID); // performing query
+    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+    const postDetails = await pgQuery(query, post_id); // performing query
 
     if (postDetails.rows.length === 0) {
       return res.status(404).json({ error: 'Post not found' });
@@ -142,9 +144,9 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
     ]);
 
     // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
-    const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(postID)).exec();
-    const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(postID)).exec();
-
+    const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+    const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
+    
     // adding URLs to posts data and removing video_name and thumbnail_name
     postDetails.rows[0].video_url = videoUrl;
     postDetails.rows[0].thumbnail_url = thumbnailUrl;
@@ -161,46 +163,59 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
   }
 });
 
-/* Deletes a specific post */
-router.delete("/posts/:post_id", rateLimiter(), validateParamId(), async (req, res, next) => {
+/**
+ * Delete a specific post
+ * 
+ * @route POST /:post_id
+ * @body {string} req.params.post_id - Id of the post that is neeeded
+ * @returns {status} - A successful status indicates that posts have been deleted
+ * @throws {Error} - If there are errors dont delete any post.
+ */
+router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+
+    const { post_id } = req.params;
+
+    // Fetch post details from the database
+    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, post_id);
+
+    // Ensure the post is present in the database or not
+    if (post.rows.length === 0) {
+      return res.status(404).json({ error: "Post not found." });
     }
 
-    const postId = req.params.post_id;
-
-    const post = await pgQuery(`SELECT * FROM posts WHERE post_id = $1`, postId);
-
     const { video_name, thumbnail_name } = post.rows[0];
+
+    // Perform actions within a database transaction
+    const query = [`DELETE FROM posts WHERE id = $1`];
+    const values = [post_id];
+    await makeTransactions(query, values);
     
-    //CHANGE THIS SO THAT IF ONE DOESNT HAPPEN NONE DO
-    //MAYBE CREATE A DELETE FOLDER IN S3. To allow rollback
+    // Delete files from S3 and remove likes/views
     await Promise.all([
       s3Delete(video_name),
       s3Delete(thumbnail_name),
-      pgQuery(`DELETE FROM posts WHERE post_id = $1`, postId),
-      removeLikesViews(parseInt(postId))
+      removeLikesViews(parseInt(post_id)),
     ]);
 
-    console.log("Post Deleted");
-    res.json({"Status": "Image Deleted"});
-  } catch (err) {
-    next(err);
+    res.json({ "Status": "Post Deleted" });
+  } catch (error) {
+    next(error);
   }
 });
 
-/* Get 15 random posts */
-router.get("/homepage/posts", rateLimiter(), inputValidator, async (req, res, next) => {
+/**
+ * user gets posts for their homepage
+ * 
+ * @route GET /:userid
+ * @param {string} req.params.post_id - The ID of the post 
+ * @returns {Object} - Posts are retrieved for homepage
+ * @throws {Error} - If there is an error, no posts are retrieved
+ */
+router.get("/homepage/:user_id/posts", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
 
+    const { user_id } = req.params
     //THIS NEEDS TO CHANGE TO CORRESPOND TO THE NEW CATEGORY SYSTEM.
     //NEEDS TO ADD PAGINATION AND CACHHING
     const randomPosts = await pgQuery(`
@@ -218,7 +233,7 @@ router.get("/homepage/posts", rateLimiter(), inputValidator, async (req, res, ne
         
         const { view_count, like_count } = await getLikesViews(post.post_id);
 
-        const liked = await checkLike(parseInt(post.post_id), parseInt(req.query.user_id));
+        const liked = await checkLike(parseInt(post.post_id), parseInt(user_id));
 
         return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, view_count, like_count, liked };
       })
@@ -230,77 +245,29 @@ router.get("/homepage/posts", rateLimiter(), inputValidator, async (req, res, ne
   }
 });
 
-
-/* Posting For Sending Video To Friend */
-router.post("/posts/sendvideo", rateLimiter(),  async (req, res, next) => {
-  try {
-    //Will need to update the messages table. and update a sent table.
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* Get 15 random posts for a specific category */
-router.get("/categoryposts/:id", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-  
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    //REQUIRES PAGINATION AND CACHING
-    const categoryId = req.params.id;
-
-    // CHANGE THIS TO MATCH THE NEW CATEGORY SYSTEM
-    const randomPosts = await pgQuery(`
-      SELECT posts.*, users.*, categories.*, posts.created_at AS post_created_at, posts.updated_at AS post_updated_at 
-      FROM posts 
-      JOIN users ON posts.user_id = users.user_id 
-      JOIN categories ON posts.category_id = categories.category_id 
-      WHERE categories.category_id = $1
-      ORDER BY RANDOM() LIMIT 15;
-    `, categoryId);
-
-    const processedPosts = await Promise.all(
-      randomPosts.rows.map(async (post) => {
-
-        const videoUrl = await s3Retrieve(post.video_name);
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
-        
-        const { video_name, thumbnail_name, phone_number, password, email, gender, created_at, updated_at,  ...rest } = post;
-        
-        const { view_count, like_count } = await getLikesViews(post.post_id);
-
-        const liked = await checkLike(parseInt(post.post_id), parseInt(req.query.user_id));
-
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, view_count, like_count, liked };
-      })
-    );
-
-    res.json({"posts": processedPosts});
-  } catch (err) {
-    next(err);
-  }
-});
-
-
-/* Get Specific Posts By Category */
+/**
+ * Get a list of posts for a particular category
+ * 
+ * @route POST /category_posts/:category_name
+ * @body {string} req.params.category_name - Name of the category that is neeeded
+ * @returns {status} - A successful status indicates that posts have been retrieved
+ * @throws {Error} - If there are errors dont retrieve any posts.
+ */
 router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     
     // Extract category ID from URL parameters
-    const categoryId = req.params.category_id;
+    const { category_id } = req.params;
 
     // Pagination settings
     // Number of posts per page
     const pageSize = 15; 
-    // Current page number from query parameter
+    // Current page number f              rom query parameter
     const currentPage = parseInt(req.query.page) || 1; 
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
-    const cacheKey = `CATEGORY|${categoryId}|PAGE|${currentPage}`;
+    const cacheKey = `CATEGORY|${category_id}|PAGE|${currentPage}`;
 
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
@@ -330,13 +297,13 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     `;
 
     // Execute the query with parameters
-    const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
+    const specificCategoryPosts = await pgQuery(query, category_id, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
     const processedPosts = await Promise.all(
       specificCategoryPosts.rows.map(async (post) => {
-        const videoUrl = await s3Retrieve(post.video_name);
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
+        const videoUrl = s3Retrieve(post.video_name);
+        const thumbnailUrl = s3Retrieve(post.thumbnail_name);
 
         const { video_name, thumbnail_name, ...rest } = post;
 
@@ -355,164 +322,5 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
 });
 
 
-/* Get Specific Posts By Category */
-router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-    
-    // Extract category ID from URL parameters
-    const categoryId = req.params.category_id;
 
-    // Pagination settings
-    // Number of posts per page
-    const pageSize = 15; 
-    // Current page number from query parameter
-    const currentPage = parseInt(req.query.page) || 1; 
-    const offset = (currentPage - 1) * pageSize;
-
-    // Key for Redis cache
-    const cacheKey = `CATEGORY|${categoryId}|PAGE|${currentPage}`;
-
-    // Check if data is already cached
-    const cachedData = await redis.get(cacheKey);
-
-    if (cachedData) {
-      
-      // Return cached data if available
-      // IMPORTANT: If you update a post, remember to delete this cache
-      // For example, if you update post with ID 2:
-      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
-      // await redis.del('category:' + categoryId + ':page:' + currentPage);
-      const cachedPosts = JSON.parse(cachedData);
-
-      //For testing cache proccess
-      console.log("cache data  is working ");
-      return res.status(200).json(cachedPosts);
-    }
-
-    // SQL query to fetch specific category posts
-    const query = `
-      SELECT *
-      FROM posts p
-      INNER JOIN posts_categories pc ON p.id = pc.post_id
-      WHERE pc.category_name IN (SELECT name FROM categories WHERE id = $1)
-      ORDER BY p.created_at DESC
-      LIMIT $2 OFFSET $3;
-    `;
-
-    // Execute the query with parameters
-    const specificCategoryPosts = await pgQuery(query, categoryId, pageSize, offset);
-
-    // Process the posts to add video and thumbnail URLs, view_count ,like_count
-    const processedPosts = await Promise.all(
-      specificCategoryPosts.rows.map(async (post) => {
-        const videoUrl = await s3Retrieve(post.video_name);
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
-
-        const { video_name, thumbnail_name, ...rest } = post;
-
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
-      })
-    );
-
-   // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-   await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
-
-   // Respond with an object containing the "posts" key and the 15 array of objects with post information
-   res.status(200).json({ "posts": processedPosts });
- } catch (err) {
-   next(err);
- }
-});
-
-
-/* Deletes a specific post */
-router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  
-  const postId = req.params.post_id;
-
-  try {
-    // Fetch post details from the database
-    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, postId);
-
-    // Ensure the post is present in the database or not
-    if (post.rows.length === 0) {
-      return res.status(404).json({ error: "Post not found." });
-    }
-
-    const { video_name, thumbnail_name } = post.rows[0];
-
-    // Perform actions within a database transaction
-    const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [[postId]];
-    await makeTransactions(query, values);
-    
-    // Delete files from S3 and remove likes/views
-    await Promise.all([
-      s3Delete(video_name),
-      s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(postId)),
-    ]);
-
-    res.json({ "Status": "Post Deleted" });
-  } catch (error) {
-    next(error);
-  }
-});
-
-
-//Process A Video Like
-router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-    const { post_id, user_id } = req.params;
-    const likeSchema = setLikes(parseInt(user_id), parseInt(post_id));
-
-    // Check if the like exists
-    const checkLikeExistence = await getDynamoRequestBuilder("Likes")
-      .query("post_id", parseInt(post_id))
-      .whereSortKey("user_id")
-      .eq(parseInt(user_id))
-      .exec();
-
-    if (checkLikeExistence.length === 0) {
-      // Like does not exist, proceed to like
-      await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
-      res.status(200).json({ "Status": "Post Liked" });
-    } else {
-      // Like already exists
-      res.status(409).json({ "Status": "Post Like Already Exists" });
-    }
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Remove A Video Like 
-router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-    const { post_id, user_id } = req.params;
-
-    // Check if the like exists
-    const checkLikeExistance = await getDynamoRequestBuilder("Likes")
-      .query("post_id", parseInt(post_id))
-      .whereSortKey("user_id")
-      .eq(parseInt(user_id))
-      .exec();
-
-    if (checkLikeExistance && checkLikeExistance.length > 0) {
-
-      // Like exists, proceed to delete it
-      await getDynamoRequestBuilder("Likes")
-        .delete("post_id", parseInt(post_id))
-        .withSortKey("user_id", parseInt(user_id))
-        .exec();
-      res.status(200).json({ "Status": "Post Unliked" });
-    } else {
-
-      // Like does not exist
-      res.status(404).json({ "Status": "Post Like Not Found" });
-    }
-  } catch (err) {
-    next(err);
-  }
-});
 export default router;
