@@ -4,7 +4,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
 import { setCommentsLike, setLikes, setViews } from "../dynamo_schemas/dynamo_schemas.js";
-import getDynamoRequestBuilder from "../dynamoDB.js";
+import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
 const router = Router();
 

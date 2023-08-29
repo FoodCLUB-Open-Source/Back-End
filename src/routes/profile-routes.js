@@ -4,7 +4,7 @@ import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 import { makeTransactions, pgQuery, updatePosts } from "../functions/general_functions.js";
-import getDynamoRequestBuilder from "../dynamoDB.js";
+import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
 const router = Router();
 

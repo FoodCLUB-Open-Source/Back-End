@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { update } from "@foodclubdevelopment/dynamo-request-builder/attributes";
 
-import getDynamoRequestBuilder from "../dynamoDB.js";
+import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 import { setComment, setReplies } from "../dynamo_schemas/dynamo_schemas.js";

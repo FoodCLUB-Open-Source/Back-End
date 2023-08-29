@@ -7,9 +7,9 @@ import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
-import getDynamoRequestBuilder from "../dynamoDB.js";
-import redis from "../redisConfig.js";
-import pgPool from "../pgdb.js";
+import getDynamoRequestBuilder from "../config/dynamoDB.js";
+import redis from "../config/redisConfig.js";
+import pgPool from "../config/pgdb.js";
 
 const router = Router();
 const storage = memoryStorage();

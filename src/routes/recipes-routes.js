@@ -3,7 +3,7 @@ import express from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
-import Redis from"../redisConfig.js";
+import Redis from"../config/redisConfig.js";
 import { pgQuery } from "../functions/general_functions.js";
 
 const router = express.Router();

@@ -1,7 +1,7 @@
 /* Socket Configuration */
 import { Server } from "socket.io";
 
-import chatSockets from "./socket/chat.js";
+import chatSockets from "../socket/chat.js";
 
 /* Initialises a socket server */
 const initSocket = (server) => {
