@@ -176,7 +176,15 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
     }
   });
 
-/*Following A User*/
+/**
+ * Follows A User
+ * 
+ * @route POST /follow/user/:user_id/following/:user_following_id
+ * @param {string} req.params.user_id - The ID of the user that is following another user
+ * @param {string} req.params.user_following_id - The ID of the user that is getting followed
+ * @returns {Object} - With a successful message
+ * @throws {Error} - This must not follow the user
+ * */
 router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameter
