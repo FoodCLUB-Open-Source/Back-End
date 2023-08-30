@@ -4,8 +4,8 @@
   "description": "The FoodCLUB Backend API",
   "type": "module",
   "scripts": {
-    "devStart": "doppler run -- nodemon server.js",
-    "start": "doppler run -- node server.js"
+    "devStart": "cd src && doppler run -- nodemon server.js",
+    "start": "cd src && doppler run -- node server.js"
   },
   "repository": {
     "type": "git",

@@ -1,5 +1,5 @@
 /* This file contains the rate limiter that will be used throughout the app */
-import redis from "../redisConfig.js";
+import redis from "../config/redisConfig.js";
 
 /* 
     This is the middleware that will be implemented in the following manner:

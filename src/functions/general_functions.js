@@ -4,9 +4,9 @@ import crypto from "crypto";
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 
-import pgPool from "../pgdb.js";
-import s3Client from "../s3Client.js";
-import getDynamoRequestBuilder from "../dynamoDB.js";
+import pgPool from "../config/pgdb.js";
+import s3Client from "../config/s3Client.js";
+import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
 /* DRY secure postgreSQl query function */
 /* Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) */

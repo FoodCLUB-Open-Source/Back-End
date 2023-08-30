@@ -3,7 +3,7 @@ import { createServer } from "http";
 
 import app from "./app.js";
 
-import initSocket from "./socketconfig.js";
+import initSocket from "./config/socketconfig.js";
 
 /* Server Config */
 const server = createServer(app);

@@ -51,17 +51,3 @@ export const setStory = (userId, videoUrl, thumbnailUrl) => ({
 	view_count: 0,
 	created_at: new Date().toISOString()
 });
-
-export const setPostStats = (postId) => ({
-	post_id: postId,
-	like_count: 0,
-	view_count: 0,
-	comments_count: 0
-});
-
-export const setUserStats = (postId) => ({
-	user_id: postId,
-	follower_count: 0,
-	following_count: 0,
-	likes_count: 0
-});

@@ -1,16 +1,17 @@
 import express from "express";
 
-import { pgQuery } from "../functions/general_functions.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
-import Redis from"../redisConfig.js";
+
+import Redis from"../config/redisConfig.js";
+import { pgQuery } from "../functions/general_functions.js";
 
 const router = express.Router();
 
 /* Testing Posts Route */
-router.get("/testing", rateLimiter(4, 15), async (req, res) => {
+router.get("/testing", rateLimiter(), async (req, res) => {
 	try {
-	  res.json({ "Testing": "Working Posts" });
+	  res.json({ "Testing": "Working Reipes" });
   
 	} catch (err) {
 	  console.error(err.message)
@@ -27,11 +28,11 @@ router.get("/testing", rateLimiter(4, 15), async (req, res) => {
  * @returns {JSON} The recipe as a JSON object.
  */
 
-router.get("/:id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
 	try {
 
-		const recipeId = parseInt(req.params.id);
-		const REDIS_KEY = `RECIPE|${recipeId}`;
+		const postId = parseInt(req.params.post_id);
+		const REDIS_KEY = `RECIPE|${postId}`;
 		
 		let redisRecipe = await Redis.json.GET(REDIS_KEY);
 
@@ -41,8 +42,8 @@ router.get("/:id", inputValidator, rateLimiter(), async (req, res, next) => {
 					SELECT 
 					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, recipe_servings, serving_size
 					FROM recipes 
-					WHERE id = $1`
-					, recipeId
+					WHERE post_id = $1`
+					, postId
 				);
 
 				if (specificRecipe.rows.length === 0) {
@@ -50,12 +51,14 @@ router.get("/:id", inputValidator, rateLimiter(), async (req, res, next) => {
 				}
 
 				redisRecipe = specificRecipe.rows[0];
+				
 				await Redis.multi()
 					.json.set(REDIS_KEY, '.', redisRecipe)
 					.expire(REDIS_KEY, 60 * 60)
 					.exec();
+
 			} catch (err) {
-				console.error(`Error fetching recipe ${recipeId}:`, err);
+				console.error(`Error fetching recipe for post ${postId}:`, err);
 				return next(err);
 			};
 		};
@@ -63,7 +66,7 @@ router.get("/:id", inputValidator, rateLimiter(), async (req, res, next) => {
 		res.status(200).json({"recipe": redisRecipe});
   
 	} catch (err) {
-		console.error(`Error handling request for recipe ${req.params.id}:`, err);
+		console.error(`Error handling request for recipe post ${postId}:`, err);
 		next(err);
 	};
 });

@@ -46,7 +46,7 @@ const inputValidator = [
 		.isLength({ min: 5, max: 30 }).withMessage('Email must be between 5 and 30 characters')
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
-	check("password")
+	check(["password", "old_password", "new_password"])
 		.optional()
 		.isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
 		.matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,1024}$/)
@@ -96,7 +96,7 @@ const inputValidator = [
 				return true;
 			})
 	),
-	check("verificationCode")
+	check("verification_code")
 		.optional()
 		.isInt()
 		.isLength({ min: 6, max: 6 })
