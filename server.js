@@ -1,9 +1,9 @@
 /* Backend Config */
 import { createServer } from "http";
 
-import app from "./app.js";
+import app from "./src/app.js";
 
-import initSocket from "./config/socketconfig.js";
+import initSocket from "./src/config/socketconfig.js";
 
 /* Server Config */
 const server = createServer(app);
