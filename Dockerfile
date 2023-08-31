@@ -20,4 +20,4 @@ COPY . .
 
 EXPOSE 3000
 
-CMD ["doppler", "run", "--", "node", "server.js"]
+CMD ["doppler", "run", "--", "node", "src/server.js"]
