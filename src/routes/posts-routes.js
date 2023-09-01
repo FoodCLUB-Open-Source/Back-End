@@ -328,11 +328,8 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/random/homepage", rateLimiter(), async (req, res, next) => {
+router.get("/homepage", rateLimiter(), async (req, res, next) => {
   try {
-    
-
-    // Pagination settings
     // Get query parameters for pagination
     const pageSize = parseInt(req.query.page_size) || 15; 
     const currentPage = parseInt(req.query.page_number) || 1;
@@ -341,7 +338,7 @@ router.get("/random/homepage", rateLimiter(), async (req, res, next) => {
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cacheS
-    const cacheKey = `HOMEPAGE:${pageSize}:${currentPage}`;
+    const cacheKey = `HOMEPAGE|${pageSize}|${currentPage}`;
 
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
