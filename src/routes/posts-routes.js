@@ -324,7 +324,7 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
 /**
  * Get Posts For The Home Page
  * For now random posts later implement the Algorithm
- * @route GET /posts/random/homepage
+ * @route GET /posts/homepage
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
