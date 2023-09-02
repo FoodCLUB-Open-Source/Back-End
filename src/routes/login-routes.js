@@ -302,7 +302,7 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
     try {
       await pgQuery('DELETE FROM users WHERE username = $1', username);
     } catch (error) {
-      return res.status(400).json({ message: 'user not deleted from database'})
+      return res.status(400).json({ message: 'user not deleted from database'});
     }
     res.status(200).json({ message: `user, ${username}, deleted` });
   });
