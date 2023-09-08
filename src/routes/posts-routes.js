@@ -260,10 +260,11 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     const { category_id } = req.params;
 
     // Pagination settings
-    // Number of posts per page
-    const pageSize = 15; 
-    // Current page number f              rom query parameter
-    const currentPage = parseInt(req.query.page) || 1; 
+    // Get query parameters for pagination
+    const pageSize = parseInt(req.query.page_size) || 15; 
+    const currentPage = parseInt(req.query.page_number) || 1; 
+    
+    // Calculate the offset based on page size and page number
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
@@ -311,8 +312,9 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
       })
     );
 
-   // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-   await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
+    //expirey timer 3600 seconds = 1 hour
+    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
 
    // Respond with an object containing the "posts" key and the 15 array of objects with post information
    res.status(200).json({ "posts": processedPosts });
