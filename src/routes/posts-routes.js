@@ -321,6 +321,73 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
  }
 });
 
+/**
+ * Get Posts For The Home Page
+ * For now random posts later implement the Algorithm
+ * @route GET /posts/homepage
+ * @returns {posts} - Array of objects of post information
+ * @throws {Error} - If there are errors dont retrieve any posts.
+ */
+router.get("/homepage", rateLimiter(), async (req, res, next) => {
+  try {
+    // Get query parameters for pagination
+    const pageSize = parseInt(req.query.page_size) || 15; 
+    const currentPage = parseInt(req.query.page_number) || 1;
+    
+    // Calculate the offset based on page size and page number
+    const offset = (currentPage - 1) * pageSize;
 
+    // Key for Redis cacheS
+    const cacheKey = `HOMEPAGE|${pageSize}|${currentPage}`;
+
+    // Check if data is already cached
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      
+      // Return cached data if available
+      // IMPORTANT: If you update a post, remember to delete this cache
+      const cachedPosts = JSON.parse(cachedData);
+
+      //For testing cache proccess
+      console.log("cache data  is working ");
+      return res.status(200).json(cachedPosts);
+    }
+
+    // SQL query to fetch specific category posts
+    const query = `
+          SELECT p.*, c.name AS category_name
+          FROM posts p
+          INNER JOIN posts_categories pc ON p.id = pc.post_id
+          INNER JOIN categories c ON pc.category_name = c.name
+          ORDER BY RANDOM()
+          LIMIT $1 OFFSET $2;
+    `;
+
+    // Execute the query with parameters
+    const randomPosts = await pgQuery(query, pageSize, offset);
+
+    // Process the posts to add video and thumbnail URLs, view_count ,like_count
+    const processedRandomPosts = await Promise.all(
+      randomPosts.rows.map(async (post) => {
+        const videoUrl = s3Retrieve(post.video_name);
+        const thumbnailUrl = s3Retrieve(post.thumbnail_name);
+
+        const { video_name, thumbnail_name, ...rest } = post;
+
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+      })
+    );
+
+    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
+    //expirey timer 3600 seconds = 1 hour
+    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedRandomPosts }));
+
+    // Respond with an object containing the "posts" key and the 15 array of objects with post information
+    res.status(200).json({ "posts": processedRandomPosts });
+ } catch (err) {
+   next(err);
+ }
+});
 
 export default router;
