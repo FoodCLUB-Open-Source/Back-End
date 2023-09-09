@@ -338,30 +338,4 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
   });
 });
 
-//Change this to a function to so that it can be used in profile routes to delete user.
-router.put('/update/:attribute', (req, res) => {
-
-  const { attribute } = req.params;
-  const { newUserAttribute } = req.body;
-
-  const attributeList = [];
-
-  const newAttribute = {
-    Name: attribute,
-    Value: newUserAttribute,
-  };
-
-  const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
-  attributeList.push(updatedAttribute);
-
-  CognitoUser.updateAttributes(attributeList, function(err, result) {
-    if (err) {
-      res.status(401).json(err.message);
-      return;
-    }
-    console.log('call result: ' + result);
-  });
-});
-
-
 export default router;
