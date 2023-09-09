@@ -205,47 +205,6 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 });
 
 /**
- * user gets posts for their homepage
- * 
- * @route GET /:userid
- * @param {string} req.params.post_id - The ID of the post 
- * @returns {Object} - Posts are retrieved for homepage
- * @throws {Error} - If there is an error, no posts are retrieved
- */
-router.get("/homepage/:user_id/posts", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-
-    const { user_id } = req.params
-    //THIS NEEDS TO CHANGE TO CORRESPOND TO THE NEW CATEGORY SYSTEM.
-    //NEEDS TO ADD PAGINATION AND CACHHING
-    const randomPosts = await pgQuery(`
-      SELECT posts.*, users.*, categories.*
-      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id
-      ORDER BY RANDOM() LIMIT 15;
-    `);
-    
-    const processedPosts = await Promise.all(
-      randomPosts.rows.map(async (post) => {
-        const videoUrl = await s3Retrieve(post.video_name);
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
-        
-        const { video_name, thumbnail_name, phone_number, password, email, gender, created_at, updated_at,  ...rest } = post;
-        
-        const { view_count, like_count } = await getLikesViews(post.post_id);
-
-        const liked = await checkLike(parseInt(post.post_id), parseInt(user_id));
-
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, view_count, like_count, liked };
-      })
-    );
-    
-    res.json({"posts": processedPosts});
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
  * Get a list of posts for a particular category
  * 
  * @route POST /category_posts/:category_name
@@ -326,12 +285,24 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
 /**
  * Get Posts For The Home Page
  * For now random posts later implement the Algorithm
- * @route GET /posts/homepage
+ * @route GET /posts/homepage/:user_id
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage", rateLimiter(), async (req, res, next) => {
+router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
   try {
+    // getting user ID
+    const { user_id } = req.params;
+
+    // getting posts liked by user
+    const postLikeCount = await getDynamoRequestBuilder("Likes").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").exec();
+
+    // extracting post ID's
+    const likedPosts = postLikeCount.map(post => post.post_id);
+
+    // Convert the array to an array literal
+    const likedPostsLiteral = `{${likedPosts.join(',')}}`;
+
     // Get query parameters for pagination
     const pageSize = parseInt(req.query.page_size) || 15; 
     const currentPage = parseInt(req.query.page_number) || 1;
@@ -339,35 +310,17 @@ router.get("/homepage", rateLimiter(), async (req, res, next) => {
     // Calculate the offset based on page size and page number
     const offset = (currentPage - 1) * pageSize;
 
-    // Key for Redis cacheS
-    const cacheKey = `HOMEPAGE|${pageSize}|${currentPage}`;
-
-    // Check if data is already cached
-    const cachedData = await redis.get(cacheKey);
-
-    if (cachedData) {
-      
-      // Return cached data if available
-      // IMPORTANT: If you update a post, remember to delete this cache
-      const cachedPosts = JSON.parse(cachedData);
-
-      //For testing cache proccess
-      console.log("cache data  is working ");
-      return res.status(200).json(cachedPosts);
-    }
-
     // SQL query to fetch specific category posts
     const query = `
-          SELECT p.*, c.name AS category_name
-          FROM posts p
-          INNER JOIN posts_categories pc ON p.id = pc.post_id
-          INNER JOIN categories c ON pc.category_name = c.name
+          SELECT id, title, description, video_name, thumbnail_name, created_at
+          FROM posts
+          WHERE id != ALL ($1::integer[])
           ORDER BY RANDOM()
-          LIMIT $1 OFFSET $2;
+          LIMIT $2 OFFSET $3;
     `;
 
     // Execute the query with parameters
-    const randomPosts = await pgQuery(query, pageSize, offset);
+    const randomPosts = await pgQuery(query, likedPostsLiteral, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
     const processedRandomPosts = await Promise.all(
@@ -380,10 +333,6 @@ router.get("/homepage", rateLimiter(), async (req, res, next) => {
         return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
       })
     );
-
-    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-    //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedRandomPosts }));
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({ "posts": processedRandomPosts });
