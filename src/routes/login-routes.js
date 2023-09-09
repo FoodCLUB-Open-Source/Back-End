@@ -295,9 +295,14 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
 
   const cognitoUser = new CognitoUser(userData);
 
-  cognitoUser.deleteUser((err, result) => {
+  cognitoUser.deleteUser( async (err, result) => {
     if (err) {
       return res.status(400).json(err.message);
+    };
+    try {
+      await pgQuery('DELETE FROM users WHERE username = $1', username);
+    } catch (error) {
+      return res.status(400).json({ message: 'user not deleted from database'});
     }
     res.status(200).json({ message: `user, ${username}, deleted` });
   });
