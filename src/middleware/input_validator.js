@@ -13,7 +13,9 @@ const numericVariables = [
 	"user_id", "post_id", "recipe_id", 
 	"comment_like_count", "like_count", "view_count",
 	"comments_count", "follower_count", "following_count",
-	"likes_count", "page_number", "page_size","category_id","user_following_id",
+	"likes_count", "page_number", "page_size", "category_id", "user_following_id",
+	"serving_size","preparation_time",
+
 ];
 const nanoIdVariables = ["story_id"];
 const dateVariables = ["updated_at", "created_at"];
@@ -118,6 +120,50 @@ const inputValidator = [
 		.isLength({ min: 5 }).withMessage((value) => `${value} must be atleast 5 characters long`)
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
+	
+	check("recipe_description")
+		.optional()
+		.isString()
+		.withMessage("recipe_description must be a string")
+		.customSanitizer((value) => sanitisedInput(value))
+		.trim(),
+	
+	check("recipe_ingredients")
+		.optional()
+		.isArray()
+		.withMessage("recipe_ingredients must be an array")
+		.custom((value) => {
+		  if (!Array.isArray(value)) {
+			throw new Error("recipe_ingredients should be an array");
+		  }
+	  
+			// Check each element in the array for the specified format
+			/* correct format = [
+				"(ingredient 1, Amount g)",
+				 more ....
+ 			 ],
+			*/
+		  for (const ingredient of value) {
+			if (!/^\(.*,\s*\d+\s*g\)$/.test(ingredient)) {
+			  throw new Error(
+				"recipe_ingredients should be in the format '(ingredient, amount g)'"
+			  );
+			}
+		  }
+	  
+		  return true;
+		}),
+	
+	  check("recipe_equipment")
+		.optional()
+		.isArray()
+		.withMessage("recipe_equipment must be an array"),
+	
+	  check("recipe_steps")
+		.optional()
+		.isArray()
+		.withMessage("recipe_steps must be an array"),
+	
 	(req, res, next) => {
 		const errors = validationResult(req);
 		if (!errors.isEmpty()) {
