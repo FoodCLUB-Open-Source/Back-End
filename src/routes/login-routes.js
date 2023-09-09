@@ -1,5 +1,5 @@
 /* For login system routes */
-import { AuthenticationDetails, CognitoUser, CognitoUserAttribute} from "amazon-cognito-identity-js";
+import { AuthenticationDetails, CognitoUser, CognitoUserAttribute } from "amazon-cognito-identity-js";
 import { hash } from "bcrypt";
 import { Router } from "express";
 
