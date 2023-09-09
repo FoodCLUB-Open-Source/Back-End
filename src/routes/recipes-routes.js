@@ -24,7 +24,7 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * The cached recipe expires after 1 hour.
  *
  * @route GET /:id
- * @param {string} *req.params.id - The Id of the post
+ * @param {string} *req.params.id - The Id of the post.
  * @returns {JSON} The recipe as a JSON object.
  */
 

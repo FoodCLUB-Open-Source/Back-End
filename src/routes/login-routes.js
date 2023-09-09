@@ -83,7 +83,7 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
 
   cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
     if (err) {
-      return res.status(400).json(err.message);
+      return res.status(400).json({ message: err.msg })
     }
     return res.status(201).json({message: 'user verified'});
   });
@@ -110,7 +110,7 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
 
   cognitoUser.resendConfirmationCode((err, result) => {
     if (err) {
-      return res.status(400).json(err.message)
+      return res.status(400).json({ message: err.msg })
     }
     res.status(200).json({ message: 'new code sent successfully' })
   });
@@ -211,7 +211,7 @@ router.post('/change_password', inputValidator, rateLimiter(), async (req, res) 
   
   cognitoUser.changePassword(old_password, new_password, (err, result) => {
     if (err) {
-      return res.status(400).json(err.message);
+      return res.status(400).json({ message: err.msg })
     }
     return res.status(201).json({ message: 'password changed successfully' });
   });
@@ -242,7 +242,7 @@ router.post('/forgot_password/verification_code', inputValidator, rateLimiter(),
       res.status(200).json({ message: 'Verification code sent' });
     },
     onFailure: (err) => {
-      res.status(400).json(err.message);
+      res.status(400).json({ message: err.msg })
     },
   });
 });
@@ -273,7 +273,7 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
       res.status(201).json({ message: 'password reset successfully'});
     },
     onFailure(err) {
-      res.status(400).json(err.message);
+      res.status(400).json({ message: err.msg })
     },
   });
 });
@@ -327,7 +327,7 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
 
   cognitoUser.deleteUser( async (err, result) => {
     if (err) {
-      return res.status(400).json(err.message);
+      return res.status(400).json({ message: err.msg })
     };
     try {
       await pgQuery('DELETE FROM users WHERE username = $1', username);
