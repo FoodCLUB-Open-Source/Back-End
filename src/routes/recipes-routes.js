@@ -11,7 +11,7 @@ const router = express.Router();
 /* Testing Posts Route */
 router.get("/testing", rateLimiter(), async (req, res) => {
 	try {
-	  res.json({ "Testing": "Working Reipes" });
+	res.status(200).json({ "Testing": "Working Reipes" });
   
 	} catch (err) {
 	  console.error(err.message)
