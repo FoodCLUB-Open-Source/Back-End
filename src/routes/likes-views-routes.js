@@ -3,7 +3,7 @@ import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
-import { setCommentsLike, setLikes, setViews } from "../dynamo_schemas/dynamo_schemas.js";
+import { setCommentsLike, setLikes, setStoryViews, setViews } from "../dynamo_schemas/dynamo_schemas.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
 const router = Router();
@@ -207,6 +207,40 @@ router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (r
 });
 
 /**
+ * User View A Story
+ * This will update the DynamoDB Story_Views Table and process a story view happening
+ * @route POST /story:story_id/view:user_id
+ * @params 
+ *    {string} req.params.story_id - The unique identifier of the story being viewed.
+ *    {string} req.params.user_id - The unique identifier of the user who is viewing the story.
+**/
+router.post("/story/:story_id/view/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+	try {
+		const { story_id, user_id } = req.params;
+		const StoryViewSchema = setStoryViews(story_id, parseInt(user_id));
+
+		// Check if the story view exists
+		const checkStoryViewExistence = await getDynamoRequestBuilder("Story_Views")
+			.query("story_id", story_id)
+			.whereSortKey("user_id")
+			.eq(parseInt(user_id))
+			.exec();
+
+		if (checkStoryViewExistence.length === 0) {
+			//Story View does not exist, proceed to View
+			await getDynamoRequestBuilder("Story_Views").put(StoryViewSchema).exec();
+			res.status(200).json({ "Status": "Story viewed successfully" });
+		} else {
+			// Story View already exists
+			res.status(409).json({ "Status": "Story already viewed by the user." });
+		}
+	}
+	catch (err) {
+		next(err);
+	}
+});
+
+/** 
  * Update Post View
  * This will update the DynamoDB Views Table and process a view happening
  * @route POST /post:post_id/view:user_id
@@ -217,18 +251,18 @@ router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (r
  * @returns {status} - A successful status indicates that the view has been processed successfully.
  * @throws {Error} - If there are errors during processing.
  */
-router.post("/post/:post_id/view/:user_id", inputValidator, rateLimiter(),  async (req, res, next) => {
+router.post("/post/:post_id/view/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
 	try {
 		const { post_id, user_id } = req.params;
 		const ViewSchema = setViews(parseInt(user_id), parseInt(post_id));
-	
+
 		// Check if the view exists
 		const checkViewExistence = await getDynamoRequestBuilder("Views")
 			.query("post_id", parseInt(post_id))
 			.whereSortKey("user_id")
 			.eq(parseInt(user_id))
 			.exec();
-	
+
 		if (checkViewExistence.length === 0) {
 			// View does not exist, proceed to View
 			await getDynamoRequestBuilder("Views").put(ViewSchema).exec();
@@ -237,10 +271,11 @@ router.post("/post/:post_id/view/:user_id", inputValidator, rateLimiter(),  asyn
 			// View already exists
 			res.status(409).json({ "Status": "Post already viewed by the user." });
 		}
-	    	
 	}
 	catch (err) {
-	  next(err);
+		next(err);
 	}
-  });
+
+});
+
 export default router;
