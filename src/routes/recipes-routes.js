@@ -40,7 +40,7 @@ router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) =>
 			try{
 				const specificRecipe = await pgQuery(` 
 					SELECT 
-					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, recipe_servings, serving_size
+					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, serving_size
 					FROM recipes 
 					WHERE post_id = $1`
 					, postId
