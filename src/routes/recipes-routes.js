@@ -11,7 +11,7 @@ const router = express.Router();
 /* Testing Posts Route */
 router.get("/testing", rateLimiter(), async (req, res) => {
 	try {
-	  res.json({ "Testing": "Working Reipes" });
+	res.status(200).json({ "Testing": "Working Reipes" });
   
 	} catch (err) {
 	  console.error(err.message)
@@ -71,4 +71,71 @@ router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) =>
 	};
 });
 
+/**
+ * Route handler for Update Recipes Table.
+ * This will update the details in the recipes table.
+ * @route PUT /:post_id
+ * @param {string} *req.params.post_id - The Id of the post
+ * @body 
+ * 		 recipe_description = String,
+		 recipe_ingredients = Array[Tuple[string]],
+		 recipe_equipment   = Array[string],
+		 recipe_steps       = Array[string],
+		 preparation_time   = INTEGER,
+		 serving_size       = INTEGER,
+ * @returns {message} Recipe updated.
+ */
+router.put("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+	try {
+		const { post_id } = req.params;
+
+		const {
+			recipe_description,
+			recipe_ingredients,
+			recipe_equipment,
+			recipe_steps,
+			preparation_time,
+			serving_size,
+		} = req.body;
+
+		// Check if the recipe with the specified post_id exists
+		const checkQuery = `SELECT * FROM recipes WHERE post_id = $1`;
+		const checkValues = [post_id];
+		const existingRecipe = await pgQuery(checkQuery, ...checkValues);
+
+		if (!existingRecipe.rows.length) {
+			// If the recipe does not exist, return a "404 Not Found" response
+			return res.status(404).json({ message: "Recipe not found" });
+		}
+
+		const query = `
+		UPDATE recipes 
+		SET 
+		  recipe_description = $1, 
+		  recipe_ingredients = $2, 
+		  recipe_equipment = $3, 
+		  recipe_steps = $4, 
+		  preparation_time = $5, 
+		  serving_size = $6,
+		  updated_at = NOW()
+		WHERE post_id = $7`;
+
+		const values = [
+			recipe_description,
+			recipe_ingredients,
+			recipe_equipment,
+			recipe_steps,
+			preparation_time,
+			serving_size,
+		    post_id,
+		];
+
+		await pgQuery(query, ...values);
+
+		res.status(200).json({ message: "Recipe updated" });
+	} catch (err) {
+		next(err);
+	}
+});
+  
 export default router;
