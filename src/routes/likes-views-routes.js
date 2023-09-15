@@ -17,45 +17,6 @@ router.get("/testing", async (req, res) => {
 	}
 });
 
-/**
- * Posting For Viewing Specific Video 
- * 
- * @route POST /view/:id
- * @param {string} req.params.postId - The ID of the video post being viewed
- * @body {string} req.body.user_id - The ID of the user viewing the video
- * @returns {Object} - Returns an object indicating a successful video view
- * @throws {Error} - If there are errors in input validation or updating view statistics
- */
-router.post("/view/:id", rateLimiter(), inputValidator, async (req, res, next) => {
-	try {
-		const errors = validationResult(req);
-
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		}
-
-		const postId = parseInt(req.params.id);
-		const { user_id } = req.body;
-
-		const viewSchema = setViews(parseInt(user_id), postId);
-		
-		const putViewsRequest = getDynamoRequestBuilder("Views").put(viewSchema);
-		
-		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
-			.update("post_id", postId)
-			.updateAttribute("view_count").increment();
-		
-		await Promise.all([
-			putViewsRequest.exec(),
-			updatePostStatsRequest.exec()
-		]);
-		
-		console.log("Post Viewed");
-		res.json({ Status: "Post Viewed" });
-	} catch (err) {
-		next(err);
-	}
-});
 
 /**
  * Process A Video Like
