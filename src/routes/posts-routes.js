@@ -103,8 +103,8 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
     } catch (err) {
 
       await Promise.all([
-        s3Delete(req.files[0], S3_POST_PATH),
-        s3Delete(req.files[1], S3_POST_PATH)
+        s3Delete(S3_POST_PATH + req.files[0]),
+        s3Delete(S3_POST_PATH + req.files[1])
       ]);
 
       await client.query('ROLLBACK');
