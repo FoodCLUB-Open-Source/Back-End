@@ -329,6 +329,7 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
         const thumbnailUrl = s3Retrieve(post.thumbnail_name);
 
         const { video_name, thumbnail_name, ...rest } = post;
+        post.liked = false;
 
         return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
       })
