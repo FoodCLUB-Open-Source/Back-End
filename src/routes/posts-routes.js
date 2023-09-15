@@ -56,15 +56,19 @@ const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
  */
 router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
-  try {
 
+  try {
     const userId = parseInt(req.params.user_id);
-    const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
-    let { recipe_ingredients, recipe_equipment, recipe_steps } = req.body;
+
+    const {title,description,recipe_description,preparation_time,serving_size,category}=req.body;
+    let {recipe_ingredients,recipe_equipment,recipe_steps}=req.body;
 
     recipe_ingredients = JSON.parse(recipe_ingredients);
     recipe_equipment = JSON.parse(recipe_equipment);
     recipe_steps = JSON.parse(recipe_steps);
+   
+
+
 
     const S3_POST_PATH = "posts/active/";
     //Used to upload to s3 bucket
@@ -73,32 +77,70 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
       s3Upload(req.files[1], S3_POST_PATH)
     ]);
 
-    const client = await pgPool.connect();
 
+
+
+    //connect to db. then we insert new post in the relevant dbs.
+    const client = await pgPool.connect();
     try {
       await client.query('BEGIN');
-      
       const insertPostQuery = 'INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id';
       const postValues = [userId, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
-      
-      const { post_id } = newPost.rows[0];
+
+      const {
+        post_id
+      } = newPost.rows[0];
 
       const insertRecipeQuery = 'INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())';
       const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
-      
+
+
       const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
       const postUpdateValues = [post_id, category];
-      
+
       await Promise.all([
         client.query(insertRecipeQuery, recipeValues),
         client.query(updatePostQuery, postUpdateValues)
       ]);
-
       await client.query('COMMIT');
-      
       console.log("Video Posted " + post_id);
-      res.status(200).json({ Status: "Video Posted" });
+      res.status(200).json({
+        Status: "Video Posted"
+      });
+
+
+
+
+
+      //we add new video to redis (only if the key exist already).
+      const hashKey = `USER|${req.params.user_id}`
+      const fieldKey = 'user_posts';
+
+      try {
+        //we first try retriving every key and value related to the hashkey
+        redis.HGETALL(hashKey)
+          .then((responce) => {
+            if (!responce || !responce.user_posts) {
+              throw new Error('USER|ID was not found in redis Or user_post was not found.');
+            }
+            //store the stringified array into a normal js array and push the new video content
+            let user_posts = JSON.parse(responce.user_posts);
+            user_posts.push({recipe_ingredients,recipe_equipment,recipe_steps}=req.body);
+
+            //stringigy the array once again and we update our field with the updated array
+            return redis.hSet(hashKey, fieldKey, JSON.stringify(user_posts));
+          })
+          .then(() => {
+            console.log("Update made successfully");
+          })
+          .catch((error) => {
+            console.error("Error:", error.message);
+          });
+      } catch (error) {
+        console.error("Error:", error.message);
+      }
+
 
     } catch (err) {
 
