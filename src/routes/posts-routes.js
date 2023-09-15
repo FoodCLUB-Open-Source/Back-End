@@ -29,13 +29,15 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
 /* Functions for Posts */
 
 /* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
-const removeLikesViews = async (postId) => {
+const removeLikesViews = async (postId,userId) => {
   await getDynamoRequestBuilder("Likes")
     .delete("post_id", postId)
+    .withSortKey("user_id", userId)
     .exec();
 
   await getDynamoRequestBuilder("Views")
     .delete("post_id", postId)
+    .withSortKey("user_id", userId)
     .exec();
 };
 
@@ -184,18 +186,18 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
       return res.status(404).json({ error: "Post not found." });
     }
 
-    const { video_name, thumbnail_name } = post.rows[0];
+    const { video_name, thumbnail_name, user_id } = post.rows[0];
 
     // Perform actions within a database transaction
     const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [post_id];
+    const values = [[post_id]];
     await makeTransactions(query, values);
     
     // Delete files from S3 and remove likes/views
     await Promise.all([
       s3Delete(video_name),
       s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(post_id)),
+      removeLikesViews(parseInt(post_id),user_id),
     ]);
 
     res.json({ "Status": "Post Deleted" });
