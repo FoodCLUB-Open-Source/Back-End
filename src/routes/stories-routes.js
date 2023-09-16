@@ -26,27 +26,52 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
         // getting users the user follows
         const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC'; // returns the users that are followed by the user with pagination
         const userFollowing = await pgQuery(query, userID); // executing query
-        const userStories = []; // array to store user stories
-        const storyPromises = userFollowing.rows.map(async (user) => { // map function to query dynamoDB to get user stories
-            try {
-                const story = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // executing query to get user stories
-                if (story.length != 0) { // if length is not equal to 0 this means user has posted story
-                    userStories.push(story[0]); // story appended to user stories
+        const userStoryMap = {}; // object to organize stories by user
+
+        // Use Promise.all to wait for all queries to complete
+        Promise.all(
+            userFollowing.rows.map(async (user) => {
+                try {
+                    const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+                    if (stories.length !== 0) { // checking if user has uploaded a story
+                        if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
+                            // if not user details are created and stored
+                            userStoryMap[user.user_following_id] = {
+                                user_id: user.user_following_id,
+                                profile_picture: user.profile_picture,
+                                username: user.username,
+                                stories: [],
+                            };
+                        }
+                        stories.forEach((story) => { // processing all user stories
+                            // retrieving URLs and replacing them
+                            const videoURL = s3Retrieve(story.video_url);
+                            const thumbnailURL = s3Retrieve(story.thumbnail_url);
+                            story.video_url = videoURL;
+                            story.thumbnail_url = thumbnailURL;
+
+                            // pushing stories data to stories array
+                            userStoryMap[user.user_following_id].stories.push({
+                                story_id: story.story_id,
+                                thumbnail_url: story.thumbnail_url,
+                                video_url: story.video_url,
+                            });
+                        });
+                    }
+                } catch (error) {
+                    console.error(error);
+                    return res.status(400).json({ error: error });
                 }
-            } catch (error) {
-                return res.status(400).json({ error: error }); // error
-            }
-        });
-
-        // Use Promise.all to wait for all Promises to resolve
-        Promise.all(storyPromises)
-            .then(() => {
-                return res.status(200).json({ stories: userStories }); // sending data to client
             })
-            .catch((error) => {
-                return res.status(400).json({ error: error }); // error
-            });
-
+        ).then(() => {
+            // converting the userStoryMap object to an array
+            const userStoriesArray = Object.values(userStoryMap);
+            // sending data to client
+            return res.status(200).json({ stories: userStoriesArray});
+        }).catch((error) => {
+            console.error(error);
+            return res.status(400).json({ error: error });
+        });
     } catch (error) {
         next(error) // server side error
     }
