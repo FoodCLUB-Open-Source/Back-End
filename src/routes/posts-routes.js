@@ -324,15 +324,24 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
     // Execute the query with parameters
     const randomPosts = await pgQuery(query, likedPostsLiteral, pageSize, offset);
 
-    // Process the posts to add video and thumbnail URLs, view_count ,like_count
+    // Process the posts to add video and thumbnail URLs
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
-        const videoUrl = s3Retrieve(post.video_name);
-        const thumbnailUrl = s3Retrieve(post.thumbnail_name);
+        const videoUrl = s3Retrieve(post.video_name); // getting video URL
+        const thumbnailUrl = s3Retrieve(post.thumbnail_name); // getting thumbnail URL
+
+        // getting like count and view count
+        const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec();
+        const viewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec();
 
         const { video_name, thumbnail_name, ...rest } = post;
 
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+        const viewedPost = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).whereSortKey("user_id").eq(parseInt(user_id)).exec(); // querying Views table to check if user has viewed post
+        if(viewedPost.length == 1) { // if length is 1, means user has viewed post hence viewed is set to true
+          return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, liked: false, viewed: true };
+        } else { // else user has not viewed post
+          return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, liked: false, viewed: false };
+        }
       })
     );
 
