@@ -207,8 +207,7 @@ router.post('/change_password', inputValidator, rateLimiter(), async (req, res) 
       message: 'user is not authenticated'
     })
   }
-    
-  
+
   cognitoUser.changePassword(old_password, new_password, (err, result) => {
     if (err) {
       return res.status(400).json({ message: err.msg })
