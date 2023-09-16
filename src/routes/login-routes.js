@@ -323,6 +323,19 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
   };
 
   const cognitoUser = new CognitoUser(userData);
+  
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
 
   cognitoUser.deleteUser( async (err, result) => {
     if (err) {
@@ -337,30 +350,5 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
   });
 });
 
-//Change this to a function to so that it can be used in profile routes to delete user.
-router.put('/update/:attribute', (req, res) => {
-
-  const { attribute } = req.params;
-  const { newUserAttribute } = req.body;
-
-  const attributeList = [];
-
-  const newAttribute = {
-    Name: attribute,
-    Value: newUserAttribute,
-  };
-
-  const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
-  attributeList.push(updatedAttribute);
-
-  CognitoUser.updateAttributes(attributeList, function(err, result) {
-    if (err) {
-      res.status(401).json({ message: err.msg })
-      return;
-    }
-    console.log('call result: ' + result);
-  });
-});
-
-
 export default router;
+
