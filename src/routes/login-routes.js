@@ -146,9 +146,14 @@ router.post('/signin', inputValidator, rateLimiter(), (req, res) => {
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
-      res.status(400).json({
-        header: 'sign in error',
-        message: err.message});
+      if (err.message == "User is not confirmed.") {
+        res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+      } else {
+        res.status(400).json({
+          header: 'sign in error',
+          message: err.message
+        });
+      }
     }
   });  
 });
@@ -307,31 +312,5 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
     res.status(200).json({ message: `user, ${username}, deleted` });
   });
 });
-
-//Change this to a function to so that it can be used in profile routes to delete user.
-router.put('/update/:attribute', (req, res) => {
-
-  const { attribute } = req.params;
-  const { newUserAttribute } = req.body;
-
-  const attributeList = [];
-
-  const newAttribute = {
-    Name: attribute,
-    Value: newUserAttribute,
-  };
-
-  const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
-  attributeList.push(updatedAttribute);
-
-  CognitoUser.updateAttributes(attributeList, function(err, result) {
-    if (err) {
-      res.status(401).json(err.message);
-      return;
-    }
-    console.log('call result: ' + result);
-  });
-});
-
 
 export default router;
