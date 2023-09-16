@@ -323,6 +323,19 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
   };
 
   const cognitoUser = new CognitoUser(userData);
+  
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
 
   cognitoUser.deleteUser( async (err, result) => {
     if (err) {
