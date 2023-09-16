@@ -20,7 +20,7 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
   try {
     console.log(req.params);
 
-    res.json({ "Testing": "Working Posts", "Value": req.body});
+    res.status(200).json({ "Testing": "Working Posts", "Value": req.body});
   } catch (err) {
     console.error(err.message);
   }
@@ -198,7 +198,7 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
       removeLikesViews(parseInt(post_id)),
     ]);
 
-    res.json({ "Status": "Post Deleted" });
+    res.status(200).json({ "Status": "Post Deleted" });
   } catch (error) {
     next(error);
   }
