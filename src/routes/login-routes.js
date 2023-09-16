@@ -257,7 +257,7 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
       res.status(201).json({ message: 'password reset successfully'});
     },
     onFailure(err) {
-      res.status(400).json({ message: err.msg })
+      res.status(400).json({ message: err })
     },
   });
 });
@@ -272,14 +272,37 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
  */
 router.post('/global_signout', rateLimiter(), (req, res) => {
 
-  const cognitoUser = cognitoUserPool.getCurrentUser();
+  const { username } = req.body;
 
-  if (cognitoUser != null) {
-    cognitoUser.globalSignOut();
-    res.status(200).json({message: 'user successfully logged out: sign in required'});
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+
+  const cognitoUser = new CognitoUser(userData);
+  
+  var authenticated = true
+  cognitoUser.getSession((err, session) => {
+    if (err) {
+      var authenticated = false
+      return res.status(400).json({ message: err.message })
+    }
+  });
+
+  if (cognitoUser != null && authenticated) {
+    cognitoUser.globalSignOut({
+      onSuccess() {
+        return res.status(200).json({ message: 'user successfully logged out: sign in required' })
+      },
+      onFailure(err) {
+        return res.status(400).json({ message: err.message })
+      },
+    });
+  } else if (!(authenticated)) {
+    return;
   } else {
-    res.status(500).json({message: 'cannot log user out'});
-  }
+    return res.status(500).json({message: 'cannot log user out'});
+  };
 });
 
 
