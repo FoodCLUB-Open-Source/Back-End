@@ -17,7 +17,6 @@ router.get("/testing", async (req, res) => {
 	}
 });
 
-
 /**
  * Process A Video Like
  * 
@@ -102,11 +101,6 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
  */
 router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
-		const errors = validationResult(req);
-  
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		}
 
 		const commentId = req.params.id;
 		const { user_id, post_id } = req.body;
@@ -125,7 +119,7 @@ router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req
 			updateCommentsRequest.exec()
 		]);
 
-		res.json({ "Status": "Comment Liked" });
+		res.status(200).json({ "Status": "Comment Liked" });
 	} catch (err) {
 		next(err);
 	}
@@ -160,8 +154,7 @@ router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (r
 			updateCommentsRequest.exec()
 		]);
 
-		console.log("Comment Unliked");
-		res.json({ Status: "Comment Unliked" });
+		res.status(200).json({ Status: "Comment Unliked" });
 	} catch (err) {
 		next(err);
 	}
