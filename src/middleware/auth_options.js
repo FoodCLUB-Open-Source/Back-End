@@ -1,9 +1,9 @@
 /* This file contains authentication-related middleware */
-
 import { pgQuery } from "../functions/general_functions.js"
 
 const emailOrUsername = () => {
   return async (req, res, next) => {
+
     // checking if the request has email or username in the body
     if (req.body.hasOwnProperty('email')) {
       const email = req.body.email

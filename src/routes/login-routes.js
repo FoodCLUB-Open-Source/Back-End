@@ -351,4 +351,3 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
 });
 
 export default router;
-
