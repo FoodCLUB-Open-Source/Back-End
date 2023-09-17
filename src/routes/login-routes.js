@@ -147,9 +147,14 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
-      res.status(400).json({
-        header: 'sign in error',
-        message: err.message});
+      if (err.message == "User is not confirmed.") {
+        res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+      } else {
+        res.status(400).json({
+          header: 'sign in error',
+          message: err.message
+        });
+      }
     }
   });  
 });
