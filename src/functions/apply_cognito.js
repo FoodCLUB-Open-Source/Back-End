@@ -26,8 +26,8 @@ const changeAttribute = (attributeName, attributeValue) => {
 
   cognitoUser.updateAttributes(attributeList, (err, result) => {
     if (err) {
-      return res.status(401).json(err.message);
+      throw new Error(err.message);
     }
-    return res.status(200).json({message: `user ${username}'s ${attributeName} was updated successfully to ${attributeValue}`})
+    return `user ${username}'s ${attributeName} was updated successfully to ${attributeValue}`
   });
 }
