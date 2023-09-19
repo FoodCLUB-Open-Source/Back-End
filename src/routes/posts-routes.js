@@ -1,32 +1,17 @@
 /* For video/image posting routes */
-import {
-  Router,
-  response
-} from "express";
-import multer, {
-  memoryStorage
-} from "multer";
-import {
-  validationResult
-} from "express-validator";
+import {Router,response} from "express";
+import multer,{memoryStorage} from "multer";
+import {validationResult} from "express-validator";
 
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import {
-  makeTransactions,
-  pgQuery,
-  s3Delete,
-  s3Retrieve,
-  s3Upload
-} from "../functions/general_functions.js";
+import {makeTransactions,pgQuery,s3Delete,s3Retrieve,s3Upload} from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
 
-import {
-  redisUserExists,
-  redisNewUser
+import {redisUserExists,redisNewUser
 } from "../functions/redis_UserFunctions.js";
 
 const router = Router();
@@ -83,19 +68,8 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
   try {
     const userId = parseInt(req.params.user_id);
 
-    const {
-      title,
-      description,
-      recipe_description,
-      preparation_time,
-      serving_size,
-      category
-    } = req.body;
-    let {
-      recipe_ingredients,
-      recipe_equipment,
-      recipe_steps
-    } = req.body;
+    const {title,description,recipe_description,preparation_time,serving_size,category} = req.body;
+    let {recipe_ingredients,recipe_equipment,recipe_steps} = req.body;
 
     recipe_ingredients = JSON.parse(recipe_ingredients);
     recipe_equipment = JSON.parse(recipe_equipment);
@@ -122,9 +96,7 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
       const postValues = [userId, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
 
-      const {
-        post_id
-      } = newPost.rows[0];
+      const {post_id} = newPost.rows[0];
 
       const insertRecipeQuery = 'INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())';
       const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
@@ -160,11 +132,7 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
         //we then retrieve all the current users post from user_posts, if it doesnt exisit, we initialise an empty array.
         const user_posts = JSON.parse(exists.user_posts || '[]'); // Initialize as an empty array if it doesn't exist
         //add the new post to index 0(head) of the array as this is the latest video;
-        user_posts.unshift({
-          recipe_ingredients,
-          recipe_equipment,
-          recipe_steps,
-        } = req.body);
+        user_posts.unshift({recipe_ingredients,recipe_equipment,recipe_steps,} = req.body);
       
         console.log('Video added successfully');
         //then we return the updated array and set it back.
@@ -206,9 +174,7 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
 router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
 
   try {
-    const {
-      post_id
-    } = req.params; // retrieving post ID
+    const {post_id} = req.params; // retrieving post ID
 
     const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
@@ -258,9 +224,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
 router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
 
-    const {
-      post_id
-    } = req.params;
+    const {post_id} = req.params;
 
     // Fetch post details from the database
     const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, post_id);
@@ -272,10 +236,7 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
       });
     }
 
-    const {
-      video_name,
-      thumbnail_name
-    } = post.rows[0];
+    const {video_name,thumbnail_name} = post.rows[0];
 
     // Perform actions within a database transaction
     const query = [`DELETE FROM posts WHERE id = $1`];
@@ -308,9 +269,7 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 router.get("/homepage/:user_id/posts", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
 
-    const {
-      user_id
-    } = req.params
+    const {user_id} = req.params
     //THIS NEEDS TO CHANGE TO CORRESPOND TO THE NEW CATEGORY SYSTEM.
     //NEEDS TO ADD PAGINATION AND CACHHING
     const randomPosts = await pgQuery(`
@@ -324,33 +283,13 @@ router.get("/homepage/:user_id/posts", rateLimiter(), inputValidator, async (req
         const videoUrl = await s3Retrieve(post.video_name);
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
-        const {
-          video_name,
-          thumbnail_name,
-          phone_number,
-          password,
-          email,
-          gender,
-          created_at,
-          updated_at,
-          ...rest
-        } = post;
+        const {video_name,thumbnail_name,phone_number,password,email,gender,created_at,updated_at,...rest} = post;
 
-        const {
-          view_count,
-          like_count
-        } = await getLikesViews(post.post_id);
+        const {view_count,like_count} = await getLikesViews(post.post_id);
 
         const liked = await checkLike(parseInt(post.post_id), parseInt(user_id));
 
-        return {
-          ...rest,
-          video_url: videoUrl,
-          thumbnail_url: thumbnailUrl,
-          view_count,
-          like_count,
-          liked
-        };
+        return {...rest,video_url: videoUrl,thumbnail_url: thumbnailUrl,view_count,like_count,liked};
       })
     );
 
@@ -424,17 +363,9 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
         const videoUrl = s3Retrieve(post.video_name);
         const thumbnailUrl = s3Retrieve(post.thumbnail_name);
 
-        const {
-          video_name,
-          thumbnail_name,
-          ...rest
-        } = post;
+        const {video_name,thumbnail_name,...rest} = post;
 
-        return {
-          ...rest,
-          video_url: videoUrl,
-          thumbnail_url: thumbnailUrl
-        };
+        return {...rest,video_url: videoUrl,thumbnail_url: thumbnailUrl};
       })
     );
 
