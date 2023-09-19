@@ -25,8 +25,8 @@ import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
 
 import {
-  checkUserExists,
-  addNewUser
+  redisUserExists,
+  redisNewUser
 } from "../functions/redis_UserFunctions.js";
 
 const router = Router();
@@ -144,20 +144,22 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
       });
 
 
-      //we add new video to redis (only if the key exist already).
+      //we add new video to redis. if the user id isnnt found in redis, we cerate a new key in redis and set new sub keys and sub values;
       const hashKey = `USER|${req.params.user_id}`
       const fieldKey = 'user_posts';
 
       try {
-        const exists = await checkUserExists(redis, req.params.user_id);
-      
+        //this function checks if the user is laready in the db.
+        const exists = await redisUserExists(redis, req.params.user_id);
+
+        //if they are not found, we call the redisNewUser function to create new key value pairs.
         if (!exists || !exists.user_posts) {
-          await addNewUser(redis, req.params.user_id); // Wait for the new user to be created
-          console.log('User didn\'t exist but has been created');
+          await redisNewUser(redis, req.params.user_id); // Wait for the new user to be created
+          console.log('User didn\'t exist in Redis but has been created');
         }
         //we then retrieve all the current users post from user_posts, if it doesnt exisit, we initialise an empty array.
         const user_posts = JSON.parse(exists.user_posts || '[]'); // Initialize as an empty array if it doesn't exist
-        //add the new post to index 0(head) of the array.
+        //add the new post to index 0(head) of the array as this is the latest video;
         user_posts.unshift({
           recipe_ingredients,
           recipe_equipment,

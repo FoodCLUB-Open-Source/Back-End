@@ -1,5 +1,8 @@
-//return true or false depending if the key can be found
-export async function checkUserExists(redisClient, id) {
+import pgPool from "../config/pgdb.js";
+import { pgQuery } from "../functions/general_functions.js";
+
+// Check if a Redis key exists
+export async function redisUserExists(redisClient, id) {
     try {
         const hashKey = `USER|${id}`;
         const response = await redisClient.HGETALL(hashKey);
@@ -11,29 +14,36 @@ export async function checkUserExists(redisClient, id) {
             return false;
         }
     } catch (error) {
-        // Handle errors, e.g., log them or take appropriate action.
         console.error("An error occurred while querying Redis:", error);
-        return false; // Return a default value or handle errors as needed.
+        throw error; // Rethrow the error to handle it at a higher level if needed.
     }
-
 }
 
-export async function addNewUser(redisClient, id) {
-        const hashKey = `USER|${id}`;
-        // Define the hash key and field-value pair
-        const fieldValues = {
-            username: 'value1',
-            profile: 'value2',
-            user_posts: '[]'
-        };
-        // Use the hmset method to set multiple fields
-        redisClient.HSET(hashKey, fieldValues, (error, result) => {
-            if (error) {
-                console.error('Error setting multiple fields:', error);
-            } else {
-                console.log('Multiple fields set successfully.');
-            }
-        })
-    
+// Add a new user to Redis
+export async function redisNewUser(redisClient, id) {
+    try {
+        const post = await pgQuery(`SELECT * FROM users WHERE id = $1`, id);
+        const userData = post.rows[0];
 
+        if (userData) {
+            const hashKey = `USER|${id}`;
+            const fieldValues = {
+                username: userData.username,
+                profilePic: userData.profile_picture,
+                user_posts: '[]'
+            };
+
+            // Use hmset to set multiple fields in Redis
+            const result = await redisClient.HSET(hashKey, fieldValues);
+
+            if (result === 'OK') {
+                console.log("New key in Redis has been set");
+            }
+        } else {
+            console.log("User does not exist");
+        }
+    } catch (error) {
+        console.error("An error occurred while adding a new user to Redis:", error);
+        throw error; // Rethrow the error to handle it at a higher level if needed.
+    }
 }
