@@ -1,7 +1,7 @@
-import pgPool from "../config/pgdb.js";
-import { pgQuery } from "../functions/general_functions.js";
+import pgPool from '../config/pgdb.js';
+import { pgQuery } from '../functions/general_functions.js';
 
-// Check if a Redis key exists
+// Check if a Redis key exists. returns a promise
 export async function redisUserExists(redisClient, id) {
     try {
         const hashKey = `USER|${id}`;
@@ -11,15 +11,15 @@ export async function redisUserExists(redisClient, id) {
         if (result.length > 0) {
             return response;
         } else {
-            return false;
+            return 'User Does Not exist in Redis'
         }
     } catch (error) {
-        console.error("An error occurred while querying Redis:", error);
+        console.error('An error occurred while querying Redis:', error);
         throw error; // Rethrow the error to handle it at a higher level if needed.
     }
 }
 
-// Add a new user to Redis
+// Add a new user to Redis. 
 export async function redisNewUser(redisClient, id) {
     try {
         const post = await pgQuery(`SELECT * FROM users WHERE id = $1`, id);
@@ -37,13 +37,13 @@ export async function redisNewUser(redisClient, id) {
             const result = await redisClient.HSET(hashKey, fieldValues);
 
             if (result === 'OK') {
-                console.log("New key in Redis has been set");
+                console.log('New key in Redis has been set');
             }
         } else {
-            console.log("User does not exist");
+            console.log('User does not exist');
         }
     } catch (error) {
-        console.error("An error occurred while adding a new user to Redis:", error);
+        console.error('An error occurred while adding a new user to Redis:', error);
         throw error; // Rethrow the error to handle it at a higher level if needed.
     }
 }
