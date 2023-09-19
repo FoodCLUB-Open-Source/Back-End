@@ -20,7 +20,7 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
   try {
     console.log(req.params);
 
-    res.json({ "Testing": "Working Posts", "Value": req.body});
+    res.status(200).json({ "Testing": "Working Posts", "Value": req.body});
   } catch (err) {
     console.error(err.message);
   }
@@ -29,13 +29,15 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
 /* Functions for Posts */
 
 /* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
-const removeLikesViews = async (postId) => {
+const removeLikesViews = async (postId,userId) => {
   await getDynamoRequestBuilder("Likes")
     .delete("post_id", postId)
+    .withSortKey("user_id", userId)
     .exec();
 
   await getDynamoRequestBuilder("Views")
     .delete("post_id", postId)
+    .withSortKey("user_id", userId)
     .exec();
 };
 
@@ -103,8 +105,8 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
     } catch (err) {
 
       await Promise.all([
-        s3Delete(req.files[0], S3_POST_PATH),
-        s3Delete(req.files[1], S3_POST_PATH)
+        s3Delete(S3_POST_PATH + req.files[0]),
+        s3Delete(S3_POST_PATH + req.files[1])
       ]);
 
       await client.query('ROLLBACK');
@@ -184,21 +186,21 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
       return res.status(404).json({ error: "Post not found." });
     }
 
-    const { video_name, thumbnail_name } = post.rows[0];
+    const { video_name, thumbnail_name, user_id } = post.rows[0];
 
     // Perform actions within a database transaction
     const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [post_id];
+    const values = [[post_id]];
     await makeTransactions(query, values);
     
     // Delete files from S3 and remove likes/views
     await Promise.all([
       s3Delete(video_name),
       s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(post_id)),
+      removeLikesViews(parseInt(post_id),user_id),
     ]);
 
-    res.json({ "Status": "Post Deleted" });
+    res.status(200).json({ "Status": "Post Deleted" });
   } catch (error) {
     next(error);
   }
@@ -322,15 +324,24 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
     // Execute the query with parameters
     const randomPosts = await pgQuery(query, likedPostsLiteral, pageSize, offset);
 
-    // Process the posts to add video and thumbnail URLs, view_count ,like_count
+    // Process the posts to add video and thumbnail URLs
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
-        const videoUrl = s3Retrieve(post.video_name);
-        const thumbnailUrl = s3Retrieve(post.thumbnail_name);
+        const videoUrl = s3Retrieve(post.video_name); // getting video URL
+        const thumbnailUrl = s3Retrieve(post.thumbnail_name); // getting thumbnail URL
+
+        // getting like count and view count
+        const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec();
+        const viewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec();
 
         const { video_name, thumbnail_name, ...rest } = post;
 
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+        const viewedPost = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).whereSortKey("user_id").eq(parseInt(user_id)).exec(); // querying Views table to check if user has viewed post
+        if(viewedPost.length == 1) { // if length is 1, means user has viewed post hence viewed is set to true
+          return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, liked: false, viewed: true };
+        } else { // else user has not viewed post
+          return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, liked: false, viewed: false };
+        }
       })
     );
 

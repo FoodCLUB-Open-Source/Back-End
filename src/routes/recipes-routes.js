@@ -11,7 +11,7 @@ const router = express.Router();
 /* Testing Posts Route */
 router.get("/testing", rateLimiter(), async (req, res) => {
 	try {
-	  res.json({ "Testing": "Working Reipes" });
+	res.status(200).json({ "Testing": "Working Reipes" });
   
 	} catch (err) {
 	  console.error(err.message)
@@ -24,7 +24,7 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * The cached recipe expires after 1 hour.
  *
  * @route GET /:id
- * @param {string} *req.params.id - The Id of the post
+ * @param {string} *req.params.id - The Id of the post.
  * @returns {JSON} The recipe as a JSON object.
  */
 
@@ -40,7 +40,7 @@ router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) =>
 			try{
 				const specificRecipe = await pgQuery(` 
 					SELECT 
-					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, recipe_servings, serving_size
+					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, serving_size
 					FROM recipes 
 					WHERE post_id = $1`
 					, postId

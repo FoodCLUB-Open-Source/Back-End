@@ -43,8 +43,7 @@ router.post("/posts/comments/:id", rateLimiter(),  async (req, res, next) => {
 			.updateAttribute("comments_count").increment()
 			.exec();
 
-		console.log("Comment Posted");
-		res.json({ "Status": "Comment Posted" });
+		res.status(200).json({ "Status": "Comment Posted" });
 	} catch (err) {
 		next(err);
 	}
@@ -70,11 +69,8 @@ router.get("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 			.scanIndexDescending()
 			.limit(30)
 			.exec();
-
-		console.log(results);
-
-		console.log("Comments Fetched");
-		res.json({ "Testing": "Working Posts", "Results": results });
+		
+		res.status(200).json({ "Testing": "Working Posts", "Results": results });
 	} catch (err) {
 	  next(err);
 	}
@@ -101,9 +97,8 @@ router.put("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 			.withSortKey("comment_id", commentId)
 			.operations(update("comment").set(comment), update("updated_at").set(new Date().toISOString()))
 			.exec();
-
-		console.log("Comment Updated");
-		res.json({ Status: "Comment Updated" });
+		
+		res.status(200).json({ Status: "Comment Updated" });
 	} catch (err) {
 		next(err);
 	}
@@ -134,8 +129,7 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 			.updateAttribute("comments_count").decrement()
 			.exec();
 
-		console.log("Comment Deleted");
-		res.json({ Status: "Comment Deleted" });
+		res.status(200).json({ Status: "Comment Deleted" });
 	} catch (err) {
 		next(err);
 	}
@@ -162,8 +156,7 @@ router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 			.limit(20)
 			.exec();
 
-		console.log("Comments Fetched");
-		res.json({ "Testing": "Working Posts", "Results": results });
+		res.status(200).json({ "Testing": "Working Posts", "Results": results });
 	} catch (err) {
 		next(err);
 	}
@@ -196,8 +189,7 @@ router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next
 			.updateAttribute("comment_reply_count").increment()
 			.exec();
 
-		console.log("Reply Posted");
-		res.json({ "Status": "Reply Posted" });
+		res.status(200).json({ "Status": "Reply Posted" });
 	} catch (err) {
 		next(err);
 	}
@@ -223,8 +215,7 @@ router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 			.operations(update("reply").set(reply), update("updated_at").set(new Date().toISOString()))
 			.exec();
 
-		console.log("Reply Updated");
-		res.json({ Status: "Reply Updated" });
+		res.status(200).json({ Status: "Reply Updated" });
 	} catch (err) {
 		next(err);
 	}
@@ -257,8 +248,7 @@ router.delete("/posts/comments/replies/:id", rateLimiter(),  async (req, res, ne
 			.updateAttribute("comment_reply_count").decrement()
 			.exec();
 
-		console.log("Reply Deleted");
-		res.json({ Status: "Reply Deleted" });
+		res.status(200).json({ Status: "Reply Deleted" });
 	} catch (err) {
 		next(err);
 	}
