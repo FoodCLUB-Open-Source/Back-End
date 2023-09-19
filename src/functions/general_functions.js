@@ -83,10 +83,10 @@ export const s3Retrieve = (fileName) => getSignedUrl({
 });
 
 /* Deletes a image in the s3 bucket */
-export const s3Delete = async (fileName, path) => {
+export const s3Delete = async (fileNameWithPath) => {
   const params ={
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: path+fileName,
+    Key: fileNameWithPath,
   };
 
   const s3GetCommand = new DeleteObjectCommand(params);
