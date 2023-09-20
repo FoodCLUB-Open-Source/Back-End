@@ -152,7 +152,7 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
       } else {
         res.status(400).json({
           header: 'sign in error',
-          message: err.message
+          message: 'username or password is incorrect'
         });
       }
     }
