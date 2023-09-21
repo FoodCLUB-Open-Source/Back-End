@@ -8,6 +8,7 @@ import inputValidator from "../middleware/input_validator.js";
 
 import cognitoUserPool from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
+import emailOrUsername from "../middleware/auth_options.js";
 
 const router = Router();
 
@@ -82,7 +83,7 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
 
   cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
     if (err) {
-      return res.status(400).json(err.message);
+      return res.status(400).json({ message: err.msg })
     }
     return res.status(201).json({message: 'user verified'});
   });
@@ -109,7 +110,7 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
 
   cognitoUser.resendConfirmationCode((err, result) => {
     if (err) {
-      return res.status(400).json(err.message)
+      return res.status(400).json({ message: err.msg })
     }
     res.status(200).json({ message: 'new code sent successfully' })
   });
@@ -120,13 +121,13 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
  * 
  * @route POST /login/signin
  * @body {string} req.body.username - Users Username
+ * @body {string} req.body.email - the user's email address. Either usename or email can be used.
  * @body {string} req.body.password - Users password
  * @returns {status} - A successful status indicates successful sign in
  * @throws {Error} - If there are errors dont sign user in
  */
-router.post('/signin', inputValidator, rateLimiter(), (req, res) => {
-
-  const { username, password } = req.body;
+router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, res) => {
+  const { username, password } = req.body
   
   const authenticationDetails = new AuthenticationDetails({
     Username: username,
@@ -146,9 +147,14 @@ router.post('/signin', inputValidator, rateLimiter(), (req, res) => {
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
-      res.status(400).json({
-        header: 'sign in error',
-        message: err.message});
+      if (err.message == "User is not confirmed.") {
+        res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+      } else {
+        res.status(400).json({
+          header: 'sign in error',
+          message: err.message
+        });
+      }
     }
   });  
 });
@@ -157,12 +163,19 @@ router.post('/signin', inputValidator, rateLimiter(), (req, res) => {
  * Sign a user out
  * 
  * @route POST /login/signout
+ * @body 
  * @returns {status} - A successful status means sign out successful
  * @throws {Error} - If there are errors dont sign a user out
  */
 router.post('/signout', rateLimiter(), (req, res) => {
+  const { username } = req.body
 
-  const cognitoUser = cognitoUserPool.getCurrentUser();
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool
+  };
+
+  const cognitoUser = new CognitoUser(userData);
 
   if (cognitoUser != null) {
     cognitoUser.signOut();
@@ -182,20 +195,27 @@ router.post('/signout', rateLimiter(), (req, res) => {
  * @throws {Error} - If there are errors dont change the users passwords
  */
 router.post('/change_password', inputValidator, rateLimiter(), async (req, res) => {
-
+  
   const { old_password, new_password } = req.body;
 
   const cognitoUser = cognitoUserPool.getCurrentUser();
-
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      return res.status(400).json(err.message);
-    }
-  });
   
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
+
   cognitoUser.changePassword(old_password, new_password, (err, result) => {
     if (err) {
-      return res.status(400).json(err.message);
+      return res.status(400).json({ message: err.msg })
     }
     return res.status(201).json({ message: 'password changed successfully' });
   });
@@ -210,7 +230,7 @@ router.post('/change_password', inputValidator, rateLimiter(), async (req, res) 
  * @returns {status} - A successful status indicates code is sent
  * @throws {Error} - If there are errors dont send a code
  */
-router.post('/forgot_password/verification_code', inputValidator, rateLimiter(), async (req, res) => {
+router.post('/forgot_password/verification_code', inputValidator, rateLimiter(), emailOrUsername(), async (req, res) => {
 
   const { username } = req.body;
 
@@ -226,7 +246,7 @@ router.post('/forgot_password/verification_code', inputValidator, rateLimiter(),
       res.status(200).json({ message: 'Verification code sent' });
     },
     onFailure: (err) => {
-      res.status(400).json(err.message);
+      res.status(400).json({ message: err.msg })
     },
   });
 });
@@ -257,7 +277,7 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
       res.status(201).json({ message: 'password reset successfully'});
     },
     onFailure(err) {
-      res.status(400).json(err.message);
+      res.status(400).json({ message: err.msg })
     },
   });
 });
@@ -267,18 +287,32 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
  * Send another verification code to user
  * 
  * @route POST /login/global_signout
+ * @body req.body.username - the user's username
  * @returns {status} - A successful status indicates user is signed out on all devices he is logged in on
  * @throws {Error} - If there are errors dont sign user out on any device
  */
 router.post('/global_signout', rateLimiter(), (req, res) => {
 
-  const cognitoUser = cognitoUserPool.getCurrentUser();
+  const { username } = req.body;
+
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
+
+  const cognitoUser = new CognitoUser(userData);
 
   if (cognitoUser != null) {
-    cognitoUser.globalSignOut();
-    res.status(200).json({message: 'user successfully logged out: sign in required'});
+    cognitoUser.globalSignOut({
+      onSuccess: () => {
+        res.status(200).json({message: 'user successfully logged out: all tokens invalidated'});
+      },
+      onFailure: (err) => {
+        res.status(500).json({message: 'global sign out failed'})
+      }
+    });
   } else {
-    res.status(500).json({message: 'cannot log user out'});
+    res.status(500).json({message: 'cannot log user out: user does not exist'});
   }
 });
 
@@ -294,39 +328,31 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
   };
 
   const cognitoUser = new CognitoUser(userData);
+  
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
 
-  cognitoUser.deleteUser((err, result) => {
+  cognitoUser.deleteUser( async (err, result) => {
     if (err) {
-      return res.status(400).json(err.message);
+      return res.status(400).json({ message: err.msg })
+    };
+    try {
+      await pgQuery('DELETE FROM users WHERE username = $1', username);
+    } catch (error) {
+      return res.status(400).json({ message: 'user not deleted from database'});
     }
     res.status(200).json({ message: `user, ${username}, deleted` });
   });
 });
-
-//Change this to a function to so that it can be used in profile routes to delete user.
-router.put('/update/:attribute', (req, res) => {
-
-  const { attribute } = req.params;
-  const { newUserAttribute } = req.body;
-
-  const attributeList = [];
-
-  const newAttribute = {
-    Name: attribute,
-    Value: newUserAttribute,
-  };
-
-  const updatedAttribute = new AmazonCognitoIdentity.CognitoUserAttribute(newAttribute);
-  attributeList.push(updatedAttribute);
-
-  CognitoUser.updateAttributes(attributeList, function(err, result) {
-    if (err) {
-      res.status(401).json(err.message);
-      return;
-    }
-    console.log('call result: ' + result);
-  });
-});
-
 
 export default router;
