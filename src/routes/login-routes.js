@@ -55,7 +55,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
       await pgQuery(`INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
       username, email, passwordHashed);
     } catch (error) {
-      return res.status(400).json(error.message);
+      return res.status(400).json({  message: error.message });
     }
     return res.status(201).json({user: result.user});
   });  

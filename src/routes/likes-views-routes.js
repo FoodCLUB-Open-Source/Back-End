@@ -43,8 +43,8 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
 		await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
 		res.status(200).json({ "Status": "Post Liked" });
 	  } else {
-		// Like already exists
-		res.status(409).json({ "Status": "Post Like Already Exists" });
+		  // Like already exists
+		res.status(409).json({ message: "Post Like Already Exists" });
 	  }
 	} catch (err) {
 	  next(err);
@@ -82,7 +82,7 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
 	  } else {
   
 		// Like does not exist
-		res.status(404).json({ "Status": "Post Like Not Found" });
+		res.status(404).json({  message: "Post Like Not Found" });
 	  }
 	} catch (err) {
 	  next(err);
@@ -186,7 +186,7 @@ router.post("/story/:story_id/view/:user_id", inputValidator, rateLimiter(), asy
 			res.status(200).json({ "Status": "Story viewed successfully" });
 		} else {
 			// Story View already exists
-			res.status(409).json({ "Status": "Story already viewed by the user." });
+			res.status(409).json({  message: "Story already viewed by the user." });
 		}
 	}
 	catch (err) {
@@ -223,7 +223,7 @@ router.post("/post/:post_id/view/:user_id", inputValidator, rateLimiter(), async
 			res.status(200).json({ "Status": "Post viewed successfully" });
 		} else {
 			// View already exists
-			res.status(409).json({ "Status": "Post already viewed by the user." });
+			res.status(409).json({  message: "Post already viewed by the user." });
 		}
 	}
 	catch (err) {
