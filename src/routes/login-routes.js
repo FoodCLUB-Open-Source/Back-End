@@ -55,7 +55,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
       await pgQuery(`INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
       username, email, passwordHashed);
     } catch (error) {
-      return res.status(400).json(error.message);
+      return res.status(400).json({  message: error.message });
     }
     return res.status(201).json({user: result.user});
   });  
@@ -277,7 +277,7 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
       res.status(201).json({ message: 'password reset successfully'});
     },
     onFailure(err) {
-      res.status(400).json({ message: err.msg })
+      res.status(400).json({ message: err })
     },
   });
 });
@@ -301,19 +301,29 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
   };
 
   const cognitoUser = new CognitoUser(userData);
+  
+  var authenticated = true
+  cognitoUser.getSession((err, session) => {
+    if (err) {
+      var authenticated = false
+      return res.status(400).json({ message: err.message })
+    }
+  });
 
-  if (cognitoUser != null) {
+  if (cognitoUser != null && authenticated) {
     cognitoUser.globalSignOut({
-      onSuccess: () => {
-        res.status(200).json({message: 'user successfully logged out: all tokens invalidated'});
+      onSuccess() {
+        return res.status(200).json({ message: 'user successfully logged out: sign in required' })
       },
-      onFailure: (err) => {
-        res.status(500).json({message: 'global sign out failed'})
-      }
+      onFailure(err) {
+        return res.status(400).json({ message: err.message })
+      },
     });
+  } else if (!(authenticated)) {
+    return;
   } else {
-    res.status(500).json({message: 'cannot log user out: user does not exist'});
-  }
+    return res.status(500).json({message: 'cannot log user out'});
+  };
 });
 
 

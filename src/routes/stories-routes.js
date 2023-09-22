@@ -68,7 +68,7 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
       ]);
 
       // Throw the error to the next error handler
-      res.status(500).json({ Status: "Story Post Failed" });
+      res.status(500).json({  message: "Story Post Failed" });
     }
 
   } catch (err) {
@@ -100,7 +100,7 @@ router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, 
       .exec();
 
     if (getStory.length === 0) {
-      return res.status(404).json({ Error: "Story not found" });
+      return res.status(404).json({  message: "Story not found" });
     }
 
     // get the video and thumbnail paths and story_id
@@ -115,7 +115,7 @@ router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, 
     } catch (err) {
       // Handle errors here or log them for debugging
       console.error("Error deleting files from S3:", err);
-      return res.status(500).json({ Error: "Error deleting files from S3" });
+      return res.status(500).json({  message: "Error deleting files from S3" });
     }
 
     // Delete the story from the Stories table
