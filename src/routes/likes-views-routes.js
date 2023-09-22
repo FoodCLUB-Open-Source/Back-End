@@ -18,46 +18,6 @@ router.get("/testing", async (req, res) => {
 });
 
 /**
- * Posting For Viewing Specific Video 
- * 
- * @route POST /view/:id
- * @param {string} req.params.postId - The ID of the video post being viewed
- * @body {string} req.body.user_id - The ID of the user viewing the video
- * @returns {Object} - Returns an object indicating a successful video view
- * @throws {Error} - If there are errors in input validation or updating view statistics
- */
-router.post("/view/:id", rateLimiter(), inputValidator, async (req, res, next) => {
-	try {
-		const errors = validationResult(req);
-
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		}
-
-		const postId = parseInt(req.params.id);
-		const { user_id } = req.body;
-
-		const viewSchema = setViews(parseInt(user_id), postId);
-		
-		const putViewsRequest = getDynamoRequestBuilder("Views").put(viewSchema);
-		
-		const updatePostStatsRequest = getDynamoRequestBuilder("Post_Stats")
-			.update("post_id", postId)
-			.updateAttribute("view_count").increment();
-		
-		await Promise.all([
-			putViewsRequest.exec(),
-			updatePostStatsRequest.exec()
-		]);
-		
-		console.log("Post Viewed");
-		res.json({ Status: "Post Viewed" });
-	} catch (err) {
-		next(err);
-	}
-});
-
-/**
  * Process A Video Like
  * 
  * @route POST /like/:post_id/user/:user_id
@@ -83,8 +43,8 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
 		await getDynamoRequestBuilder("Likes").put(likeSchema).exec();
 		res.status(200).json({ "Status": "Post Liked" });
 	  } else {
-		// Like already exists
-		res.status(409).json({ "Status": "Post Like Already Exists" });
+		  // Like already exists
+		res.status(409).json({ message: "Post Like Already Exists" });
 	  }
 	} catch (err) {
 	  next(err);
@@ -122,7 +82,7 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
 	  } else {
   
 		// Like does not exist
-		res.status(404).json({ "Status": "Post Like Not Found" });
+		res.status(404).json({  message: "Post Like Not Found" });
 	  }
 	} catch (err) {
 	  next(err);
@@ -141,11 +101,6 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
  */
 router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req, res, next) => {
 	try {
-		const errors = validationResult(req);
-  
-		if (!errors.isEmpty()) {
-			return res.status(400).json({ errors: errors.array() });
-		}
 
 		const commentId = req.params.id;
 		const { user_id, post_id } = req.body;
@@ -164,7 +119,7 @@ router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req
 			updateCommentsRequest.exec()
 		]);
 
-		res.json({ "Status": "Comment Liked" });
+		res.status(200).json({ "Status": "Comment Liked" });
 	} catch (err) {
 		next(err);
 	}
@@ -199,8 +154,7 @@ router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (r
 			updateCommentsRequest.exec()
 		]);
 
-		console.log("Comment Unliked");
-		res.json({ Status: "Comment Unliked" });
+		res.status(200).json({ Status: "Comment Unliked" });
 	} catch (err) {
 		next(err);
 	}
@@ -232,7 +186,7 @@ router.post("/story/:story_id/view/:user_id", inputValidator, rateLimiter(), asy
 			res.status(200).json({ "Status": "Story viewed successfully" });
 		} else {
 			// Story View already exists
-			res.status(409).json({ "Status": "Story already viewed by the user." });
+			res.status(409).json({  message: "Story already viewed by the user." });
 		}
 	}
 	catch (err) {
@@ -269,7 +223,7 @@ router.post("/post/:post_id/view/:user_id", inputValidator, rateLimiter(), async
 			res.status(200).json({ "Status": "Post viewed successfully" });
 		} else {
 			// View already exists
-			res.status(409).json({ "Status": "Post already viewed by the user." });
+			res.status(409).json({  message: "Post already viewed by the user." });
 		}
 	}
 	catch (err) {
