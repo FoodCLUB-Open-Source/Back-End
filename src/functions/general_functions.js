@@ -1,8 +1,8 @@
 /* File for useful functions to encourage DRY code */
 import crypto from "crypto";
 
-import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
+import { DeleteObjectCommand, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import pgPool from "../config/pgdb.js";
 import s3Client from "../config/s3Client.js";
@@ -74,23 +74,43 @@ export const s3Upload = async (file, path) => {
   return randomName;
 };
 
-/* Retrieves a image from the  bucket via cloudfront */
-export const s3Retrieve = (fileName) => getSignedUrl({
-  url: process.env.CLOUDFRONT_URL + fileName,
-  dateLessThan: new Date(Date.now() + 1000 * 60 * 60 * 24),
-  privateKey: process.env.CLOUDFRONT_PK,
-  keyPairId: process.env.CLOUDFRONT_KPID
-});
+/* Retrieves a image from s3 */
+export const s3Retrieve = async(fileName) => {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME, 
+      Key: fileName,
+    });
+
+    const urlExpiration = 3600; 
+
+    const fileUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: urlExpiration
+    });
+
+    return fileUrl;
+
+  } catch (error) {
+    console.error("Error generating pre-signed URL:", error);
+    throw error;
+  }
+};
 
 /* Deletes a image in the s3 bucket */
-export const s3Delete = async (fileName, path) => {
-  const params ={
-    Bucket: process.env.S3_BUCKET_NAME,
-    Key: path+fileName,
-  };
+export const s3Delete = async (fileNameWithPath) => {
+  try {
+    const params ={
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: fileNameWithPath,
+    };
+  
+    const s3GetCommand = new DeleteObjectCommand(params);
+    await s3Client.send(s3GetCommand);
+    
+  } catch (error) {
+    console.log(error);
+  }
 
-  const s3GetCommand = new DeleteObjectCommand(params);
-  await s3Client.send(s3GetCommand);
 };
 
 /* Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT ) */
