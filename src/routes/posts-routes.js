@@ -1,30 +1,24 @@
 /* For video/image posting routes */
-import {Router,response} from "express";
-import multer,{memoryStorage} from "multer";
-import {validationResult} from "express-validator";
+import { Router } from "express";
+import multer, { memoryStorage } from "multer";
+import { validationResult } from "express-validator";
 
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import {makeTransactions,pgQuery,s3Delete,s3Retrieve,s3Upload} from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
 
-import {redisUserExists,redisNewUser
-} from "../functions/redis_UserFunctions.js";
-
 const router = Router();
 const storage = memoryStorage();
-const upload = multer({
-  storage: storage
-})
+const upload = multer({ storage: storage })
 
 /* Testing Posts Route */
 router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) => {
   try {
     console.log(req.params);
-
 
     res.status(200).json({ "Testing": "Working Posts", "Value": req.body});
   } catch (err) {
@@ -64,19 +58,15 @@ const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
  */
 router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
-
   try {
-    const userId = parseInt(req.params.user_id);
 
-    const {title,description,recipe_description,preparation_time,serving_size,category} = req.body;
-    let {recipe_ingredients,recipe_equipment,recipe_steps} = req.body;
+    const userId = parseInt(req.params.user_id);
+    const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
+    let { recipe_ingredients, recipe_equipment, recipe_steps } = req.body;
 
     recipe_ingredients = JSON.parse(recipe_ingredients);
     recipe_equipment = JSON.parse(recipe_equipment);
     recipe_steps = JSON.parse(recipe_steps);
-
-
-
 
     const S3_POST_PATH = "posts/active/";
     //Used to upload to s3 bucket
@@ -85,65 +75,32 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
       s3Upload(req.files[1], S3_POST_PATH)
     ]);
 
-
-
-
-    //connect to db. then we insert new post in the relevant dbs.
     const client = await pgPool.connect();
+
     try {
       await client.query('BEGIN');
+      
       const insertPostQuery = 'INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id';
       const postValues = [userId, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
-
-      const {post_id} = newPost.rows[0];
+      
+      const { post_id } = newPost.rows[0];
 
       const insertRecipeQuery = 'INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())';
       const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
-
-
+      
       const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
       const postUpdateValues = [post_id, category];
-
+      
       await Promise.all([
         client.query(insertRecipeQuery, recipeValues),
         client.query(updatePostQuery, postUpdateValues)
       ]);
+
       await client.query('COMMIT');
+      
       console.log("Video Posted " + post_id);
-      res.status(200).json({
-        Status: "Video Posted"
-      });
-
-
-      //we add new video to redis. if the user id isnnt found in redis, we cerate a new key in redis and set new sub keys and sub values;
-      const hashKey = `USER|${req.params.user_id}`
-      const fieldKey = 'user_posts';
-
-      try {
-        //this function checks if the user is laready in the db.
-        const exists = await redisUserExists(redis, req.params.user_id);
-
-        //if they are not found, we call the redisNewUser function to create new key value pairs.
-        if (!exists || !exists.user_posts) {
-          await redisNewUser(redis, req.params.user_id); // Wait for the new user to be created
-          console.log('User didn\'t exist in Redis but has been created');
-        }
-        //we then retrieve all the current users post from user_posts, if it doesnt exisit, we initialise an empty array.
-        const user_posts = JSON.parse(exists.user_posts || '[]'); // Initialize as an empty array if it doesn't exist
-        //add the new post to index 0(head) of the array as this is the latest video;
-        user_posts.unshift({recipe_ingredients,recipe_equipment,recipe_steps,} = req.body);
-      
-        console.log('Video added successfully');
-        //then we return the updated array and set it back.
-        await redis.hSet(hashKey, fieldKey, JSON.stringify(user_posts));
-      
-      } catch (error) {
-        console.error('Error:', error.message);
-      }
-      
-
-
+      res.status(200).json({ Status: "Video Posted" });
 
     } catch (err) {
 
@@ -172,17 +129,14 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
 router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
-
   try {
-    const {post_id} = req.params; // retrieving post ID
+    const { post_id } = req.params; // retrieving post ID
 
     const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
     if (postDetails.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Post not found'
-      });
+      return res.status(404).json({ error: 'Post not found' });
     }
 
     // getting video_name and thumbnail_name URL's
@@ -194,7 +148,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
     // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
     const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
     const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
-
+    
     // adding URLs to posts data and removing video_name and thumbnail_name
     postDetails.rows[0].video_url = videoUrl;
     postDetails.rows[0].thumbnail_url = thumbnailUrl;
@@ -205,9 +159,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
     postDetails.rows[0].total_likes = postLikeCount.length;
     postDetails.rows[0].total_views = postViewCount.length;
 
-    return res.status(200).json({
-      data: postDetails.rows
-    }); // sending data to client
+    return res.status(200).json({ data: postDetails.rows }); // sending data to client
   } catch (error) {
     next(error); // server side error
   }
@@ -224,27 +176,23 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
 router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
 
-    const {post_id} = req.params;
+    const { post_id } = req.params;
 
     // Fetch post details from the database
     const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, post_id);
 
     // Ensure the post is present in the database or not
     if (post.rows.length === 0) {
-      return res.status(404).json({
-        error: "Post not found."
-      });
+      return res.status(404).json({ error: "Post not found." });
     }
 
-
     const { video_name, thumbnail_name, user_id } = post.rows[0];
-
 
     // Perform actions within a database transaction
     const query = [`DELETE FROM posts WHERE id = $1`];
     const values = [[post_id]];
     await makeTransactions(query, values);
-
+    
     // Delete files from S3 and remove likes/views
     await Promise.all([
       s3Delete(video_name),
@@ -259,51 +207,6 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 });
 
 /**
-
- * user gets posts for their homepage
- * 
- * @route GET /:userid
- * @param {string} req.params.post_id - The ID of the post 
- * @returns {Object} - Posts are retrieved for homepage
- * @throws {Error} - If there is an error, no posts are retrieved
- */
-router.get("/homepage/:user_id/posts", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-
-    const {user_id} = req.params
-    //THIS NEEDS TO CHANGE TO CORRESPOND TO THE NEW CATEGORY SYSTEM.
-    //NEEDS TO ADD PAGINATION AND CACHHING
-    const randomPosts = await pgQuery(`
-      SELECT posts.*, users.*, categories.*
-      FROM posts JOIN users ON posts.user_id = users.user_id JOIN categories ON posts.category_id = categories.category_id
-      ORDER BY RANDOM() LIMIT 15;
-    `);
-
-    const processedPosts = await Promise.all(
-      randomPosts.rows.map(async (post) => {
-        const videoUrl = await s3Retrieve(post.video_name);
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
-
-        const {video_name,thumbnail_name,phone_number,password,email,gender,created_at,updated_at,...rest} = post;
-
-        const {view_count,like_count} = await getLikesViews(post.post_id);
-
-        const liked = await checkLike(parseInt(post.post_id), parseInt(user_id));
-
-        return {...rest,video_url: videoUrl,thumbnail_url: thumbnailUrl,view_count,like_count,liked};
-      })
-    );
-
-    res.json({
-      "posts": processedPosts
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
-
  * Get a list of posts for a particular category
  * 
  * @route POST /category_posts/:category_name
@@ -313,19 +216,16 @@ router.get("/homepage/:user_id/posts", rateLimiter(), inputValidator, async (req
  */
 router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-
+    
     // Extract category ID from URL parameters
-    const {
-      category_id
-    } = req.params;
+    const { category_id } = req.params;
 
-
+    // Pagination settings
     // Get query parameters for pagination
     const pageSize = parseInt(req.query.page_size) || 15; 
     const currentPage = parseInt(req.query.page_number) || 1; 
     
     // Calculate the offset based on page size and page number
-
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
@@ -335,7 +235,7 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     const cachedData = await redis.get(cacheKey);
 
     if (cachedData) {
-
+      
       // Return cached data if available
       // IMPORTANT: If you update a post, remember to delete this cache
       // For example, if you update post with ID 2:
@@ -367,25 +267,21 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
         const videoUrl = s3Retrieve(post.video_name);
         const thumbnailUrl = s3Retrieve(post.thumbnail_name);
 
-        const {video_name,thumbnail_name,...rest} = post;
+        const { video_name, thumbnail_name, ...rest } = post;
 
-        return {...rest,video_url: videoUrl,thumbnail_url: thumbnailUrl};
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
       })
     );
 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-
     //expirey timer 3600 seconds = 1 hour
     await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
 
-
-    // Respond with an object containing the "posts" key and the 15 array of objects with post information
-    res.status(200).json({
-      "posts": processedPosts
-    });
-  } catch (err) {
-    next(err);
-  }
+   // Respond with an object containing the "posts" key and the 15 array of objects with post information
+   res.status(200).json({ "posts": processedPosts });
+ } catch (err) {
+   next(err);
+ }
 });
 
 /**

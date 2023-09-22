@@ -19,7 +19,7 @@ router.get("/testing", rateLimiter(), async (req, res) => {
 });
 
 /**
- * Route handler for getting a specific recipe by ID
+ * Route handler for getting a specific recipe by ID.
  * It first checks if the recipe is cached in Redis, if not it fetches from the database and then caches it.
  * The cached recipe expires after 1 hour.
  *
