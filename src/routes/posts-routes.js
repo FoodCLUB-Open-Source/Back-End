@@ -264,8 +264,8 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
     const processedPosts = await Promise.all(
       specificCategoryPosts.rows.map(async (post) => {
-        const videoUrl = s3Retrieve(post.video_name);
-        const thumbnailUrl = s3Retrieve(post.thumbnail_name);
+        const videoUrl = await s3Retrieve(post.video_name);
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
         const { video_name, thumbnail_name, ...rest } = post;
 
