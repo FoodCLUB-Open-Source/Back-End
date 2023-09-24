@@ -58,10 +58,10 @@ router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, 
                                 stories: [],
                             };
                         }
-                        stories.forEach((story) => { // processing all user stories
+                        stories.forEach(async (story) => { // processing all user stories
                             // retrieving URLs and replacing them
-                            const videoURL = s3Retrieve(story.video_url);
-                            const thumbnailURL = s3Retrieve(story.thumbnail_url);
+                            const videoURL = await s3Retrieve(story.video_url);
+                            const thumbnailURL = await s3Retrieve(story.thumbnail_url);
                             story.video_url = videoURL;
                             story.thumbnail_url = thumbnailURL;
 
