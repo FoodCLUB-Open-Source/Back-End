@@ -141,8 +141,8 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
 
     // getting video_name and thumbnail_name URL's
     const [videoUrl, thumbnailUrl] = await Promise.all([
-      s3Retrieve(postDetails.rows[0].video_name),
-      s3Retrieve(postDetails.rows[0].thumbnail_name),
+      await s3Retrieve(postDetails.rows[0].video_name),
+      await s3Retrieve(postDetails.rows[0].thumbnail_name),
     ]);
 
     // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
@@ -264,8 +264,8 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
     const processedPosts = await Promise.all(
       specificCategoryPosts.rows.map(async (post) => {
-        const videoUrl = s3Retrieve(post.video_name);
-        const thumbnailUrl = s3Retrieve(post.thumbnail_name);
+        const videoUrl = await s3Retrieve(post.video_name);
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
         const { video_name, thumbnail_name, ...rest } = post;
 
@@ -327,8 +327,8 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
     // Process the posts to add video and thumbnail URLs
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
-        const videoUrl = s3Retrieve(post.video_name); // getting video URL
-        const thumbnailUrl = s3Retrieve(post.thumbnail_name); // getting thumbnail URL
+        const videoUrl = await s3Retrieve(post.video_name); // getting video URL
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name); // getting thumbnail URL
 
         // getting like count and view count
         const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec();
