@@ -327,8 +327,8 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
     // Process the posts to add video and thumbnail URLs
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
-        const videoUrl = s3Retrieve(post.video_name); // getting video URL
-        const thumbnailUrl = s3Retrieve(post.thumbnail_name); // getting thumbnail URL
+        const videoUrl = await s3Retrieve(post.video_name); // getting video URL
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name); // getting thumbnail URL
 
         // getting like count and view count
         const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec();
