@@ -250,7 +250,6 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
 
       const cachedPosts = JSON.parse(cachedData);
       const paginatedPosts = {};
-      console.log(cachedPosts.posts.length);
       paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
 
       //For testing cache proccess
