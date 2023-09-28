@@ -210,7 +210,9 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
  * Get a list of posts for a particular category
  * 
  * @route POST /category_posts/:category_name
- * @body {string} req.params.category_name - Name of the category that is neeeded
+ * @param {string} req.params.category_name - Name of the category that is neeeded
+ * @body {string} req.query.page_size - Number of posts that is needed
+ * @body {string} req.query.page_number - Page number of posts that is needed
  * @returns {status} - A successful status indicates that posts have been retrieved
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
@@ -222,14 +224,18 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
 
     // Pagination settings
     // Get query parameters for pagination
-    const pageSize = parseInt(req.query.page_size) || 15; 
-    const currentPage = parseInt(req.query.page_number) || 1; 
+    let pageSize = parseInt(req.query.page_size) || 15; 
+    let currentPage = parseInt(req.query.page_number) || 1; 
+
+    pageSize = pageSize == 0 ? 1 : pageSize;
+    currentPage = currentPage == 0 ? 1 : currentPage;
+
     
     // Calculate the offset based on page size and page number
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
-    const cacheKey = `CATEGORY|${category_id}|PAGE|${currentPage}`;
+    const cacheKey = `CATEGORY|${category_id}`;
 
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
@@ -241,11 +247,15 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
       // For example, if you update post with ID 2:
       // const cacheKeys = await redis.keys(`category:${category}:page:*`);
       // await redis.del('category:' + categoryId + ':page:' + currentPage);
+
       const cachedPosts = JSON.parse(cachedData);
+      const paginatedPosts = {};
+      console.log(cachedPosts.posts.length);
+      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
 
       //For testing cache proccess
-      console.log("cache data  is working ");
-      return res.status(200).json(cachedPosts);
+      console.log("Cache Hit");
+      return res.status(200).json(paginatedPosts);
     }
 
     // SQL query to fetch specific category posts
@@ -276,6 +286,7 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     //expirey timer 3600 seconds = 1 hour
     await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+    console.log("Cache Miss");
 
    // Respond with an object containing the "posts" key and the 15 array of objects with post information
    res.status(200).json({ "posts": processedPosts });
