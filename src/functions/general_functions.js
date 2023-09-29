@@ -142,3 +142,50 @@ export async function updatePosts(userPosts) {
 
   return updatedPosts;
 }
+
+
+
+/* Function to perform batch deletion for a specific DynamoDB table delete the multiple items
+Example of how to use: 
+performBatchDeletion("Likes", [{ post_id: 1, user_id: 1 }, { post_id: 2, user_id: 2 }])
+i-e delete all likes for post_id 1
+const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
+performBatchDeletion("Likes", likesToDelete)
+
+same usage for multipe tables
+ // Create an array of delete requests for 'Likes' and 'Views' tables
+ const deleteRequests = [{ tableName: "Likes", items: likesToDelete }, { tableName: "Views", items: viewsToDelete }];
+ 
+  // Perform batch deletions
+  deleteRequests.forEach(async (deleteRequest) => {
+    const { tableName, items } = deleteRequest;
+    await performBatchDeletion(tableName, items);
+  });
+*/
+export  const  performBatchDeletion= async (tableName, items)=> {
+  const requestBuilder = getDynamoRequestBuilder(tableName);
+ 
+
+  const deletePromises = items.map((item) => {
+    const keys = Object.keys(item);
+
+    if (keys.length !== 2) {
+      throw new Error('Item does not have exactly 2 keys.');
+    }
+  
+    const pk = keys[0];
+    const sk = keys[1];
+    return requestBuilder
+      .delete(pk, item.post_id)
+      .withSortKey(sk, item.user_id)
+      .exec();
+  });
+
+  try {
+    await Promise.all(deletePromises);
+    console.log(`${tableName} deleted successfully.`);
+  } catch (error) {
+    console.error(`Error deleting ${tableName}:`, error);
+  }
+}
