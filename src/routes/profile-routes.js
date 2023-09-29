@@ -44,7 +44,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
         const userFollowersCount = userFollowers.rowCount; // total user follower count
         const userFollowingCount = userFollowing.rowCount; // total user following count
         const userLikesCount = userLikes.length; // total user likes count
-        const updatedPostsData = await updatePosts(userPosts.rows); // updating post objects to include further information
+        const updatedPostsData = await updatePosts(userPosts.rows, userID); // updating post objects to include further information
 
         // storing data as object
         const userDataObject = {
