@@ -352,4 +352,36 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
  }
 });
 
+
+/**
+ * Update Post Title and Title Description
+ * 
+ * @route PUT /posts/:post_id
+ * @param {string} req.params.post_id - The ID of the post to update
+ * @body {string} req.body.title - The updated title
+ * @body {string} req.body.description - The updated title description
+ * @returns {Object} - Returns a status indicating the update was successful
+ * @throws {Error} - If there are errors during the update
+ */
+router.put("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+  try {
+    const { post_id } = req.params;
+    const { title, description } = req.body;
+
+    console.log(post_id);
+    
+    // Update the post title and title description
+    try {
+      await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
+    } catch (error) {
+      return res.status(500).json({ message: "Post not updated" });
+    }
+    res.status(200).json({ Status: "Post Title and Title Description Updated" });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
+
 export default router;
