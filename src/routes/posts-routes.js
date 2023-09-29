@@ -253,7 +253,7 @@ router.get("/category/:category_id/:user_id", rateLimiter(), inputValidator, asy
 
       //For testing cache proccess
       console.log("cache data  is working ");
-      // return res.status(200).json(cachedPosts);
+      return res.status(200).json(cachedPosts);
     }
 
     // SQL query to fetch specific category posts
