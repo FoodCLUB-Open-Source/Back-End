@@ -80,7 +80,6 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
   };
 
   const cognitoUser = new CognitoUser(userData);
-
   cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
     if (err) {
       return res.status(400).json({ message: err.msg })
@@ -149,6 +148,11 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
     onFailure: (err) => {
       if (err.message == "User is not confirmed.") {
         res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+      } else if (err.code == "UserNotFoundException") {
+        res.status(400).json({
+          header: 'user not found',
+          message: 'User does not exist'
+        });
       } else {
         res.status(400).json({
           header: 'sign in error',
