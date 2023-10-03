@@ -149,18 +149,19 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
 /**
  * Deletes a user's story.
  * 
- * @route DELETE stories/user/:user_id
+ * @route DELETE stories/story/story_id/user/:user_id
  * @param {string} req.params.user_id - The ID of the user.
+ * @param {string} req.params.story_id - The ID of the story.
  * @returns {Object} - Returns a status indicating that the story was successfully deleted.
  * @throws {Error} - If any error occurs during the deletion process.
  * @description 
  *   This route allows the user to delete their story.
  *   It deletes the story from the DynamoDB and removes associated files from the S3 bucket.
  */
-router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.delete("/story/:story_id/user/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
   try {
     // Parse the user_id from the request parameters
-    const { user_id } = req.params;
+    const { story_id, user_id } = req.params;
 
     // Get the story from the Stories table for video and thumbnail URLs to delete from the S3 bucket
     const getStory = await getDynamoRequestBuilder("Stories")
@@ -172,7 +173,7 @@ router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, 
     }
 
     // get the video and thumbnail paths and story_id
-    const { video_url, thumbnail_url, story_id } = getStory[0];
+    const { video_url, thumbnail_url, } = getStory[0];
 
     // Delete the video and thumbnail from the S3 bucket
     try {
@@ -187,11 +188,11 @@ router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, 
     }
 
     // Delete the story from the Stories table
-     await getDynamoRequestBuilder("Stories")
-     .delete("user_id", parseInt(user_id))
-     .withSortKey("story_id", story_id)
-     .exec();
-      
+    await getDynamoRequestBuilder("Stories")
+      .delete("user_id", parseInt(user_id))
+      .withSortKey("story_id", story_id)
+      .exec();
+
 
     res.status(200).json({ Status: "Story Deleted" });
 
