@@ -119,8 +119,8 @@ export async function updatePosts(userPosts) {
 
     // getting video_name and thumbnail_name URL's, likes and views of the post
     const [videoUrl, thumbnailUrl, postLikeCount, postViewCount] = await Promise.all([
-        s3Retrieve(post.video_name),
-        s3Retrieve(post.thumbnail_name),
+        await s3Retrieve(post.video_name),
+        await s3Retrieve(post.thumbnail_name),
         getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
         getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec()
     ]);
