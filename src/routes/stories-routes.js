@@ -26,14 +26,14 @@ router.get("/testing", async (req, res, next) => {
 /**
  * Retrieves stories of users that are followed by the user 
  * 
- * @route GET /:userid
+ * @route GET /:userid/following_stories
  * @param {string} req.params.user_id - The ID of the user to retrieve stories for
  * @query {string} req.query.page_number - The page number for pagination.
  * @query {string} req.query.page_size - The page size for pagination.
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         const userID = req.params.user_id; // retrieving userID
         const { page_number, page_size } = req.query; // getting page number and page size
@@ -100,6 +100,31 @@ router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, 
     } catch (error) {
         next(error) // server side error
     }
+});
+
+/**
+ * Retrieves stories of a user
+ * 
+ * @rourte GET /:user_id
+ * @param {string} req.params.user_id - The ID of the user to retrieve stories for
+ * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
+ * @throws {Error} - If there is error retrieving stories
+ */
+router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  const { user_id } = req.params;
+  try {
+    const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec();
+    
+    const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
+    const filteredStories = stories.filter( story => { // filtering out stories that are older than 24 hours
+      const timeDiff = Date.now() - Date.parse(story.created_at);
+      return timeDiff < ONE_DAY
+    });
+
+    res.status(200).json({ stories: filteredStories });
+  } catch (err) {
+      next(err);
+  }
 });
 
 /**
