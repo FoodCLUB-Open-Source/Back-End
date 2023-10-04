@@ -305,50 +305,7 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
  */
 router.post('/global_signout', rateLimiter(), (req, res) => {
 
-  const { username } = req.body;
-
   const cognitoUser = cognitoUserPool.getCurrentUser();
-  var authenticated = false
-
-  try {
-    cognitoUser.getSession((err, session) => {
-      if (err) {
-        return res.status(400).json(err.message);
-      }
-    });
-  } catch (err) {
-    return res.status(400).json({
-      header: 'session not found',
-      message: 'user is not authenticated'
-    })
-  }
-
-  if (cognitoUser != null && authenticated) {
-    cognitoUser.globalSignOut({
-      onSuccess() {
-        return res.status(200).json({ message: 'user successfully logged out: sign in required' })
-      },
-      onFailure(err) {
-        return res.status(400).json({ message: err.message })
-      },
-    });
-  } else {
-    return res.status(500).json({message: 'cannot log user out'});
-  };
-});
-
-
-//Change this to a function to be used in the profile Routes.
-router.delete('/delete_user', rateLimiter(), (req, res) => {
-
-  const username = req.body.username;
-
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
-
-  const cognitoUser = new CognitoUser(userData);
   
   try {
     cognitoUser.getSession((err, session) => {
@@ -363,17 +320,58 @@ router.delete('/delete_user', rateLimiter(), (req, res) => {
     })
   }
 
-  cognitoUser.deleteUser( async (err, result) => {
-    if (err) {
-      return res.status(400).json({ message: err.msg })
-    };
-    try {
-      await pgQuery('DELETE FROM users WHERE username = $1', username);
-    } catch (error) {
-      return res.status(400).json({ message: 'user not deleted from database'});
-    }
-    res.status(200).json({ message: `user, ${username}, deleted` });
-  });
+  if (cognitoUser != null) {
+    cognitoUser.globalSignOut({
+      onSuccess() {
+        return res.status(200).json({ message: 'user successfully logged out: sign in required' })
+      },
+      onFailure(err) {
+        return res.status(400).json({ message: err.message })
+      },
+    });
+  } else {
+    return res.status(500).json({message: 'cannot log user out'});
+  };
+});
+
+
+router.delete('/delete_user', rateLimiter(), (req, res) => {
+
+  const username = req.body.username;
+
+  const cognitoUser = cognitoUserPool.getCurrentUser();
+  
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
+  
+  if (cognitoUser != null) {
+    cognitoUser.deleteUser( async (err, result) => {
+      if (err) {
+        return res.status(400).json({ message: err.msg })
+      };
+      try {
+        await pgQuery('DELETE FROM users WHERE username = $1', username);
+      } catch (error) {
+        return res.status(400).json({ message: 'user not deleted from database'});
+      }
+      res.status(200).json({ message: `user, ${username}, deleted` });
+    });
+  } else {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
 });
 
 export default router;
