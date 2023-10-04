@@ -47,32 +47,42 @@ router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, 
         Promise.all(
             userFollowing.rows.map(async (user) => {
                 try {
-                    const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-                    if (stories.length !== 0) { // checking if user has uploaded a story
-                        if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
-                            // if not user details are created and stored
-                            userStoryMap[user.user_following_id] = {
-                                user_id: user.user_following_id,
-                                profile_picture: user.profile_picture,
-                                username: user.username,
-                                stories: [],
-                            };
-                        }
-                        stories.forEach(async (story) => { // processing all user stories
-                            // retrieving URLs and replacing them
-                            const videoURL = await s3Retrieve(story.video_url);
-                            const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-                            story.video_url = videoURL;
-                            story.thumbnail_url = thumbnailURL;
-
-                            // pushing stories data to stories array
-                            userStoryMap[user.user_following_id].stories.push({
-                                story_id: story.story_id,
-                                thumbnail_url: story.thumbnail_url,
-                                video_url: story.video_url,
-                            });
-                        });
+                    let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+                    
+                    // filtering out stories that are older than 24 hours
+                    const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
+                    stories = stories.filter( story => {
+                      const timeDiff = Date.now() - Date.parse(story.created_at);
+                      return timeDiff < ONE_DAY
+                    })
+                    
+                    if (stories.length === 0) return; // no recent stories for user
+                    
+                    if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
+                        // if not user details are created and stored
+                        userStoryMap[user.user_following_id] = {
+                            user_id: user.user_following_id,
+                            profile_picture: user.profile_picture,
+                            username: user.username,
+                            stories: [],
+                        };
                     }
+                    stories.forEach(async (story) => { // processing all user stories
+                        // retrieving URLs and replacing them in the story object
+                        const videoURL = await s3Retrieve(story.video_url);
+                        const thumbnailURL = await s3Retrieve(story.thumbnail_url);
+                        story.video_url = videoURL;
+                        story.thumbnail_url = thumbnailURL;
+
+                        let storiesList = userStoryMap[user.user_following_id].stories;
+                        storiesList = [...storiesList, {
+                            story_id: story.story_id,
+                            thumbnail_url: story.thumbnail_url,
+                            video_url: story.video_url,
+                        }];
+                        userStoryMap[user.user_following_id].stories = storiesList;
+                        });
+                    
                 } catch (error) {
                     console.error(error);
                     return res.status(400).json({ error: error });
