@@ -146,7 +146,6 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
       res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken())
       res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken())
       res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken())
-      res.setHeader('test', '1')
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
