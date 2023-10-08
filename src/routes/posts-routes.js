@@ -6,7 +6,7 @@ import { validationResult } from "express-validator";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
+import { makeTransactions, performBatchDeletion, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
@@ -27,19 +27,37 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
 });
 
 /* Functions for Posts */
+const removeLikesAndViews = async (post_id) => { 
+  const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+  const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
-/* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
-const removeLikesViews = async (postId,userId) => {
-  await getDynamoRequestBuilder("Likes")
-    .delete("post_id", postId)
-    .withSortKey("user_id", userId)
-    .exec();
+  // Prepare the list of items to delete from the 'Likes' table
+  const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
 
-  await getDynamoRequestBuilder("Views")
-    .delete("post_id", postId)
-    .withSortKey("user_id", userId)
-    .exec();
-};
+  // Prepare the list of items to delete from the 'Views' table
+  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+
+  // Create an array of delete requests for 'Likes' and 'Views' tables
+  const deleteRequests = [
+    {
+      tableName: "Likes",
+      items: likesToDelete,
+    },
+    {
+      tableName: "Views",
+      items: viewsToDelete,
+    },
+  ];
+
+  // Perform batch deletions
+  deleteRequests.forEach(async (deleteRequest) => {
+    const { tableName, items } = deleteRequest;
+    await performBatchDeletion(tableName, items);
+  });
+
+}
+
+
 
 /* Checks if a user has liked a post or not, returns true or false */
 const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes")
@@ -165,6 +183,9 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
   }
 });
 
+
+
+
 /**
  * Delete a specific post
  * 
@@ -183,21 +204,18 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 
     // Ensure the post is present in the database or not
     if (post.rows.length === 0) {
-      return res.status(404).json({ error: "Post not found." });
+       return res.status(404).json({ error: "Post not found." });
     }
 
-    const { video_name, thumbnail_name, user_id } = post.rows[0];
+    // Extract the video_name, thumbnail_name and user_id from the post
+     const { video_name, thumbnail_name, user_id } = post.rows[0];
 
-    // Perform actions within a database transaction
-    const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [[post_id]];
-    await makeTransactions(query, values);
-    
+     await pgQuery(`DELETE FROM posts WHERE id = $1`, post_id);
     // Delete files from S3 and remove likes/views
     await Promise.all([
-      s3Delete(video_name),
-      s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(post_id),user_id),
+       s3Delete(video_name),
+       s3Delete(thumbnail_name),
+       removeLikesAndViews(post_id)
     ]);
 
     res.status(200).json({ "Status": "Post Deleted" });
