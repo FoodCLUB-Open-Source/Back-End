@@ -66,7 +66,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
  * 
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
- * @body {string} req.body.verificationCode - Verification code from users email
+ * @body {string} req.body.verification_code - Verification code from users email
  * @returns {status} - A successful status indicates code verfified
  * @throws {Error} - If there are errors dont verify code
  */
@@ -80,7 +80,6 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
   };
 
   const cognitoUser = new CognitoUser(userData);
-
   cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
     if (err) {
       return res.status(400).json({ message: err.msg })
@@ -149,6 +148,11 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
     onFailure: (err) => {
       if (err.message == "User is not confirmed.") {
         res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+      } else if (err.code == "UserNotFoundException") {
+        res.status(400).json({
+          header: 'user not found',
+          message: 'User does not exist'
+        });
       } else {
         res.status(400).json({
           header: 'sign in error',
@@ -168,20 +172,32 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
  * @throws {Error} - If there are errors dont sign a user out
  */
 router.post('/signout', rateLimiter(), (req, res) => {
-  const { username } = req.body
+  // const { username } = req.body
 
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool
-  };
-
-  const cognitoUser = new CognitoUser(userData);
+  const cognitoUser = cognitoUserPool.getCurrentUser();
+  
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'no user tokens in local storage: cannot log user out'
+    })
+  }
 
   if (cognitoUser != null) {
-    cognitoUser.signOut();
-    res.status(200).json({message: 'user successfully logged out'});
+    cognitoUser.signOut((err) => {
+      if (err) {
+        return res.status(400).json(err.message)
+      }
+    });
+    return res.status(200).json({message: 'user successfully logged out'});
   } else {
-    res.status(500).json({message: 'cannot log user out'});
+    return res.status(500).json({message: 'no user tokens in local storage: cannot log user out'});
   };
 });
 
@@ -189,8 +205,8 @@ router.post('/signout', rateLimiter(), (req, res) => {
  * Changes a users password from old to new
  * 
  * @route POST /login/change_password
- * @body {string} req.body.oldPassword - Users old password
- * @body {string} req.body.newPassword - Users new password
+ * @body {string} req.body.old_password - Users old password
+ * @body {string} req.body.new_password - Users new password
  * @returns {status} - A successful status indicates password successfully changed
  * @throws {Error} - If there are errors dont change the users passwords
  */
@@ -295,20 +311,21 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
 
   const { username } = req.body;
 
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
+  const cognitoUser = cognitoUserPool.getCurrentUser();
+  var authenticated = false
 
-  const cognitoUser = new CognitoUser(userData);
-  
-  var authenticated = true
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      var authenticated = false
-      return res.status(400).json({ message: err.message })
-    }
-  });
+  try {
+    cognitoUser.getSession((err, session) => {
+      if (err) {
+        return res.status(400).json(err.message);
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({
+      header: 'session not found',
+      message: 'user is not authenticated'
+    })
+  }
 
   if (cognitoUser != null && authenticated) {
     cognitoUser.globalSignOut({
@@ -319,8 +336,6 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
         return res.status(400).json({ message: err.message })
       },
     });
-  } else if (!(authenticated)) {
-    return;
   } else {
     return res.status(500).json({message: 'cannot log user out'});
   };

@@ -26,14 +26,14 @@ router.get("/testing", async (req, res, next) => {
 /**
  * Retrieves stories of users that are followed by the user 
  * 
- * @route GET /:userid
+ * @route GET /:userid/following_stories
  * @param {string} req.params.user_id - The ID of the user to retrieve stories for
  * @query {string} req.query.page_number - The page number for pagination.
  * @query {string} req.query.page_size - The page size for pagination.
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         const userID = req.params.user_id; // retrieving userID
         const { page_number, page_size } = req.query; // getting page number and page size
@@ -47,32 +47,42 @@ router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, 
         Promise.all(
             userFollowing.rows.map(async (user) => {
                 try {
-                    const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-                    if (stories.length !== 0) { // checking if user has uploaded a story
-                        if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
-                            // if not user details are created and stored
-                            userStoryMap[user.user_following_id] = {
-                                user_id: user.user_following_id,
-                                profile_picture: user.profile_picture,
-                                username: user.username,
-                                stories: [],
-                            };
-                        }
-                        stories.forEach(async (story) => { // processing all user stories
-                            // retrieving URLs and replacing them
-                            const videoURL = await s3Retrieve(story.video_url);
-                            const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-                            story.video_url = videoURL;
-                            story.thumbnail_url = thumbnailURL;
-
-                            // pushing stories data to stories array
-                            userStoryMap[user.user_following_id].stories.push({
-                                story_id: story.story_id,
-                                thumbnail_url: story.thumbnail_url,
-                                video_url: story.video_url,
-                            });
-                        });
+                    let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+                    
+                    // filtering out stories that are older than 24 hours
+                    const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
+                    stories = stories.filter( story => {
+                      const timeDiff = Date.now() - Date.parse(story.created_at);
+                      return timeDiff < ONE_DAY
+                    })
+                    
+                    if (stories.length === 0) return; // no recent stories for user
+                    
+                    if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
+                        // if not user details are created and stored
+                        userStoryMap[user.user_following_id] = {
+                            user_id: user.user_following_id,
+                            profile_picture: user.profile_picture,
+                            username: user.username,
+                            stories: [],
+                        };
                     }
+                    stories.forEach(async (story) => { // processing all user stories
+                        // retrieving URLs and replacing them in the story object
+                        const videoURL = await s3Retrieve(story.video_url);
+                        const thumbnailURL = await s3Retrieve(story.thumbnail_url);
+                        story.video_url = videoURL;
+                        story.thumbnail_url = thumbnailURL;
+
+                        let storiesList = userStoryMap[user.user_following_id].stories;
+                        storiesList = [...storiesList, {
+                            story_id: story.story_id,
+                            thumbnail_url: story.thumbnail_url,
+                            video_url: story.video_url,
+                        }];
+                        userStoryMap[user.user_following_id].stories = storiesList;
+                        });
+                    
                 } catch (error) {
                     console.error(error);
                     return res.status(400).json({ error: error });
@@ -90,6 +100,31 @@ router.get("/:user_id/stories", rateLimiter(), inputValidator, async (req, res, 
     } catch (error) {
         next(error) // server side error
     }
+});
+
+/**
+ * Retrieves stories of a user
+ * 
+ * @rourte GET /:user_id
+ * @param {string} req.params.user_id - The ID of the user to retrieve stories for
+ * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
+ * @throws {Error} - If there is error retrieving stories
+ */
+router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  const { user_id } = req.params;
+  try {
+    const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec();
+    
+    const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
+    const filteredStories = stories.filter( story => { // filtering out stories that are older than 24 hours
+      const timeDiff = Date.now() - Date.parse(story.created_at);
+      return timeDiff < ONE_DAY
+    });
+
+    res.status(200).json({ stories: filteredStories });
+  } catch (err) {
+      next(err);
+  }
 });
 
 /**
@@ -149,18 +184,19 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
 /**
  * Deletes a user's story.
  * 
- * @route DELETE stories/user/:user_id
+ * @route DELETE stories/story/story_id/user/:user_id
  * @param {string} req.params.user_id - The ID of the user.
+ * @param {string} req.params.story_id - The ID of the story.
  * @returns {Object} - Returns a status indicating that the story was successfully deleted.
  * @throws {Error} - If any error occurs during the deletion process.
  * @description 
  *   This route allows the user to delete their story.
  *   It deletes the story from the DynamoDB and removes associated files from the S3 bucket.
  */
-router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.delete("/story/:story_id/user/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
   try {
     // Parse the user_id from the request parameters
-    const { user_id } = req.params;
+    const { story_id, user_id } = req.params;
 
     // Get the story from the Stories table for video and thumbnail URLs to delete from the S3 bucket
     const getStory = await getDynamoRequestBuilder("Stories")
@@ -172,7 +208,7 @@ router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, 
     }
 
     // get the video and thumbnail paths and story_id
-    const { video_url, thumbnail_url, story_id } = getStory[0];
+    const { video_url, thumbnail_url, } = getStory[0];
 
     // Delete the video and thumbnail from the S3 bucket
     try {
@@ -187,11 +223,11 @@ router.delete("/user/:user_id", inputValidator, rateLimiter(), async (req, res, 
     }
 
     // Delete the story from the Stories table
-     await getDynamoRequestBuilder("Stories")
-     .delete("user_id", parseInt(user_id))
-     .withSortKey("story_id", story_id)
-     .exec();
-      
+    await getDynamoRequestBuilder("Stories")
+      .delete("user_id", parseInt(user_id))
+      .withSortKey("story_id", story_id)
+      .exec();
+
 
     res.status(200).json({ Status: "Story Deleted" });
 

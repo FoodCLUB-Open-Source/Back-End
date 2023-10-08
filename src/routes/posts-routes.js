@@ -6,7 +6,7 @@ import { validationResult } from "express-validator";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
+import { makeTransactions, performBatchDeletion, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
@@ -27,19 +27,37 @@ router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) =
 });
 
 /* Functions for Posts */
+const removeLikesAndViews = async (post_id) => { 
+  const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+  const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
-/* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
-const removeLikesViews = async (postId,userId) => {
-  await getDynamoRequestBuilder("Likes")
-    .delete("post_id", postId)
-    .withSortKey("user_id", userId)
-    .exec();
+  // Prepare the list of items to delete from the 'Likes' table
+  const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
 
-  await getDynamoRequestBuilder("Views")
-    .delete("post_id", postId)
-    .withSortKey("user_id", userId)
-    .exec();
-};
+  // Prepare the list of items to delete from the 'Views' table
+  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+
+  // Create an array of delete requests for 'Likes' and 'Views' tables
+  const deleteRequests = [
+    {
+      tableName: "Likes",
+      items: likesToDelete,
+    },
+    {
+      tableName: "Views",
+      items: viewsToDelete,
+    },
+  ];
+
+  // Perform batch deletions
+  deleteRequests.forEach(async (deleteRequest) => {
+    const { tableName, items } = deleteRequest;
+    await performBatchDeletion(tableName, items);
+  });
+
+}
+
+
 
 /* Checks if a user has liked a post or not, returns true or false */
 const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes")
@@ -165,6 +183,9 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
   }
 });
 
+
+
+
 /**
  * Delete a specific post
  * 
@@ -183,21 +204,18 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 
     // Ensure the post is present in the database or not
     if (post.rows.length === 0) {
-      return res.status(404).json({ error: "Post not found." });
+       return res.status(404).json({ error: "Post not found." });
     }
 
-    const { video_name, thumbnail_name, user_id } = post.rows[0];
+    // Extract the video_name, thumbnail_name and user_id from the post
+     const { video_name, thumbnail_name, user_id } = post.rows[0];
 
-    // Perform actions within a database transaction
-    const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [[post_id]];
-    await makeTransactions(query, values);
-    
+     await pgQuery(`DELETE FROM posts WHERE id = $1`, post_id);
     // Delete files from S3 and remove likes/views
     await Promise.all([
-      s3Delete(video_name),
-      s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(post_id),user_id),
+       s3Delete(video_name),
+       s3Delete(thumbnail_name),
+       removeLikesAndViews(post_id)
     ]);
 
     res.status(200).json({ "Status": "Post Deleted" });
@@ -210,7 +228,9 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
  * Get a list of posts for a particular category
  * 
  * @route POST /category_posts/:category_name
- * @body {string} req.params.category_name - Name of the category that is neeeded
+ * @param {string} req.params.category_name - Name of the category that is neeeded
+ * @body {string} req.query.page_size - Number of posts that is needed
+ * @body {string} req.query.page_number - Page number of posts that is needed
  * @returns {status} - A successful status indicates that posts have been retrieved
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
@@ -222,14 +242,18 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
 
     // Pagination settings
     // Get query parameters for pagination
-    const pageSize = parseInt(req.query.page_size) || 15; 
-    const currentPage = parseInt(req.query.page_number) || 1; 
+    let pageSize = parseInt(req.query.page_size) || 15; 
+    let currentPage = parseInt(req.query.page_number) || 1; 
+
+    pageSize = pageSize == 0 ? 1 : pageSize;
+    currentPage = currentPage == 0 ? 1 : currentPage;
+
     
     // Calculate the offset based on page size and page number
     const offset = (currentPage - 1) * pageSize;
 
     // Key for Redis cache
-    const cacheKey = `CATEGORY|${category_id}|PAGE|${currentPage}`;
+    const cacheKey = `CATEGORY|${category_id}`;
 
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
@@ -241,11 +265,14 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
       // For example, if you update post with ID 2:
       // const cacheKeys = await redis.keys(`category:${category}:page:*`);
       // await redis.del('category:' + categoryId + ':page:' + currentPage);
+
       const cachedPosts = JSON.parse(cachedData);
+      const paginatedPosts = {};
+      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
 
       //For testing cache proccess
-      console.log("cache data  is working ");
-      return res.status(200).json(cachedPosts);
+      console.log("Cache Hit");
+      return res.status(200).json(paginatedPosts);
     }
 
     // SQL query to fetch specific category posts
@@ -276,6 +303,7 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     //expirey timer 3600 seconds = 1 hour
     await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+    console.log("Cache Miss");
 
    // Respond with an object containing the "posts" key and the 15 array of objects with post information
    res.status(200).json({ "posts": processedPosts });
@@ -351,5 +379,37 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
    next(err);
  }
 });
+
+
+/**
+ * Update Post Title and Title Description
+ * 
+ * @route PUT /posts/:post_id
+ * @param {string} req.params.post_id - The ID of the post to update
+ * @body {string} req.body.title - The updated title
+ * @body {string} req.body.description - The updated title description
+ * @returns {Object} - Returns a status indicating the update was successful
+ * @throws {Error} - If there are errors during the update
+ */
+router.put("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+  try {
+    const { post_id } = req.params;
+    const { title, description } = req.body;
+
+    console.log(post_id);
+    
+    // Update the post title and title description
+    try {
+      await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
+    } catch (error) {
+      return res.status(500).json({ message: "Post not updated" });
+    }
+    res.status(200).json({ Status: "Post Title and Title Description Updated" });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 export default router;

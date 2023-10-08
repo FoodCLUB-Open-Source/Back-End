@@ -167,7 +167,7 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
         }
     
         // Respond with success message
-        return res.status(200).json({ "success": "user Follow" });
+        return res.status(200).json({ "success": "user unfollowed" });
   
     }
     catch (err) {
