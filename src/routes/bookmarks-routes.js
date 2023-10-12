@@ -23,7 +23,11 @@ router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidat
 
         if (postgresQuery.rowCount === 1) { // if statement to check if removal was successful
             res.status(200).json({ message: 'Post is no longer bookmarked' }); // if true success response code is sent
-        } else {
+        }
+        else if (postgresQuery.rowCount === 0) {
+            res.status(400).json({message: 'This post has already been deleted'}); 
+        }
+        else {
             res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
         }
     } catch (error) {
