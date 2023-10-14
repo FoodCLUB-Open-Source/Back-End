@@ -3,8 +3,9 @@ import express from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
-import Redis from"../config/redisConfig.js";
+import redis from"../config/redisConfig.js";
 import { pgQuery } from "../functions/general_functions.js";
+import {redisNewRecipe,redisRecipeExists} from "../functions/redis_functions.js"
 
 const router = express.Router();
 
@@ -29,48 +30,40 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  */
 
 router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+	const postId = parseInt(req.params.post_id);
 	try {
-
-		const postId = parseInt(req.params.post_id);
-		const REDIS_KEY = `RECIPE|${postId}`;
-		
-		let redisRecipe = await Redis.json.GET(REDIS_KEY);
-
-		if (!redisRecipe){
-			try{
-				const specificRecipe = await pgQuery(` 
-					SELECT 
-					id, post_id, recipe_description, recipe_equipment, recipe_steps, preparation_time, serving_size
-					FROM recipes 
-					WHERE post_id = $1`
-					, postId
-				);
-
-				if (specificRecipe.rows.length === 0) {
-					return res.status(404).json({ error: 'Recipe not found' });
-				}
-
-				redisRecipe = specificRecipe.rows[0];
-				
-				await Redis.multi()
-					.json.set(REDIS_KEY, '.', redisRecipe)
-					.expire(REDIS_KEY, 60 * 60)
-					.exec();
-
-			} catch (err) {
-				console.error(`Error fetching recipe for post ${postId}:`, err);
-				return next(err);
-			};
-		};
-
-		res.status(200).json({"recipe": redisRecipe});
-  
+	  const REDIS_KEY = `RECIPE|${postId}`;
+	  let redisRecipe = await redis.HGETALL(REDIS_KEY);
+	  const exists = Object.keys(redisRecipe).length;
+	  if (exists) {
+		  redisRecipeExists(postId).then((responce)=>{
+			  return res.status(200).json({recipe:responce});
+		  })
+	  }
+	  else {
+		try {
+		  const specificRecipe = await pgQuery(
+			`SELECT * FROM recipes WHERE id=$1`,
+			postId
+		  )
+		  if (specificRecipe.rows.length === 0) {
+			return res.status(404).json({ error: "Recipe not found" });
+		  }
+		  //add new recipe to redis
+		  await redisNewRecipe(postId).then(()=>{
+			  console.log("New Recipw on Redis created")
+		  })
+		  return res.status(200).json({ recipe: specificRecipe.rows[0] });
+		} catch (err) {
+		  console.error(`Error fetching recipe for post ${postId}:`, err);
+		  return next(err);
+		}
+	  }
 	} catch (err) {
-		console.error(`Error handling request for recipe post ${postId}:`, err);
-		next(err);
-	};
-});
-
+	  console.error(`Error handling request for recipe post ${postId}:`, err);
+	  next(err);
+	}
+  });
 /**
  * Route handler for Update Recipes Table.
  * This will update the details in the recipes table.
