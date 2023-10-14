@@ -144,6 +144,9 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
       const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
+      res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken())
+      res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken())
+      res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken())
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
