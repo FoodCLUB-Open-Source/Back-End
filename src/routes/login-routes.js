@@ -9,6 +9,7 @@ import inputValidator from "../middleware/input_validator.js";
 import cognitoUserPool from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
+import { getUserFromTokens } from '../functions/apply_cognito.js';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
  * 
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
- * @body {string} req.body.verificationCode - Verification code from users email
+ * @body {string} req.body.verification_code - Verification code from users email
  * @returns {status} - A successful status indicates code verfified
  * @throws {Error} - If there are errors dont verify code
  */
@@ -80,7 +81,6 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
   };
 
   const cognitoUser = new CognitoUser(userData);
-
   cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
     if (err) {
       return res.status(400).json({ message: err.msg })
@@ -144,11 +144,19 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
       const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
+      res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken())
+      res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken())
+      res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken())
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
       if (err.message == "User is not confirmed.") {
         res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+      } else if (err.code == "UserNotFoundException") {
+        res.status(400).json({
+          header: 'user not found',
+          message: 'User does not exist'
+        });
       } else {
         res.status(400).json({
           header: 'sign in error',
@@ -168,35 +176,7 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
  * @throws {Error} - If there are errors dont sign a user out
  */
 router.post('/signout', rateLimiter(), (req, res) => {
-  const { username } = req.body
-
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool
-  };
-
-  const cognitoUser = new CognitoUser(userData);
-
-  if (cognitoUser != null) {
-    cognitoUser.signOut();
-    res.status(200).json({message: 'user successfully logged out'});
-  } else {
-    res.status(500).json({message: 'cannot log user out'});
-  };
-});
-
-/**
- * Changes a users password from old to new
- * 
- * @route POST /login/change_password
- * @body {string} req.body.oldPassword - Users old password
- * @body {string} req.body.newPassword - Users new password
- * @returns {status} - A successful status indicates password successfully changed
- * @throws {Error} - If there are errors dont change the users passwords
- */
-router.post('/change_password', inputValidator, rateLimiter(), async (req, res) => {
-  
-  const { old_password, new_password } = req.body;
+  // const { username } = req.body
 
   const cognitoUser = cognitoUserPool.getCurrentUser();
   
@@ -209,15 +189,51 @@ router.post('/change_password', inputValidator, rateLimiter(), async (req, res) 
   } catch (err) {
     return res.status(400).json({
       header: 'session not found',
-      message: 'user is not authenticated'
+      message: 'no user tokens in local storage: cannot log user out'
     })
   }
 
-  cognitoUser.changePassword(old_password, new_password, (err, result) => {
+  if (cognitoUser != null) {
+    cognitoUser.signOut((err) => {
+      if (err) {
+        return res.status(400).json(err.message)
+      }
+    });
+    return res.status(200).json({message: 'user successfully logged out'});
+  } else {
+    return res.status(500).json({message: 'no user tokens in local storage: cannot log user out'});
+  };
+});
+
+/**
+ * Changes a users password from old to new
+ * 
+ * @route POST /login/change_password
+ * @body {string} req.body.old_password - Users old password
+ * @body {string} req.body.new_password - Users new password
+ * @returns {status} - A successful status indicates password successfully changed
+ * @throws {Error} - If there are errors dont change the users passwords
+ */
+router.post('/change_password', inputValidator, rateLimiter(), (req, res) => {
+  
+  const { old_password, new_password } = req.body;
+  console.log('HIT')
+
+  getUserFromTokens((err, result) => {
     if (err) {
-      return res.status(400).json({ message: err.msg })
-    }
-    return res.status(201).json({ message: 'password changed successfully' });
+      return res.status(400).json(err);
+    } else if (result) {
+
+      const cognitoUser = result;
+      console.log(cognitoUser);
+
+      cognitoUser.changePassword(old_password, new_password, (err, result) => {
+        if (err) {
+          return res.status(400).json({ message: err.msg });
+        }
+        return res.status(201).json({ message: 'password changed successfully' });
+      });
+    };
   });
 });
 
@@ -293,75 +309,53 @@ router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(),
  */
 router.post('/global_signout', rateLimiter(), (req, res) => {
 
-  const { username } = req.body;
-
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
-
-  const cognitoUser = new CognitoUser(userData);
-  
-  var authenticated = true
-  cognitoUser.getSession((err, session) => {
+  getUserFromTokens((err, result) => {
     if (err) {
-      var authenticated = false
-      return res.status(400).json({ message: err.message })
-    }
-  });
+      return res.status(400).json(err);
+    } else if (result) {
 
-  if (cognitoUser != null && authenticated) {
-    cognitoUser.globalSignOut({
-      onSuccess() {
-        return res.status(200).json({ message: 'user successfully logged out: sign in required' })
-      },
-      onFailure(err) {
-        return res.status(400).json({ message: err.message })
-      },
-    });
-  } else if (!(authenticated)) {
-    return;
-  } else {
-    return res.status(500).json({message: 'cannot log user out'});
-  };
+      const cognitoUser = result;
+      console.log(cognitoUser);
+
+      cognitoUser.deleteUser( async (err, result) => {
+        if (err) {
+          return res.status(400).json({ message: err.msg })
+        };
+        try {
+          await pgQuery('DELETE FROM users WHERE username = $1', username);
+        } catch (error) {
+          return res.status(400).json({ message: 'user not deleted from database'});
+        }
+        res.status(200).json({ message: `user, ${username}, deleted` });
+      });
+    };
+  });
 });
 
 
-//Change this to a function to be used in the profile Routes.
 router.delete('/delete_user', rateLimiter(), (req, res) => {
 
   const username = req.body.username;
 
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
-
-  const cognitoUser = new CognitoUser(userData);
-  
-  try {
-    cognitoUser.getSession((err, session) => {
-      if (err) {
-        return res.status(400).json(err.message);
-      }
-    });
-  } catch (err) {
-    return res.status(400).json({
-      header: 'session not found',
-      message: 'user is not authenticated'
-    })
-  }
-
-  cognitoUser.deleteUser( async (err, result) => {
+  getUserFromTokens((err, result) => {
     if (err) {
-      return res.status(400).json({ message: err.msg })
+      return res.status(400).json(err);
+    } else if (result) {
+
+      const cognitoUser = result;
+
+      cognitoUser.deleteUser( async (err, result) => {
+        if (err) {
+          return res.status(400).json({ message: err.msg });
+        };
+        try {
+          await pgQuery('DELETE FROM users WHERE username = $1', username);
+        } catch (error) {
+          return res.status(400).json({ message: 'user not deleted from database'});
+        }
+        res.status(200).json({ message: `user, ${username}, deleted` });
+      });
     };
-    try {
-      await pgQuery('DELETE FROM users WHERE username = $1', username);
-    } catch (error) {
-      return res.status(400).json({ message: 'user not deleted from database'});
-    }
-    res.status(200).json({ message: `user, ${username}, deleted` });
   });
 });
 
