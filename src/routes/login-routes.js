@@ -51,8 +51,9 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
       return res.status(400).json({message: err.message});
     }
     try {
-      await pgQuery(`INSERT INTO users (username, email, password, full_name) VALUES ($1, $2, $3) RETURNING *`,
-      username, email, passwordHashed, full_name);
+      const verified = false
+      await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3)`,
+      username, email, passwordHashed, full_name, verified);
     } catch (error) {
       return res.status(400).json({  message: error.message });
     }
@@ -79,9 +80,15 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
   };
 
   const cognitoUser = new CognitoUser(userData);
-  cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
+  cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
     if (err) {
-      return res.status(400).json({ message: err.msg })
+      return res.status(400).json({ message: err.message })
+    }
+    try {
+      const verified = true
+      await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
+    } catch (error) {
+      res.status(400).json({ message: error.message })
     }
     return res.status(201).json({message: 'user verified'});
   });
