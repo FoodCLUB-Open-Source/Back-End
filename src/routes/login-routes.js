@@ -34,16 +34,15 @@ router.get("/testing", async (req, res) => {
  */
 router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
-  const { username, email, password } = req.body;
+  const { username, email, password, full_name } = req.body;
   
-  if (!(username && email && password)) {
-    return res.status(400).json({ message :"Necessary input fields not given." });
+  if (!(username && email && password && full_name)) {
+    return res.status(400).json({ message :"Necessary input fields not given in request" });
   }
 
   const attributeArray = [];
   const passwordHashed = await hash(password, 10);
 
-  /* aws cognito assigns a UUID value to each user's sub attribute */
   attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
 
   cognitoUserPool.signUp(username, password, attributeArray, null, async (err, result) => {
@@ -52,8 +51,8 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
       return res.status(400).json({message: err.message});
     }
     try {
-      await pgQuery(`INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
-      username, email, passwordHashed);
+      await pgQuery(`INSERT INTO users (username, email, password, full_name) VALUES ($1, $2, $3) RETURNING *`,
+      username, email, passwordHashed, full_name);
     } catch (error) {
       return res.status(400).json({  message: error.message });
     }
@@ -62,7 +61,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
 });
 
 /**
- * Verify a users verification code after sign up.
+ * Verify a users email using verification code after sign up.
  * 
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
