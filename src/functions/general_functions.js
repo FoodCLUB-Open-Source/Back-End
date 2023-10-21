@@ -114,15 +114,17 @@ export const s3Delete = async (fileNameWithPath) => {
 };
 
 /* Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT ) */
-export async function updatePosts(userPosts) {
+export async function updatePosts(userPosts,user_id) {
   const updatedPostsPromises = await userPosts.map(async (post)=> {
 
     // getting video_name and thumbnail_name URL's, likes and views of the post
-    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount] = await Promise.all([
-        await s3Retrieve(post.video_name),
-        await s3Retrieve(post.thumbnail_name),
+    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount,isLiked,isViewed] = await Promise.all([
+        s3Retrieve(post.video_name),
+        s3Retrieve(post.thumbnail_name),
         getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
-        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec()
+        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec(),
+        checkLike(post.id, parseInt(user_id)),
+        checkView(post.id, parseInt(user_id)),
     ]);
   
     // adding URLs to posts data and removing video_name and thumbnail_name
@@ -130,11 +132,15 @@ export async function updatePosts(userPosts) {
     post.thumbnail_url = thumbnailUrl;
     delete post.video_name;
     delete post.thumbnail_name;
-  
+
     // adding post total likes and views count to posts data
     post.total_likes = postLikeCount.length;
     post.total_views = postViewCount.length;
 
+    // Adding isLiked and isViewed fields to posts data
+    post.isLiked = isLiked;
+    post.isViewed = isViewed;
+   
     return post;
   });
 
@@ -144,6 +150,29 @@ export async function updatePosts(userPosts) {
 }
 
 
+/* Checks if a user has liked a post or not, returns true or false */
+export const checkLike = async (postId, userId) => {
+
+  const isLiked = await getDynamoRequestBuilder("Likes")
+                       .query("post_id", postId)
+                       .whereSortKey("user_id").eq(userId)
+                       .exec();
+ 
+  //if length is 1, means user has liked post hence liked is set to true
+  return isLiked.length === 1 ? true : false;
+}
+
+/* Checks if a user has viewed a post or not, returns true or false */
+export const checkView = async (postId, userId) => {
+
+  const isViewed = await getDynamoRequestBuilder("Views")
+                        .query("post_id", postId)
+                        .whereSortKey("user_id").eq(userId)
+                        .exec();
+  
+  //if length is 1, means user has viewed post hence viewed is set to true
+  return isViewed.length === 1 ? true : false;
+}
 
 /* Function to perform batch deletion for a specific DynamoDB table delete the multiple items
 Example of how to use: 
