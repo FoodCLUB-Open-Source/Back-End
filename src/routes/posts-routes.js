@@ -6,7 +6,7 @@ import { validationResult } from "express-validator";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
+import { checkLike, checkView, makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
@@ -15,37 +15,49 @@ const router = Router();
 const storage = memoryStorage();
 const upload = multer({ storage: storage })
 
+
 /* Testing Posts Route */
 router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) => {
   try {
     console.log(req.params);
 
-    res.status(200).json({ "Testing": "Working Posts", "Value": req.body});
+    res.status(200).json({ "Testing": "TESTING DEPLOYMENT IF ITS UPDATING", "Value": req.body});
   } catch (err) {
     console.error(err.message);
   }
 });
 
 /* Functions for Posts */
+const removeLikesAndViews = async (post_id) => { 
+  const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+  const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
-/* Removes rows with the specified post ID from the 'Likes' and 'Views' tables. */
-const removeLikesViews = async (postId,userId) => {
-  await getDynamoRequestBuilder("Likes")
-    .delete("post_id", postId)
-    .withSortKey("user_id", userId)
-    .exec();
+  // Prepare the list of items to delete from the 'Likes' table
+  const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
 
-  await getDynamoRequestBuilder("Views")
-    .delete("post_id", postId)
-    .withSortKey("user_id", userId)
-    .exec();
-};
+  // Prepare the list of items to delete from the 'Views' table
+  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
 
-/* Checks if a user has liked a post or not, returns true or false */
-const checkLike = async (postId, userId) => await getDynamoRequestBuilder("Likes")
-  .query("post_id", postId)
-  .whereSortKey("user_id").eq(userId)
-  .execSingle();
+  // Create an array of delete requests for 'Likes' and 'Views' tables
+  const deleteRequests = [
+    {
+      tableName: "Likes",
+      items: likesToDelete,
+    },
+    {
+      tableName: "Views",
+      items: viewsToDelete,
+    },
+  ];
+
+  // Perform batch deletions
+  deleteRequests.forEach(async (deleteRequest) => {
+    const { tableName, items } = deleteRequest;
+    await performBatchDeletion(tableName, items);
+  });
+
+}
+
 
 
 /**
@@ -123,15 +135,16 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
 /**
  * Retrieves post details of a specific post based off post ID
  * 
- * @route GET /post/:post_id
+ * @route GET /posts/:post_id/user_id
  * @param {string} req.params.post_id - The ID of the post to retrieve details for
+ * @param {string} req.params.user_id - The ID of the user to check isLiked and isViewed the post
  * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
-router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/:post_id/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const { post_id } = req.params; // retrieving post ID
 
+    const { post_id, user_id } = req.params; 
     const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
@@ -148,10 +161,15 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
     // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
     const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
     const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
-    
+  
+    // checking if user has liked and viewed post or not
+    const isLiked = await checkLike(parseInt(post_id), parseInt(user_id));
+    const isViewed = await checkView(parseInt(post_id), parseInt(user_id));
+
     // adding URLs to posts data and removing video_name and thumbnail_name
     postDetails.rows[0].video_url = videoUrl;
     postDetails.rows[0].thumbnail_url = thumbnailUrl;
+
     delete postDetails.rows[0].video_name;
     delete postDetails.rows[0].thumbnail_name;
 
@@ -159,11 +177,18 @@ router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) =>
     postDetails.rows[0].total_likes = postLikeCount.length;
     postDetails.rows[0].total_views = postViewCount.length;
 
+     // Adding isLiked and isViewed fields
+     postDetails.rows[0].isLiked = isLiked;
+     postDetails.rows[0].isViewed = isViewed;
+
     return res.status(200).json({ data: postDetails.rows }); // sending data to client
   } catch (error) {
     next(error); // server side error
   }
 });
+
+
+
 
 /**
  * Delete a specific post
@@ -183,21 +208,18 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 
     // Ensure the post is present in the database or not
     if (post.rows.length === 0) {
-      return res.status(404).json({ error: "Post not found." });
+       return res.status(404).json({ error: "Post not found." });
     }
 
-    const { video_name, thumbnail_name, user_id } = post.rows[0];
+    // Extract the video_name, thumbnail_name and user_id from the post
+     const { video_name, thumbnail_name, user_id } = post.rows[0];
 
-    // Perform actions within a database transaction
-    const query = [`DELETE FROM posts WHERE id = $1`];
-    const values = [[post_id]];
-    await makeTransactions(query, values);
-    
+     await pgQuery(`DELETE FROM posts WHERE id = $1`, post_id);
     // Delete files from S3 and remove likes/views
     await Promise.all([
-      s3Delete(video_name),
-      s3Delete(thumbnail_name),
-      removeLikesViews(parseInt(post_id),user_id),
+       s3Delete(video_name),
+       s3Delete(thumbnail_name),
+       removeLikesAndViews(post_id)
     ]);
 
     res.status(200).json({ "Status": "Post Deleted" });
@@ -209,18 +231,20 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
 /**
  * Get a list of posts for a particular category
  * 
- * @route POST /category_posts/:category_name
- * @param {string} req.params.category_name - Name of the category that is neeeded
- * @body {string} req.query.page_size - Number of posts that is needed
- * @body {string} req.query.page_number - Page number of posts that is needed
- * @returns {status} - A successful status indicates that posts have been retrieved
- * @throws {Error} - If there are errors dont retrieve any posts.
+ * @route GET /category/:category_id/:user_id
+ * @param {string} req.params.category_id - ID of the category that is needed
+ * @param {string} req.params.user_id - ID of the user that is needed for check isLiked And isViewed th post
+ * @query {number} req.query.page_size - Number of posts to fetch per page (optional, default: 15)
+ * @query {number} req.query.page_number - Page number to fetch (optional, default: 1)
+ * @returns {Object} - Returns an array of posts for the specified category
+ * @throws {Error} - If there are errors, no posts are retrieved
  */
-router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
+
+router.get("/category/:category_id/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     
     // Extract category ID from URL parameters
-    const { category_id } = req.params;
+    const { category_id ,user_id} = req.params;
 
     // Pagination settings
     // Get query parameters for pagination
@@ -275,10 +299,12 @@ router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, 
       specificCategoryPosts.rows.map(async (post) => {
         const videoUrl = await s3Retrieve(post.video_name);
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
-
+        
+        const isLiked = await checkLike(post.id, parseInt(user_id));
+        const isViewed = await checkView(post.id, parseInt(user_id));
         const { video_name, thumbnail_name, ...rest } = post;
-
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl };
+        
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, isLiked: isLiked, isViewed: isViewed };
       })
     );
 
@@ -346,12 +372,11 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
 
         const { video_name, thumbnail_name, ...rest } = post;
 
-        const viewedPost = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).whereSortKey("user_id").eq(parseInt(user_id)).exec(); // querying Views table to check if user has viewed post
-        if(viewedPost.length == 1) { // if length is 1, means user has viewed post hence viewed is set to true
-          return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, liked: false, viewed: true };
-        } else { // else user has not viewed post
-          return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, liked: false, viewed: false };
-        }
+        // checking if user has liked and viewed post or not
+        const isLiked = await checkLike(post.id, parseInt(user_id));
+        const isViewed = await checkView(post.id, parseInt(user_id));
+        
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, isLiked:isLiked, isViewed:isViewed };
       })
     );
 
@@ -361,5 +386,37 @@ router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res,
    next(err);
  }
 });
+
+
+/**
+ * Update Post Title and Title Description
+ * 
+ * @route PUT /posts/:post_id
+ * @param {string} req.params.post_id - The ID of the post to update
+ * @body {string} req.body.title - The updated title
+ * @body {string} req.body.description - The updated title description
+ * @returns {Object} - Returns a status indicating the update was successful
+ * @throws {Error} - If there are errors during the update
+ */
+router.put("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+  try {
+    const { post_id } = req.params;
+    const { title, description } = req.body;
+
+    console.log(post_id);
+    
+    // Update the post title and title description
+    try {
+      await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
+    } catch (error) {
+      return res.status(500).json({ message: "Post not updated" });
+    }
+    res.status(200).json({ Status: "Post Title and Title Description Updated" });
+
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 export default router;

@@ -114,15 +114,17 @@ export const s3Delete = async (fileNameWithPath) => {
 };
 
 /* Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT ) */
-export async function updatePosts(userPosts) {
+export async function updatePosts(userPosts,user_id) {
   const updatedPostsPromises = await userPosts.map(async (post)=> {
 
     // getting video_name and thumbnail_name URL's, likes and views of the post
-    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount] = await Promise.all([
-        await s3Retrieve(post.video_name),
-        await s3Retrieve(post.thumbnail_name),
+    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount,isLiked,isViewed] = await Promise.all([
+        s3Retrieve(post.video_name),
+        s3Retrieve(post.thumbnail_name),
         getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
-        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec()
+        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec(),
+        checkLike(post.id, parseInt(user_id)),
+        checkView(post.id, parseInt(user_id)),
     ]);
   
     // adding URLs to posts data and removing video_name and thumbnail_name
@@ -130,15 +132,89 @@ export async function updatePosts(userPosts) {
     post.thumbnail_url = thumbnailUrl;
     delete post.video_name;
     delete post.thumbnail_name;
-  
+
     // adding post total likes and views count to posts data
     post.total_likes = postLikeCount.length;
     post.total_views = postViewCount.length;
 
+    // Adding isLiked and isViewed fields to posts data
+    post.isLiked = isLiked;
+    post.isViewed = isViewed;
+   
     return post;
   });
 
   const updatedPosts = await Promise.all(updatedPostsPromises);
 
   return updatedPosts;
+}
+
+
+/* Checks if a user has liked a post or not, returns true or false */
+export const checkLike = async (postId, userId) => {
+
+  const isLiked = await getDynamoRequestBuilder("Likes")
+                       .query("post_id", postId)
+                       .whereSortKey("user_id").eq(userId)
+                       .exec();
+ 
+  //if length is 1, means user has liked post hence liked is set to true
+  return isLiked.length === 1 ? true : false;
+}
+
+/* Checks if a user has viewed a post or not, returns true or false */
+export const checkView = async (postId, userId) => {
+
+  const isViewed = await getDynamoRequestBuilder("Views")
+                        .query("post_id", postId)
+                        .whereSortKey("user_id").eq(userId)
+                        .exec();
+  
+  //if length is 1, means user has viewed post hence viewed is set to true
+  return isViewed.length === 1 ? true : false;
+}
+
+/* Function to perform batch deletion for a specific DynamoDB table delete the multiple items
+Example of how to use: 
+performBatchDeletion("Likes", [{ post_id: 1, user_id: 1 }, { post_id: 2, user_id: 2 }])
+i-e delete all likes for post_id 1
+const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
+performBatchDeletion("Likes", likesToDelete)
+
+same usage for multipe tables
+ // Create an array of delete requests for 'Likes' and 'Views' tables
+ const deleteRequests = [{ tableName: "Likes", items: likesToDelete }, { tableName: "Views", items: viewsToDelete }];
+ 
+  // Perform batch deletions
+  deleteRequests.forEach(async (deleteRequest) => {
+    const { tableName, items } = deleteRequest;
+    await performBatchDeletion(tableName, items);
+  });
+*/
+export  const  performBatchDeletion= async (tableName, items)=> {
+  const requestBuilder = getDynamoRequestBuilder(tableName);
+ 
+
+  const deletePromises = items.map((item) => {
+    const keys = Object.keys(item);
+
+    if (keys.length !== 2) {
+      throw new Error('Item does not have exactly 2 keys.');
+    }
+  
+    const pk = keys[0];
+    const sk = keys[1];
+    return requestBuilder
+      .delete(pk, item.post_id)
+      .withSortKey(sk, item.user_id)
+      .exec();
+  });
+
+  try {
+    await Promise.all(deletePromises);
+    console.log(`${tableName} deleted successfully.`);
+  } catch (error) {
+    console.error(`Error deleting ${tableName}:`, error);
+  }
 }
