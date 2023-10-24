@@ -20,11 +20,6 @@ router.post(
   async (req, res, next) => {
     try {
       console.log(`Expected URL:, ${req.originalUrl}`);
-      const errors = validationResult(req); // validate input
-
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
 
       const psqlClient = await pgPool.connect(); // connects to database
       const blocking_user_id = parseFloat(req.params.id); // converts data from req.params to float
@@ -83,11 +78,6 @@ router.delete(
   async (req, res, next) => {
     try {
       console.log(`Expected URL:, ${req.originalUrl}`);
-      const errors = validationResult(req); // validate input
-
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
 
       const psqlClient = await pgPool.connect(); // connects to database
       const unblocking_user_id = parseFloat(req.params.id); // converts data from req.params to float
