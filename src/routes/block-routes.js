@@ -1,6 +1,7 @@
 import { Router } from "express";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
+import pgPool from "../config/pgdb.js";
 
 const router = Router();
 
@@ -21,9 +22,11 @@ router.post(
     try {
       console.log(`Expected URL:, ${req.originalUrl}`);
 
+      console.log(`Req body contains: ${req.body.user_id}`);
+
       const psqlClient = await pgPool.connect(); // connects to database
-      const blocking_user_id = parseFloat(req.params.id); // converts data from req.params to float
-      const blocked_user_id = parseFloat(req.body.user_id); // converts data from req.body to float
+      const blocking_user_id = parseInt(req.params.id); // converts data from req.params to int
+      const blocked_user_id = parseInt(req.body.user_id); // converts data from req.body to int
 
       console.log(
         `Inserting blocked_users with blocking_user_id:, ${blocking_user_id}`
@@ -35,15 +38,16 @@ router.post(
 
       // Check if a block already exists for this user and the blocked user
       const queryExists =
-        "SELECT * FROM report WHERE user_id = $1 AND reported_user_id = $2 AND post_id = $3";
+        "SELECT * FROM blocked_users WHERE user_id = $1 AND blocked_user_id = $2";
       const blockExists = await psqlClient.query(queryExists, [
-        reporting_user_id,
-        reported_user_id,
-        post_id,
+        blocking_user_id,
+        blocked_user_id,
       ]);
+      console.log(`BlockExists length: ${JSON.stringify(blockExists.length)}`);
 
       if (blockExists.length != 0) {
-        return res.status(400).json({ Status: "User is already reported." });
+        console.log(`BlockExists length: ${blockExists.length}`);
+        return res.status(400).json({ Status: "User is already blocked." });
       }
 
       const postQuery =
