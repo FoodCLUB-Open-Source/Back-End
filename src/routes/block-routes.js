@@ -20,8 +20,6 @@ router.post(
   inputValidator,
   async (req, res, next) => {
     try {
-      console.log(`Expected URL:, ${req.originalUrl}`);
-
       console.log(`Req body contains: ${req.body.user_id}`);
 
       const psqlClient = await pgPool.connect(); // connects to database
@@ -43,10 +41,10 @@ router.post(
         blocking_user_id,
         blocked_user_id,
       ]);
-      console.log(`BlockExists length: ${JSON.stringify(blockExists.length)}`);
+      console.log(`BlockExists length: ${blockExists.rows.length}`);
 
-      if (blockExists.length != 0) {
-        console.log(`BlockExists length: ${blockExists.length}`);
+      if (blockExists.rows && blockExists.rows.length !== 0) {
+        console.log(`BlockExists length: ${blockExists.rows.length}`);
         return res.status(400).json({ Status: "User is already blocked." });
       }
 
@@ -55,6 +53,7 @@ router.post(
       // state query
 
       await psqlClient.query(postQuery, [blocking_user_id, blocked_user_id]);
+      console.log("Query executed successfully");
 
       psqlClient.release(); // release connection
 
