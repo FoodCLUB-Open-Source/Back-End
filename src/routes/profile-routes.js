@@ -9,6 +9,27 @@ import getDynamoRequestBuilder from "../config/dynamoDB.js";
 const router = Router();
 
 /**
+ * Retrieves user details
+ * 
+ * @route GET /:userid/details
+ * @param {string} req.params.user_id - The ID of the user to retrieve details for
+ * @returns {Object} - An object containing details of the user such as id, username and profile picture
+ * @throws {Error} - If there is error retrieving user details or validation issues
+ */
+router.get("/:user_id/details", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        const {user_id} = req.params; // getting userID
+
+        const query = 'SELECT id, username, email, phone_number, profile_picture, user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1'; // returns user details
+        const userDetails = await pgQuery(query, user_id);
+
+        return res.status(200).json({ data: userDetails.rows[0] }); // sends details to client
+    } catch (error) {
+        next(error) // server side error
+    }
+});
+
+/**
  * Retrieves profile page data based on the received user ID 
  * 
  * @route GET /:userid
