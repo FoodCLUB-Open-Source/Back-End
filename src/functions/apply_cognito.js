@@ -1,5 +1,5 @@
 import { CognitoUser, CognitoUserAttribute } from "amazon-cognito-identity-js";
-import cognitoUserPool from "../config/cognito.js";
+import { cognitoUserPool } from "../config/cognito.js";
 /**  
  * This file holds functions (not middleware) that may need to be used in other backend microservices.
 */

@@ -1,15 +1,19 @@
-import { CognitoJwtVerifier } from "aws-jwt-verify";
-import cognitoUserPool from "../cognito.js";
+import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../cognito.js";
 // Verifier that expects valid access tokens:
 
-const verifyAccess = async (req, res, next) => {
-  const verifier = CognitoJwtVerifier.create({
-    userPoolId: process.env.USER_POOL_ID,
-    tokenUse: "access",
-    clientId: process.env.CLIENT_ID,
+export const verifySession = async (req, res, next) => {
+  const cognitoUser = cognitoUserPool.getCurrentUser() 
+
+  cognitoUser.getSession((err, session) => {
+    if (err) {
+      return res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
+    }
   });
+} 
+
+export const verifyTokens = async (req, res, next) => {
   
-  const cognitoUser = cognitoUserPool.getCurrentUser()  
+  const cognitoUser = cognitoUserPool.getCurrentUser() 
 
   cognitoUser.getSession((err, session) => {
     if (err) {
@@ -18,22 +22,25 @@ const verifyAccess = async (req, res, next) => {
   });
 
   try {
-    const payload = await verifier.verify(
-      cognitoUser.getCurrentUser().get
+    const payload = await accessVerifier.verify(
+      cognitoUser.getSignInUserSession().getAccessToken().getJwtToken()
     );
-    res.status(200).json({message: `Token is valid. Payload: ${payload}`});
+    res.status(200).json({
+      message: 'Access token is valid',
+      payload: payload
+    });
   } catch {
-    res.status(400).json({ message: "Token not valid" });
+    // If the access token is not valid, the refresh token will be validated. 
+    try {
+      await cognitoUser.refreshSession(cognitoUser.getSignInUserSession().getRefreshToken().getJwtToken())
+    } catch (error) {
+      return res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
+    };
   }
   next()
 }
 
-const verifyId= async (req, res, next) => {
-  const verifier = CognitoJwtVerifier.create({
-    userPoolId: process.env.USER_POOL_ID,
-    tokenUse: "id",
-    clientId: process.env.CLIENT_ID,
-  });
+export const verifyIdToken = async (req, res, next) => {
   
   const cognitoUser = cognitoUserPool.getCurrentUser()  
 
@@ -44,7 +51,7 @@ const verifyId= async (req, res, next) => {
   });
 
   try {
-    const payload = await verifier.verify(
+    const payload = await idVerifier.verify(
       cognitoUser.getCurrentUser().get
     );
     res.status(200).json({message: `Token is valid. Payload: ${payload}`});
