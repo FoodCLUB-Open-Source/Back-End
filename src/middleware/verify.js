@@ -11,19 +11,13 @@ export const verifySession = async (req, res, next) => {
   });
 } 
 
-export const verifyTokens = async (req, res, next) => {
-  
-  const cognitoUser = cognitoUserPool.getCurrentUser() 
+export const verifyAccessToken = async (req, res, next) => {
 
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      return res.status(400).json(err.message)
-    }
-  });
+  const userAccessToken = req.header['Access-Token'] 
 
   try {
     const payload = await accessVerifier.verify(
-      cognitoUser.getSignInUserSession().getAccessToken().getJwtToken()
+      userAccessToken.getJwtToken()
     );
     res.status(200).json({
       message: 'Access token is valid',
@@ -31,11 +25,7 @@ export const verifyTokens = async (req, res, next) => {
     });
   } catch {
     // If the access token is not valid, the refresh token will be validated. 
-    try {
-      await cognitoUser.refreshSession(cognitoUser.getSignInUserSession().getRefreshToken().getJwtToken())
-    } catch (error) {
-      return res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
-    };
+    res.status(400).json({message: 'Request new access token'})
   }
   next()
 }

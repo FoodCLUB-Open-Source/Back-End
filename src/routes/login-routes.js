@@ -6,7 +6,7 @@ import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
-import { cognitoUserPool } from "../config/cognito.js";
+import { cognitoUserPool, refreshVerifier } from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
 import { getUserFromTokens } from '../functions/apply_cognito.js';
@@ -337,6 +337,51 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
     };
   });
 });
+
+/**
+ * Use the refresh token to get a new access token, if possible.
+ * 
+ * @route POST /login/refresh_token
+ * @header req.header['Refresh-Token'] - the refresh token as a Cognito refresh token object object
+ * @returns {status} -  a successful status indicates that the refresh token has been successfully used to refresh the user's session and generate new tokens
+ * @throws {Error} - If the refresh token is not valid, or there is another internal error.
+ */
+
+router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
+
+  const refresh_token = req.header['Refresh-Token']
+  // First check whether the refresh token is valid
+
+  if (!!refresh_token) {
+    // first check if valid and get the payload
+    try {
+      const payload = await refreshVerifier.verify(
+        refresh_token.getJwtToken()
+      );
+      // now use the payload to refresh the session
+
+      const userData = {
+        Username: payload.username,
+        Pool: cognitoUserPool,
+      };
+    
+      const cognitoUser = new CognitoUser(userData);
+
+      cognitoUser.refreshSession(refresh_token, (err, result) => {
+        if (err) {
+          return res.status(400).json(err.message)
+        }
+        // if user_id not in payload, we can just use a lookup in psql with username.
+        return res.redirect(307, `${process.env.BASE_PATH}/homepage/${payload.user_id}`)
+      })
+    } catch {
+      res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
+    }
+  } else {
+    res.status(400).json({message: 'Refresh token not provided'})
+  }
+
+})
 
 
 router.delete('/delete_user', rateLimiter(), (req, res) => {
