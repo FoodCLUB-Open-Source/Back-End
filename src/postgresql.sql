@@ -206,3 +206,7 @@ VALUES  (1, 2, 6),
         (3, 2, 6),
         (4, 2, 6),
         (5, 2, 6);
+
+ALTER TABLE users 
+ADD COLUMN full_name VARCHAR(255)
+ADD COLUMN verified BOOLEAN

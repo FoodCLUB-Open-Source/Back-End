@@ -65,6 +65,14 @@ const inputValidator = [
 		.isAlphanumeric().withMessage('Username must only contain letters and numbers')
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
+	check("full_name")
+		.optional()
+		.isLength({min: 1, max: 255}).withMessage('Full name is too short/long')
+		.matches(/^[a-zA-Z\s]+$/).withMessage('Full name must only contain letters and spaces')
+		.customSanitizer(value => sanitisedInput(value))
+		.trim(),
+	check('verified')
+		.optional(),
 	check("gender")
 		.optional()
 		.isIn(['male', 'female']).withMessage('Gender must be either male, female, or non-binary'),
