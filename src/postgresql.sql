@@ -95,11 +95,11 @@ CREATE TABLE report (
 
 /* INSERTING DATA */
 INSERT INTO users (username, email, password, first_name, last_name, phone_number, profile_picture, user_bio, gender, date_of_birth, dietary_preferences)
-VALUES ('user21', 'user21@example.com', 'password21', 'Jack', 'Bauer', '1234567890', 'https://example.com/profile21.jpg', 'User 21 bio', 'male', '2001-01-01', '{vegan, italian}'),
-       ('user22', 'user22@example.com', 'password22', 'Katerina', 'Garrett', '2345678901', 'https://example.com/profile22.jpg', 'User 22 bio', 'male', '2001-01-01', '{vegan, italian}'),
-       ('user23', 'user23@example.com', 'password23', 'Leila', 'Farmer', '3456789012', 'https://example.com/profile23.jpg', 'User 23 bio', 'male', '2001-01-01', '{vegan, italian}'),
-       ('user24', 'user24@example.com', 'password24', 'Zachery', 'Shepherd', '4567890123', 'https://example.com/profile24.jpg', 'User 24 bio', 'male', '2001-01-01', '{vegan, italian}'),
-       ('user25', 'user25@example.com', 'password25', 'Barry', 'Bolton', '5678901234', 'https://example.com/profile25.jpg', 'User 25 bio', 'male', '2001-01-01', '{vegan, italian}');
+VALUES ('user21', 'user21@example.com', 'password@21', 'Jack', 'Bauer', '1234567890', 'https://example.com/profile21.jpg', 'User 21 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user22', 'user22@example.com', 'password@22', 'Katerina', 'Garrett', '2345678901', 'https://example.com/profile22.jpg', 'User 22 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user23', 'user23@example.com', 'password@23', 'Leila', 'Farmer', '3456789012', 'https://example.com/profile23.jpg', 'User 23 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user24', 'user24@example.com', 'password@24', 'Zachery', 'Shepherd', '4567890123', 'https://example.com/profile24.jpg', 'User 24 bio', 'male', '2001-01-01', '{vegan, italian}'),
+       ('user25', 'user25@example.com', 'password@25', 'Barry', 'Bolton', '5678901234', 'https://example.com/profile25.jpg', 'User 25 bio', 'male', '2001-01-01', '{vegan, italian}');
 
 INSERT INTO posts (user_id, title, description, video_name, thumbnail_name)
 VALUES (1, 'Post 1 Title', 'Post 1 description', 'https://example.com/video1.mp4', 'https://example.com/thumbnail1.jpg'),

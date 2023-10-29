@@ -189,7 +189,7 @@ router.post(
           "Refresh-Token",
           cognitoUser.getSignInUserSession().getRefreshToken()
         );
-        const fullName = `${user.rows[0].firstName} + ${user.rows[0].lastName}`;
+        const fullName = `${user.rows[0].firstName} + " " + ${user.rows[0].lastName}`;
         res.status(200).json({ user: user.rows[0], full_name: fullName });
       },
       onFailure: (err) => {
