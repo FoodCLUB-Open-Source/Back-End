@@ -14,11 +14,7 @@ const router = Router();
  * @returns {Object} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the comment posting failed
  */
-router.post(
-  "/posts/block/:id",
-  rateLimiter(),
-  inputValidator,
-  async (req, res, next) => {
+router.post("/posts/block/:id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
       console.log(`Req body contains: ${req.body.user_id}`);
 
@@ -74,11 +70,7 @@ router.post(
  * @returns {Object} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the comment posting failed
  */
-router.delete(
-  "/posts/block/:id",
-  rateLimiter(),
-  inputValidator,
-  async (req, res, next) => {
+router.delete("/posts/block/:id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
       console.log(`Expected URL:, ${req.originalUrl}`);
 
