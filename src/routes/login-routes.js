@@ -351,7 +351,7 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
 
 router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
 
-  const refresh_token = req.header['Refresh-Token']
+  const refresh_token = req.header['Refresh-Token'];
   // First check whether the refresh token is valid
 
   if (!!refresh_token) {
@@ -371,26 +371,25 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
 
       cognitoUser.refreshSession(refresh_token, (err, result) => {
         if (err) {
-          return res.status(400).json(err.message)
-        }
+          return res.status(400).json(err.message);
+        };
         // if user_id not in payload, we can just use a lookup in psql with username.
 
         // if successful, the user;s new tokens are returned as a CognitoUserSession object instance.
         return res.status(200).json({
           message: 'Session refresh successful',
           new_session: result
-        })
+        });
       })
     } catch {
       res.status(400).json({
         message: 'Refresh token invalid. Please re-authenticate.'
-      })
-    }
+      });
+    };
   } else {
-    res.status(400).json({message: 'Refresh token not provided'})
-  }
-
-})
+    res.status(400).json({message: 'Refresh token not provided'});
+  };
+});
 
 
 router.delete('/delete_user', rateLimiter(), (req, res) => {

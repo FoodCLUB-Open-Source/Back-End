@@ -4,7 +4,7 @@ import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../
 
 export const verifyAccessToken = async (req, res, next) => {
 
-  const userAccessToken = req.header['Access-Token'] 
+  const userAccessToken = req.header['Access-Token'];
   
   if (!!userAccessToken) {
     try {
@@ -13,13 +13,13 @@ export const verifyAccessToken = async (req, res, next) => {
       );
     } catch {
       // If the access token is not valid, the refresh token will be validated. 
-      return res.status(400).json({message: 'Request new access token'})
-    }
+      return res.status(400).json({message: 'Request new access token'});
+    };
   } else {
-    return res.status(404).json({message: 'Access token is null'})
-  }
-  next()
-}
+    return res.status(404).json({message: 'Access token is null'});
+  };
+  next();
+};
 
 // The function below is only necessary for an extra layer of security with id tokens. It is not yet needed for implementation.
 
