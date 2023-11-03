@@ -4,7 +4,17 @@ import express, { Router } from "express";
 
 import requestLogging from "./middleware/logging.js";
 
-import { commentsRouter, likesViewRouter, loginRouter, postsRouter, profileRouter, bookmarksRouter, recipeRouter, storiesRouter } from "./routes/index.js";
+import {
+  blockRouter,
+  commentsRouter,
+  likesViewRouter,
+  loginRouter,
+  postsRouter,
+  profileRouter,
+  bookmarksRouter,
+  recipeRouter,
+  storiesRouter,
+} from "./routes/index.js";
 
 const app = express();
 const router = Router();
@@ -18,13 +28,16 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-  origin: [SOCKET_ADDRESS],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: [SOCKET_ADDRESS],
+    credentials: true,
+  })
+);
 app.use(bodyParser.urlencoded({ extended: true }));
 
 /*  All Routes  */
+router.use("/block", blockRouter);
 router.use("/login", loginRouter);
 router.use("/posts", postsRouter);
 router.use("/comments", commentsRouter);
@@ -36,6 +49,5 @@ router.use("/stories", storiesRouter);
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
-
 
 export default app;

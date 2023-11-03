@@ -65,6 +65,14 @@ const inputValidator = [
 		.isAlphanumeric().withMessage('Username must only contain letters and numbers')
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
+	check("full_name")
+		.optional()
+		.isLength({min: 1, max: 255}).withMessage('Full name is too short/long')
+		.matches(/^[a-zA-Z\s]+$/).withMessage('Full name must only contain letters and spaces')
+		.customSanitizer(value => sanitisedInput(value))
+		.trim(),
+	check('verified')
+		.optional(),
 	check("gender")
 		.optional()
 		.isIn(['male', 'female']).withMessage('Gender must be either male, female, or non-binary'),
@@ -76,6 +84,25 @@ const inputValidator = [
 	check("description")
 		.optional()
 		.isLength({ min:0, max:150 }).withMessage("description needs to be between 0 and 150 characters long")
+		.customSanitizer(value => sanitisedInput(value))
+		.trim(),
+	check('date_of_birth')
+		.optional()
+		.isDate()
+		.withMessage('Date of birth must be a valid date in the format YYYY-MM-DD'),
+	check("full_name")
+		.optional()
+		.isLength({ min: 0, max: 50 }).withMessage("username needs to be between 0 and 50 characters long")
+		.customSanitizer(value => sanitisedInput(value))
+		.trim(),
+	check("country")
+		.optional()
+		.isLength({ min: 0, max: 50 }).withMessage("country needs to be between 0 and 50 characters long")
+		.customSanitizer(value => sanitisedInput(value))
+		.trim(),
+	check("shipping_address")
+		.optional()
+		.isLength({ min: 0, max: 260 }).withMessage("shipping_address needs to be between 0 and 50 characters long")
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
 	...dateVariables.map(date => 

@@ -37,13 +37,13 @@ router.get("/testing", async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
-router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
-  const { username, email, password } = req.body;
 
-  if (!(username && email && password)) {
-    return res
-      .status(400)
-      .json({ message: "Necessary input fields not given." });
+router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
+  
+  const { username, email, password, full_name } = req.body;
+  
+  if (!(username && email && password && full_name)) {
+    return res.status(400).json({ message :"Necessary input fields not given in request" });
   }
 
   const attributeArray = [];
@@ -75,13 +75,15 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
         return res.status(400).json({ message: error.message });
       }
       return res.status(201).json({ user: result.user });
+
     }
   );
 });
 
 /**
- * Verify a users verification code after sign up.
- *
+
+ * Verify a users email using verification code after sign up.
+ * 
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
@@ -100,15 +102,21 @@ router.post(
       Pool: cognitoUserPool,
     };
 
-    const cognitoUser = new CognitoUser(userData);
-    cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
-      if (err) {
-        return res.status(400).json({ message: err.msg });
-      }
-      return res.status(201).json({ message: "user verified" });
-    });
-  }
-);
+
+  const cognitoUser = new CognitoUser(userData);
+  cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
+    if (err) {
+      return res.status(400).json({ message: err.message })
+    }
+    try {
+      const verified = true
+      await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
+    } catch (error) {
+      res.status(400).json({ message: error.message })
+    }
+    return res.status(201).json({message: 'user verified'});
+  });
+});
 
 /**
  * Send another verification code to user

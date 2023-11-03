@@ -2,11 +2,35 @@ import { Router } from "express";
 
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
+import multer, { memoryStorage } from "multer";
 
-import { makeTransactions, pgQuery, updatePosts } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Delete, s3Upload, updatePosts } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
+const storage = memoryStorage();
+const upload = multer({ storage: storage })
 const router = Router();
+
+/**
+ * Retrieves user details
+ * 
+ * @route GET /:userid/details
+ * @param {string} req.params.user_id - The ID of the user to retrieve details for
+ * @returns {Object} - An object containing details of the user such as id, username and profile picture
+ * @throws {Error} - If there is error retrieving user details or validation issues
+ */
+router.get("/:user_id/details", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        const {user_id} = req.params; // getting userID
+
+        const query = 'SELECT id, username, email, phone_number, profile_picture, user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1'; // returns user details
+        const userDetails = await pgQuery(query, user_id);
+
+        return res.status(200).json({ data: userDetails.rows[0] }); // sends details to client
+    } catch (error) {
+        next(error) // server side error
+    }
+});
 
 /**
  * Retrieves profile page data based on the received user ID 
@@ -261,5 +285,96 @@ router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, r
         next(error) // server side error
     }
 });
+
+
+/**
+ * Update user profile detials 
+ *
+ * @route PUT /:user_id
+ * @param {string} req.params.user_id - The ID of the user to update
+ * @body
+ *    {string} req.body.username - The username of the user
+ *    {string} req.body.phone_number - The phone number of the user
+ *    {string} req.body.user_bio - The bio of the user
+ *    {string} req.body.gender - The gender of the user
+ *    {date}   req.body.date_of_birth - The date of birth of the user
+ *    {string} req.body.dietary_preferences - The dietary preferences of the user
+ *    {string} req.body.country - The country of the user
+ *    {string} req.body.shipping_address - The shipping address of the user
+ *    {string} req.body.full_name - The full name of the user
+ * @returns {Status} - Updated user profile status
+ * @throws {Error} - If there are errors in user details retrieval or validation
+ */
+router.put("/profile_details/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+    try {
+        // Getting user ID
+        const {user_id } = req.params;
+
+        // Getting user details
+        const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
+
+       // Query to update user details
+        const query = `
+        UPDATE users
+        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences = $5, country = $6, shipping_address= $7, full_name= $8, 
+        updated_at = NOW()
+        WHERE id = $9`;
+
+        // Execute the query
+        await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
+
+        res.status(200).json({ "Status": "Profile Details Updated" });
+    
+    } catch (error) {
+        next(error); // Handle server-side error
+    }
+});
+
+
+/**
+ * Update user profile picture
+ *
+ * @route PUT /:user_id
+ * @param {string} req.params.user_id - The ID of the user to update
+ * @returns {Status} - Updated user profile picture status
+ * @throws {Error} - If there are errors in user details retrieval or validation
+ */
+router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValidator, async (req, res, next) => {
+    try {
+        // Getting user ID
+        const user_id = req.params.user_id;
+
+        const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
+
+        // Get the existing profile picture
+        const existingProfilePictureQuery = "SELECT profile_picture FROM users WHERE id = $1";
+        const existingProfilePicture = await pgQuery(existingProfilePictureQuery, user_id);
+
+        const query = `
+        UPDATE users
+        SET profile_picture = $1, updated_at = NOW()
+        WHERE id = $2`;
+        console.log(req.files[0]);
+        //here check if the existing profile picture is the not null then delete the existing profile picture
+        if (existingProfilePicture.rows[0].profile_picture !== "") {
+        
+            await s3Delete(existingProfilePicture.rows[0].profile_picture);
+            const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
+            console.log("new profile picture" + newProfilePictureName);
+            pgQuery(query, newProfilePictureName, user_id);
+            res.status(200).json({ "Status": "Profile Picture Updated" });
+
+        } else {
+            console.log("new profile picture" + newProfilePictureName);
+            pgQuery(query, newProfilePictureName, user_id);
+            res.status(200).json({ "Status": "Profile Picture Updated" });
+        }
+
+
+    } catch (error) {
+        next(error); // Handle server-side error
+    }
+});
+
 
 export default router;
