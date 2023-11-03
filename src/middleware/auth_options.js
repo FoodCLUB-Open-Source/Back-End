@@ -1,4 +1,4 @@
-/* This file contains authentication-related middleware */
+/* This file contains basic authentication-related middleware related to sign-in */
 import { pgQuery } from "../functions/general_functions.js"
 
 const emailOrUsername = () => {

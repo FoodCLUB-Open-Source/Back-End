@@ -9,12 +9,8 @@ import { cognitoUserPool } from "../config/cognito.js";
 */
 
 export const changeAttribute = (attributeName, attributeValue) => {
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
 
-  const cognitoUser = new CognitoUser(userData);
+  const cognitoUser = cognitoUserPool.getCurrentUser();
 
   const attributeList = [];
   

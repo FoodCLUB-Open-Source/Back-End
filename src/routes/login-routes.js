@@ -343,7 +343,9 @@ router.post('/global_signout', rateLimiter(), (req, res) => {
  * 
  * @route POST /login/refresh_token
  * @header req.header['Refresh-Token'] - the refresh token as a Cognito refresh token object object
- * @returns {status} -  a successful status indicates that the refresh token has been successfully used to refresh the user's session and generate new tokens
+ * @returns {status} -  a successful status indicates that the refresh token has been successfully
+ * used to refresh the user's session and generate new tokens.
+ * The tokens (access, refresh and id) are returned as CognitoUserSession() object.
  * @throws {Error} - If the refresh token is not valid, or there is another internal error.
  */
 
@@ -372,10 +374,17 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
           return res.status(400).json(err.message)
         }
         // if user_id not in payload, we can just use a lookup in psql with username.
-        return res.redirect(307, `${process.env.BASE_PATH}/homepage/${payload.user_id}`)
+
+        // if successful, the user;s new tokens are returned as a CognitoUserSession object instance.
+        return res.status(200).json({
+          message: 'Session refresh successful',
+          new_session: result
+        })
       })
     } catch {
-      res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
+      res.status(400).json({
+        message: 'Refresh token invalid. Please re-authenticate.'
+      })
     }
   } else {
     res.status(400).json({message: 'Refresh token not provided'})
