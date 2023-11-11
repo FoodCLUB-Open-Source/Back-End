@@ -68,7 +68,7 @@ const inputValidator = [
 	check("full_name")
 		.optional()
 		.isLength({min: 1, max: 255}).withMessage('Full name is too short/long')
-		.isAlpha().withMessage('Full name must only contain letters')
+		.matches(/^[a-zA-Z\s]+$/).withMessage('Full name must only contain letters and spaces')
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
 	check('verified')
