@@ -37,6 +37,7 @@ router.get("/testing", async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
+<<<<<<< HEAD
 
 router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
@@ -44,6 +45,15 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
   if (!(username && email && password && full_name)) {
     return res.status(400).json({ message :"Necessary input fields not given in request" });
+=======
+router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if (!(username && email && password)) {
+    return res
+      .status(400)
+      .json({ message: "Necessary input fields not given." });
+>>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
   }
 
   const attributeArray = [];
@@ -53,6 +63,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   attributeArray.push(
     new CognitoUserAttribute({ Name: "email", Value: email })
   );
+<<<<<<< HEAD
 
   cognitoUserPool.signUp(
     username,
@@ -76,14 +87,43 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
       }
       return res.status(201).json({ user: result.user });
 
+=======
+
+  cognitoUserPool.signUp(
+    username,
+    password,
+    attributeArray,
+    null,
+    async (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(400).json({ message: err.message });
+      }
+      try {
+        await pgQuery(
+          `INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
+          username,
+          email,
+          passwordHashed
+        );
+      } catch (error) {
+        return res.status(400).json({ message: error.message });
+      }
+      return res.status(201).json({ user: result.user });
+>>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
     }
   );
 });
 
 /**
+<<<<<<< HEAD
 
  * Verify a users email using verification code after sign up.
  * 
+=======
+ * Verify a users verification code after sign up.
+ *
+>>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
@@ -102,6 +142,7 @@ router.post(
       Pool: cognitoUserPool,
     };
 
+<<<<<<< HEAD
 
     const cognitoUser = new CognitoUser(userData);
     cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
@@ -117,6 +158,17 @@ router.post(
       return res.status(201).json({message: 'user verified'});
     });
 });
+=======
+    const cognitoUser = new CognitoUser(userData);
+    cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
+      if (err) {
+        return res.status(400).json({ message: err.msg });
+      }
+      return res.status(201).json({ message: "user verified" });
+    });
+  }
+);
+>>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
 
 /**
  * Send another verification code to user
@@ -185,6 +237,22 @@ router.post(
           "SELECT id, username, profile_picture FROM users WHERE username = $1",
           username
         );
+<<<<<<< HEAD
+=======
+
+        const returnData = {
+          user_id: user.rows[0].id,
+          username: user.rows[0].username,
+          email: isErrored.rows[0].email,
+          phone: user.rows[0].phone_number,
+          profile_pic: user.rows[0].profile_picture,
+          bio: user.rows[0].user_bio,
+          gender: user.rows[0].gender,
+          created_at: user.rows[0].created_at,
+          birth_date: user.rows[0].date_of_birth,
+          dietary_preferences: user.rows[0].dietary_preferences,
+        };
+>>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
         res.setHeader(
           "Id-Token",
           cognitoUser.getSignInUserSession().getIdToken()
@@ -197,8 +265,12 @@ router.post(
           "Refresh-Token",
           cognitoUser.getSignInUserSession().getRefreshToken()
         );
+<<<<<<< HEAD
         const fullName = `${user.rows[0].firstName} + " " + ${user.rows[0].lastName}`;
         res.status(200).json({ user: user.rows[0], full_name: fullName });
+=======
+        res.status(200).json({ user: returnData });
+>>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
       },
       onFailure: (err) => {
         if (err.message == "User is not confirmed.") {

@@ -4,7 +4,7 @@ import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 import multer, { memoryStorage } from "multer";
 
-import { makeTransactions, pgQuery, s3Delete, s3Upload, updatePosts } from "../functions/general_functions.js";
+import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload, updatePosts } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
 const storage = memoryStorage();
@@ -344,7 +344,7 @@ router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValida
         // Getting user ID
         const user_id = req.params.user_id;
 
-        const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
+        const S3_PROFILE_PICTURE_PATH = 'profile_pictures/active/';
 
         // Get the existing profile picture
         const existingProfilePictureQuery = "SELECT profile_picture FROM users WHERE id = $1";
@@ -357,19 +357,14 @@ router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValida
         console.log(req.files[0]);
         //here check if the existing profile picture is the not null then delete the existing profile picture
         if (existingProfilePicture.rows[0].profile_picture !== "") {
-        
             await s3Delete(existingProfilePicture.rows[0].profile_picture);
-            const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
-            console.log("new profile picture" + newProfilePictureName);
-            pgQuery(query, newProfilePictureName, user_id);
-            res.status(200).json({ "Status": "Profile Picture Updated" });
-
-        } else {
-            console.log("new profile picture" + newProfilePictureName);
-            pgQuery(query, newProfilePictureName, user_id);
-            res.status(200).json({ "Status": "Profile Picture Updated" });
-        }
-
+        } 
+        const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
+        // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
+        const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`)
+        console.log("new profile picture" + newProfilePictureName);
+        await pgQuery(query, profilePictureURL, user_id);
+        res.status(200).json({ "Status": "Profile Picture Updated" });
 
     } catch (error) {
         next(error); // Handle server-side error
