@@ -344,7 +344,7 @@ router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValida
         // Getting user ID
         const user_id = req.params.user_id;
 
-        const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
+        const S3_PROFILE_PICTURE_PATH = 'profile_pictures/active/';
 
         // Get the existing profile picture
         const existingProfilePictureQuery = "SELECT profile_picture FROM users WHERE id = $1";
@@ -365,6 +365,7 @@ router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValida
             res.status(200).json({ "Status": "Profile Picture Updated" });
 
         } else {
+            const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH); 
             console.log("new profile picture" + newProfilePictureName);
             pgQuery(query, newProfilePictureName, user_id);
             res.status(200).json({ "Status": "Profile Picture Updated" });
