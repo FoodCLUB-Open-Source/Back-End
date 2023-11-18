@@ -37,6 +37,7 @@ router.get("/testing", async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
+
 router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
   const { username, email, password, full_name } = req.body;
@@ -48,7 +49,10 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   const attributeArray = [];
   const passwordHashed = await hash(password, 10);
 
-  attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
+  /* aws cognito assigns a UUID value to each user's sub attribute */
+  attributeArray.push(
+    new CognitoUserAttribute({ Name: "email", Value: email })
+  );
 
   cognitoUserPool.signUp(
     username,
@@ -71,13 +75,15 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
         return res.status(400).json({ message: error.message });
       }
       return res.status(201).json({ user: result.user });
+
     }
   );
 });
 
 /**
- * Verify a users verification code after sign up.
- *
+
+ * Verify a users email using verification code after sign up.
+ * 
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
@@ -91,11 +97,11 @@ router.post(
   (req, res) => {
     const { username, verification_code } = req.body;
 
-
     const userData = {
       Username: username,
       Pool: cognitoUserPool,
     };
+
 
     const cognitoUser = new CognitoUser(userData);
     cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
@@ -159,7 +165,7 @@ router.post(
   rateLimiter(),
   emailOrUsername(),
   (req, res) => {
-    const { username, password } = req.body; // retrieves data from request body
+    const { username, password } = req.body;
 
     const authenticationDetails = new AuthenticationDetails({
       Username: username,
@@ -176,7 +182,6 @@ router.post(
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: async (result) => {
         const user = await pgQuery(
-          // make a query to database
           "SELECT id, username, profile_picture FROM users WHERE username = $1",
           username
         );
@@ -192,15 +197,16 @@ router.post(
           "Refresh-Token",
           cognitoUser.getSignInUserSession().getRefreshToken()
         );
-        res.status(200).json({ user: user.rows[0] }); // return user data
+        const fullName = `${user.rows[0].firstName} + " " + ${user.rows[0].lastName}`;
+        res.status(200).json({ user: user.rows[0], full_name: fullName });
       },
       onFailure: (err) => {
-        if (err.message === "User is not confirmed.") {
+        if (err.message == "User is not confirmed.") {
           res.redirect(
             307,
-            `${process.env.BASE_PATH}/login/resend_verification_code` // redirect to resend verification code page
+            `${process.env.BASE_PATH}/login/resend_verification_code`
           );
-        } else if (err.code === "UserNotFoundException") {
+        } else if (err.code == "UserNotFoundException") {
           res.status(400).json({
             header: "user not found",
             message: "User does not exist",
@@ -208,9 +214,7 @@ router.post(
         } else {
           res.status(400).json({
             header: "sign in error",
-            message: `Error occurred when signing in: ${[err.message].join(
-              "\n"
-            )}`,
+            message: err.message,
           });
         }
       },
