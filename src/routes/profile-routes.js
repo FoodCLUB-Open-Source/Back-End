@@ -357,20 +357,12 @@ router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValida
         console.log(req.files[0]);
         //here check if the existing profile picture is the not null then delete the existing profile picture
         if (existingProfilePicture.rows[0].profile_picture !== "") {
-        
             await s3Delete(existingProfilePicture.rows[0].profile_picture);
-            const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
-            console.log("new profile picture" + newProfilePictureName);
-            pgQuery(query, newProfilePictureName, user_id);
-            res.status(200).json({ "Status": "Profile Picture Updated" });
-
-        } else {
-            const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH); 
-            console.log("new profile picture" + newProfilePictureName);
-            pgQuery(query, newProfilePictureName, user_id);
-            res.status(200).json({ "Status": "Profile Picture Updated" });
-        }
-
+        } 
+        const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
+        console.log("new profile picture" + newProfilePictureName);
+        pgQuery(query, newProfilePictureName, user_id);
+        res.status(200).json({ "Status": "Profile Picture Updated" });
 
     } catch (error) {
         next(error); // Handle server-side error
