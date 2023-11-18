@@ -37,7 +37,6 @@ router.get("/testing", async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
-<<<<<<< HEAD
 
 router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
@@ -45,15 +44,6 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
   if (!(username && email && password && full_name)) {
     return res.status(400).json({ message :"Necessary input fields not given in request" });
-=======
-router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
-  const { username, email, password } = req.body;
-
-  if (!(username && email && password)) {
-    return res
-      .status(400)
-      .json({ message: "Necessary input fields not given." });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
   }
 
   const attributeArray = [];
@@ -63,7 +53,6 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
   attributeArray.push(
     new CognitoUserAttribute({ Name: "email", Value: email })
   );
-<<<<<<< HEAD
 
   cognitoUserPool.signUp(
     username,
@@ -77,40 +66,17 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
       }
       try {
         await pgQuery(
-          `INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
+          `INSERT INTO users (username, email, password, full_name) VALUES ($1, $2, $3, $4) RETURNING *`,
           username,
           email,
-          passwordHashed
+          passwordHashed,
+          full_name
         );
       } catch (error) {
         return res.status(400).json({ message: error.message });
       }
       return res.status(201).json({ user: result.user });
 
-=======
-
-  cognitoUserPool.signUp(
-    username,
-    password,
-    attributeArray,
-    null,
-    async (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(400).json({ message: err.message });
-      }
-      try {
-        await pgQuery(
-          `INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
-          username,
-          email,
-          passwordHashed
-        );
-      } catch (error) {
-        return res.status(400).json({ message: error.message });
-      }
-      return res.status(201).json({ user: result.user });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
     }
   );
 });
