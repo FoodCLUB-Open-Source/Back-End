@@ -303,12 +303,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
  * @returns {status} - A successful status indicates code is sent
  * @throws {Error} - If there are errors dont send a code
  */
-router.post(
-  "/forgot_password/verification_code",
-  inputValidator,
-  rateLimiter(),
-  emailOrUsername(),
-  async (req, res) => {
+router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),emailOrUsername(),async (req, res) => {
     const { username } = req.body;
 
     const userData = {
@@ -339,11 +334,7 @@ router.post(
  * @returns {status} - A successful status indicates new password has been set
  * @throws {Error} - If there are errors dont chagne the password
  */
-router.post(
-  "/forgot_password_code/new_password",
-  inputValidator,
-  rateLimiter(),
-  (req, res) => {
+router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(req, res) => {
     const { username, verification_code, new_password } = req.body;
 
     const userData = {
@@ -422,10 +413,5 @@ router.delete("/delete_user", rateLimiter(), (req, res) => {
     }
   });
 });
-// const data = await pgQuery(
-//   "SELECT * FROM users WHERE email=$1",
-//   "faeemahmed123@yahoo.co.uk"
-// ).then((responce) => {
-//   console.log(responce);
-// });
+
 export default router;
