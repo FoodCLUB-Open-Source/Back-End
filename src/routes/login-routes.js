@@ -38,9 +38,10 @@ router.get("/testing", async (req, res) => {
  * @throws {Error} - If there are errors Dont create user.
  */
 router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
-  console.log(req.body);
+  //retrieves data in object format from front end and stores correspoding values in the variables
   const { username, email, password } = req.body;
 
+  //if the following varaible are not valid, it will execute this error condition
   if (!(username && email && password)) {
     return res
       .status(400)
@@ -89,13 +90,8 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
  * @returns {status} - A successful status indicates code verfified
  * @throws {Error} - If there are errors dont verify code
  */
-router.post(
-  "/confirm_verification",
-  inputValidator,
-  rateLimiter(),
-  (req, res) => {
+router.post("/confirm_verification",inputValidator,rateLimiter(),(req, res) => {
     const { username, verification_code } = req.body;
-
     const userData = {
       Username: username,
       Pool: cognitoUserPool,
