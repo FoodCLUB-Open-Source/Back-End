@@ -37,23 +37,14 @@ router.get("/testing", async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
-<<<<<<< HEAD
-
-router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
-  
-  const { username, email, password, full_name } = req.body;
-  
-  if (!(username && email && password && full_name)) {
-    return res.status(400).json({ message :"Necessary input fields not given in request" });
-=======
 router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
+  console.log(req.body);
   const { username, email, password } = req.body;
 
   if (!(username && email && password)) {
     return res
       .status(400)
       .json({ message: "Necessary input fields not given." });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
   }
 
   const attributeArray = [];
@@ -63,7 +54,6 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
   attributeArray.push(
     new CognitoUserAttribute({ Name: "email", Value: email })
   );
-<<<<<<< HEAD
 
   cognitoUserPool.signUp(
     username,
@@ -86,44 +76,13 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
         return res.status(400).json({ message: error.message });
       }
       return res.status(201).json({ user: result.user });
-
-=======
-
-  cognitoUserPool.signUp(
-    username,
-    password,
-    attributeArray,
-    null,
-    async (err, result) => {
-      if (err) {
-        console.error(err);
-        return res.status(400).json({ message: err.message });
-      }
-      try {
-        await pgQuery(
-          `INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *`,
-          username,
-          email,
-          passwordHashed
-        );
-      } catch (error) {
-        return res.status(400).json({ message: error.message });
-      }
-      return res.status(201).json({ user: result.user });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
     }
   );
 });
 
 /**
-<<<<<<< HEAD
-
- * Verify a users email using verification code after sign up.
- * 
-=======
  * Verify a users verification code after sign up.
  *
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
@@ -142,23 +101,6 @@ router.post(
       Pool: cognitoUserPool,
     };
 
-<<<<<<< HEAD
-
-  const cognitoUser = new CognitoUser(userData);
-  cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
-    if (err) {
-      return res.status(400).json({ message: err.message })
-    }
-    try {
-      const verified = true
-      await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
-    } catch (error) {
-      res.status(400).json({ message: error.message })
-    }
-    return res.status(201).json({message: 'user verified'});
-  });
-});
-=======
     const cognitoUser = new CognitoUser(userData);
     cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
       if (err) {
@@ -168,7 +110,6 @@ router.post(
     });
   }
 );
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
 
 /**
  * Send another verification code to user
@@ -237,8 +178,6 @@ router.post(
           "SELECT id, username, profile_picture FROM users WHERE username = $1",
           username
         );
-<<<<<<< HEAD
-=======
 
         const returnData = {
           user_id: user.rows[0].id,
@@ -252,7 +191,6 @@ router.post(
           birth_date: user.rows[0].date_of_birth,
           dietary_preferences: user.rows[0].dietary_preferences,
         };
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
         res.setHeader(
           "Id-Token",
           cognitoUser.getSignInUserSession().getIdToken()
@@ -265,12 +203,7 @@ router.post(
           "Refresh-Token",
           cognitoUser.getSignInUserSession().getRefreshToken()
         );
-<<<<<<< HEAD
-        const fullName = `${user.rows[0].firstName} + " " + ${user.rows[0].lastName}`;
-        res.status(200).json({ user: user.rows[0], full_name: fullName });
-=======
         res.status(200).json({ user: returnData });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
       },
       onFailure: (err) => {
         if (err.message == "User is not confirmed.") {
@@ -493,5 +426,10 @@ router.delete("/delete_user", rateLimiter(), (req, res) => {
     }
   });
 });
-
+// const data = await pgQuery(
+//   "SELECT * FROM users WHERE email=$1",
+//   "faeemahmed123@yahoo.co.uk"
+// ).then((responce) => {
+//   console.log(responce);
+// });
 export default router;
