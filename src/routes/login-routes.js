@@ -115,11 +115,7 @@ router.post("/confirm_verification",inputValidator,rateLimiter(),(req, res) => {
  * @returns {status} - A successful status indicates code resent
  * @throws {Error} - If there are errors dont send another verififcation code
  */
-router.post(
-  "/resend_verification_code",
-  inputValidator,
-  rateLimiter(),
-  (req, res) => {
+router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) => {
     const { username } = req.body;
 
     const userData = {
@@ -148,12 +144,7 @@ router.post(
  * @returns {status} - A successful status indicates successful sign in
  * @throws {Error} - If there are errors dont sign user in
  */
-router.post(
-  "/signin",
-  inputValidator,
-  rateLimiter(),
-  emailOrUsername(),
-  (req, res) => {
+router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) => {
     const { username, password } = req.body;
 
     const authenticationDetails = new AuthenticationDetails({
@@ -274,7 +265,7 @@ router.post("/signout", rateLimiter(), (req, res) => {
  */
 router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
   const { old_password, new_password } = req.body;
-  console.log("HIT");
+
 
   getUserFromTokens((err, result) => {
     if (err) {
