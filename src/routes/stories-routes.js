@@ -30,7 +30,7 @@ router.get("/testing", async (req, res, next) => {
  * @param {string} req.params.user_id - The ID of the user to retrieve stories for
  * @query {string} req.query.page_number - The page number for pagination.
  * @query {string} req.query.page_size - The page size for pagination.
- * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
+ * @returns {Object} - An object containing story information such as story id, image URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
 router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (req, res, next) => {
@@ -69,16 +69,16 @@ router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (
                     }
                     stories.forEach(async (story) => { // processing all user stories
                         // retrieving URLs and replacing them in the story object
-                        const videoURL = await s3Retrieve(story.video_url);
+                        const imageUrl = await s3Retrieve(story.image_url);
                         const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-                        story.video_url = videoURL;
+                        story.image_url = imageUrl;
                         story.thumbnail_url = thumbnailURL;
 
                         let storiesList = userStoryMap[user.user_following_id].stories;
                         storiesList = [...storiesList, {
                             story_id: story.story_id,
                             thumbnail_url: story.thumbnail_url,
-                            video_url: story.video_url,
+                            image_url: story.image_url,
                         }];
                         userStoryMap[user.user_following_id].stories = storiesList;
                         });
@@ -107,7 +107,7 @@ router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (
  * 
  * @rourte GET /:user_id
  * @param {string} req.params.user_id - The ID of the user to retrieve stories for
- * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
+ * @returns {Object} - An object containing story information such as story id, image URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
 router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
@@ -136,8 +136,8 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
  * @throws {Error} - If any errors occur during the creation process, including file uploads. The story won't be insert into dynamodb, then delete the uploaded filess.
  * @description 
  *       This route allows users to create a new story,
- *       Including uploading a video and a thumbnail. 
- *       The video should be attached as the first file in req.files[0], 
+ *       Including uploading a image and a thumbnail. 
+ *       The image should be attached as the first file in req.files[0], 
  *       The thumbnail should be attached as the second file in req.files[1].
  */
 router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req, res, next) => {
@@ -148,14 +148,14 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
     const S3_STORY_PATH = "stories/active/";
   
     try {
-      // Upload the first file (video) and the second file (thumbnail) to an S3 bucket
-      const [newVideoName, newThumbNaileName] = await Promise.all([
+      // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
+      const [newImageName, newThumbNaileName] = await Promise.all([
         s3Upload(req.files[0], S3_STORY_PATH),
         s3Upload(req.files[1], S3_STORY_PATH)
       ]);
 
-      // Create a StorySchema object with user_id, video , and thumbnail 
-      const StorySchema = setStory(parseInt(user_id), newVideoName, newThumbNaileName);
+      // Create a StorySchema object with user_id, image , and thumbnail 
+      const StorySchema = setStory(parseInt(user_id), newImageName, newThumbNaileName);
     
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
@@ -198,7 +198,7 @@ router.delete("/story/:story_id/user/:user_id", inputValidator, rateLimiter(), a
     // Parse the user_id from the request parameters
     const { story_id, user_id } = req.params;
 
-    // Get the story from the Stories table for video and thumbnail URLs to delete from the S3 bucket
+    // Get the story from the Stories table for image and thumbnail URLs to delete from the S3 bucket
     const getStory = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
       .exec();
@@ -207,13 +207,13 @@ router.delete("/story/:story_id/user/:user_id", inputValidator, rateLimiter(), a
       return res.status(404).json({  message: "Story not found" });
     }
 
-    // get the video and thumbnail paths and story_id
-    const { video_url, thumbnail_url, } = getStory[0];
+    // get the image and thumbnail paths and story_id
+    const { image_url, thumbnail_url, } = getStory[0];
 
-    // Delete the video and thumbnail from the S3 bucket
+    // Delete the image and thumbnail from the S3 bucket
     try {
       await Promise.all([
-        s3Delete(video_url),
+        s3Delete(image_url),
         s3Delete(thumbnail_url)
       ]);
     } catch (err) {
