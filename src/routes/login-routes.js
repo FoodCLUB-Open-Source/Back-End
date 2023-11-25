@@ -35,15 +35,16 @@ router.get("/testing", async (req, res) => {
  * @body {string} req.body.email - Users email
  * @body {string} req.body.password - Users password
  * @returns {status} - A status indicating successful sign up
- * @throws {Error} - If there are errors Dont create user.
  */
+router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
+  //retrieves data in object format from front end and stores correspoding values in the variables
+  const { username, email, password } = req.body;
 
-router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
-  
-  const { username, email, password, full_name } = req.body;
-  
-  if (!(username && email && password && full_name)) {
-    return res.status(400).json({ message :"Necessary input fields not given in request" });
+  //if the following varaible are not valid, it will execute this error condition
+  if (!(username && email && password)) {
+    return res
+      .status(400)
+      .json({ message: "Necessary input fields not given." });
   }
 
   const attributeArray = [];
@@ -76,55 +77,26 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
         return res.status(400).json({ message: error.message });
       }
       return res.status(201).json({ user: result.user });
-
     }
   );
 });
 
 /**
-<<<<<<< HEAD
-
- * Verify a users email using verification code after sign up.
- * 
-=======
  * Verify a users verification code after sign up.
  *
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
  * @returns {status} - A successful status indicates code verfified
  * @throws {Error} - If there are errors dont verify code
  */
-router.post(
-  "/confirm_verification",
-  inputValidator,
-  rateLimiter(),
-  (req, res) => {
+router.post("/confirm_verification",inputValidator,rateLimiter(),(req, res) => {
     const { username, verification_code } = req.body;
-
     const userData = {
       Username: username,
       Pool: cognitoUserPool,
     };
 
-<<<<<<< HEAD
-
-    const cognitoUser = new CognitoUser(userData);
-    cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
-      if (err) {
-        return res.status(400).json({ message: err.message })
-      }
-      try {
-        const verified = true
-        await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
-      } catch (error) {
-        res.status(400).json({ message: error.message })
-      }
-      return res.status(201).json({message: 'user verified'});
-    });
-});
-=======
     const cognitoUser = new CognitoUser(userData);
     cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
       if (err) {
@@ -134,7 +106,6 @@ router.post(
     });
   }
 );
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
 
 /**
  * Send another verification code to user
@@ -144,11 +115,7 @@ router.post(
  * @returns {status} - A successful status indicates code resent
  * @throws {Error} - If there are errors dont send another verififcation code
  */
-router.post(
-  "/resend_verification_code",
-  inputValidator,
-  rateLimiter(),
-  (req, res) => {
+router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) => {
     const { username } = req.body;
 
     const userData = {
@@ -177,12 +144,7 @@ router.post(
  * @returns {status} - A successful status indicates successful sign in
  * @throws {Error} - If there are errors dont sign user in
  */
-router.post(
-  "/signin",
-  inputValidator,
-  rateLimiter(),
-  emailOrUsername(),
-  (req, res) => {
+router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) => {
     const { username, password } = req.body;
 
     const authenticationDetails = new AuthenticationDetails({
@@ -203,8 +165,6 @@ router.post(
           "SELECT id, username, profile_picture FROM users WHERE username = $1",
           username
         );
-<<<<<<< HEAD
-=======
 
         const returnData = {
           user_id: user.rows[0].id,
@@ -218,7 +178,6 @@ router.post(
           birth_date: user.rows[0].date_of_birth,
           dietary_preferences: user.rows[0].dietary_preferences,
         };
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
         res.setHeader(
           "Id-Token",
           cognitoUser.getSignInUserSession().getIdToken()
@@ -231,12 +190,7 @@ router.post(
           "Refresh-Token",
           cognitoUser.getSignInUserSession().getRefreshToken()
         );
-<<<<<<< HEAD
-        const fullName = `${user.rows[0].firstName} + " " + ${user.rows[0].lastName}`;
-        res.status(200).json({ user: user.rows[0], full_name: fullName });
-=======
         res.status(200).json({ user: returnData });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
       },
       onFailure: (err) => {
         if (err.message == "User is not confirmed.") {
@@ -311,7 +265,7 @@ router.post("/signout", rateLimiter(), (req, res) => {
  */
 router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
   const { old_password, new_password } = req.body;
-  console.log("HIT");
+
 
   getUserFromTokens((err, result) => {
     if (err) {
@@ -340,12 +294,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
  * @returns {status} - A successful status indicates code is sent
  * @throws {Error} - If there are errors dont send a code
  */
-router.post(
-  "/forgot_password/verification_code",
-  inputValidator,
-  rateLimiter(),
-  emailOrUsername(),
-  async (req, res) => {
+router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),emailOrUsername(),async (req, res) => {
     const { username } = req.body;
 
     const userData = {
@@ -376,11 +325,7 @@ router.post(
  * @returns {status} - A successful status indicates new password has been set
  * @throws {Error} - If there are errors dont chagne the password
  */
-router.post(
-  "/forgot_password_code/new_password",
-  inputValidator,
-  rateLimiter(),
-  (req, res) => {
+router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(req, res) => {
     const { username, verification_code, new_password } = req.body;
 
     const userData = {
