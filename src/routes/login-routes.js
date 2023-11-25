@@ -1,5 +1,9 @@
 /* For login system routes */
-import { AuthenticationDetails, CognitoUser, CognitoUserAttribute } from "amazon-cognito-identity-js";
+import {
+  AuthenticationDetails,
+  CognitoUser,
+  CognitoUserAttribute,
+} from "amazon-cognito-identity-js";
 import { hash } from "bcrypt";
 import { Router } from "express";
 
@@ -9,14 +13,14 @@ import inputValidator from "../middleware/input_validator.js";
 import { cognitoUserPool, refreshVerifier } from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
-import { getUserFromTokens } from '../functions/apply_cognito.js';
+import { getUserFromTokens } from "../functions/apply_cognito.js";
 
 const router = Router();
 
 /* Testing Login Route */
 router.get("/testing", async (req, res) => {
   try {
-    res.json({ "Testing": "Working Login" });
+    res.json({ Testing: "Working Login" });
   } catch (err) {
     console.error(err.message);
     res.json(err.message);
@@ -25,7 +29,7 @@ router.get("/testing", async (req, res) => {
 
 /**
  * Sign up a user
- * 
+ *
  * @route POST /login/signup
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.email - Users email
@@ -33,16 +37,19 @@ router.get("/testing", async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
-router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
-  
-  const { username, email, password, full_name } = req.body;
-  
-  if (!(username && email && password && full_name)) {
-    return res.status(400).json({ message :"Necessary input fields not given in request" });
+
+router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
+  //retrieves data in object format from front end and stores correspoding values in the variables
+  const { username, email, password } = req.body;
+
+  //if the following varaible are not valid, it will execute this error condition
+  if (!(username && email && password)) {
+    return res.status(400).json({ message: "Necessary input fields not given." });
   }
 
   const attributeArray = [];
   const passwordHashed = await hash(password, 10);
+
 
   attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
 
@@ -138,16 +145,16 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
   });
 });
 
+
 /**
  * Send another verification code to user
- * 
+ *
  * @route POST /login/resend_verification_code
  * @body {string} req.body.username - Users Username
  * @returns {status} - A successful status indicates code resent
  * @throws {Error} - If there are errors dont send another verififcation code
  */
-router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, res) => {
-
+router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) => {
   const { username } = req.body;
 
   const userData = {
@@ -156,7 +163,7 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
   };
 
   const cognitoUser = new CognitoUser(userData);
-
+  
   cognitoUser.resendConfirmationCode((err, result) => {
     if (err) {
       return res.status(400).json({ message: err.msg })
@@ -166,10 +173,9 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
       message: 'new code sent successfully' })
   });
 });
-
 /**
  * Allows a user to sign in to their account
- * 
+ *
  * @route POST /login/signin
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.email - the user's email address. Either usename or email can be used.
@@ -177,13 +183,8 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
  * @returns {status} - A successful status indicates successful sign in
  * @throws {Error} - If there are errors dont sign user in
  */
-router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, res) => {
-  const { username, password } = req.body
-  
-  const authenticationDetails = new AuthenticationDetails({
-    Username: username,
-    Password: password
-  });
+router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) => {
+  const { username, password } = req.body;
 
   const userData = {
     Username: username,
@@ -220,17 +221,17 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
 
 /**
  * Sign a user out
- * 
+ *
  * @route POST /login/signout
- * @body 
+ * @body
  * @returns {status} - A successful status means sign out successful
  * @throws {Error} - If there are errors dont sign a user out
  */
-router.post('/signout', rateLimiter(), (req, res) => {
+router.post("/signout", rateLimiter(), (req, res) => {
   // const { username } = req.body
 
   const cognitoUser = cognitoUserPool.getCurrentUser();
-  
+
   try {
     cognitoUser.getSession((err, session) => {
       if (err) {
@@ -239,42 +240,42 @@ router.post('/signout', rateLimiter(), (req, res) => {
     });
   } catch (err) {
     return res.status(400).json({
-      header: 'session not found',
-      message: 'no user tokens in local storage: cannot log user out'
-    })
+      header: "session not found",
+      message: "no user tokens in local storage: cannot log user out",
+    });
   }
 
   if (cognitoUser != null) {
     cognitoUser.signOut((err) => {
       if (err) {
-        return res.status(400).json(err.message)
+        return res.status(400).json(err.message);
       }
     });
-    return res.status(200).json({message: 'user successfully logged out'});
+    return res.status(200).json({ message: "user successfully logged out" });
   } else {
-    return res.status(500).json({message: 'no user tokens in local storage: cannot log user out'});
-  };
+    return res.status(500).json({
+      message: "no user tokens in local storage: cannot log user out",
+    });
+  }
 });
 
 /**
  * Changes a users password from old to new
- * 
+ *
  * @route POST /login/change_password
  * @body {string} req.body.old_password - Users old password
  * @body {string} req.body.new_password - Users new password
  * @returns {status} - A successful status indicates password successfully changed
  * @throws {Error} - If there are errors dont change the users passwords
  */
-router.post('/change_password', inputValidator, rateLimiter(), (req, res) => {
-  
+router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
   const { old_password, new_password } = req.body;
-  console.log('HIT')
+
 
   getUserFromTokens((err, result) => {
     if (err) {
       return res.status(400).json(err);
     } else if (result) {
-
       const cognitoUser = result;
       console.log(cognitoUser);
 
@@ -282,45 +283,46 @@ router.post('/change_password', inputValidator, rateLimiter(), (req, res) => {
         if (err) {
           return res.status(400).json({ message: err.msg });
         }
-        return res.status(201).json({ message: 'password changed successfully' });
+        return res
+          .status(201)
+          .json({ message: "password changed successfully" });
       });
-    };
+    }
   });
 });
 
-
 /**
  * Sends a user a forgot password verification code
- * 
+ *
  * @route POST /login/forgot_password/verification_code
  * @body {string} req.body.username - Users Username
  * @returns {status} - A successful status indicates code is sent
  * @throws {Error} - If there are errors dont send a code
  */
-router.post('/forgot_password/verification_code', inputValidator, rateLimiter(), emailOrUsername(), async (req, res) => {
+router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),emailOrUsername(),async (req, res) => {
+    const { username } = req.body;
 
-  const { username } = req.body;
+    const userData = {
+      Username: username,
+      Pool: cognitoUserPool,
+    };
 
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
+    const cognitoUser = new CognitoUser(userData);
 
-  const cognitoUser = new CognitoUser(userData);
-  
-  cognitoUser.forgotPassword({
-    onSuccess: (data) => {
-      res.status(200).json({ message: 'Verification code sent' });
-    },
-    onFailure: (err) => {
-      res.status(400).json({ message: err.msg })
-    },
-  });
-});
+    cognitoUser.forgotPassword({
+      onSuccess: (data) => {
+        res.status(200).json({ message: "Verification code sent" });
+      },
+      onFailure: (err) => {
+        res.status(400).json({ message: err.msg });
+      },
+    });
+  }
+);
 
 /**
  * Uses verification code to  change the password
- * 
+ *
  * @route POST /login/forgot_password_code/new_password
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code that was sent
@@ -328,58 +330,57 @@ router.post('/forgot_password/verification_code', inputValidator, rateLimiter(),
  * @returns {status} - A successful status indicates new password has been set
  * @throws {Error} - If there are errors dont chagne the password
  */
-router.post('/forgot_password_code/new_password', inputValidator, rateLimiter(), (req, res) => {
+router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(req, res) => {
+    const { username, verification_code, new_password } = req.body;
 
-  const { username, verification_code, new_password } = req.body;
+    const userData = {
+      Username: username,
+      Pool: cognitoUserPool,
+    };
 
-  const userData = {
-    Username: username,
-    Pool: cognitoUserPool,
-  };
+    const cognitoUser = new CognitoUser(userData);
 
-  const cognitoUser = new CognitoUser(userData);
-
-  cognitoUser.confirmPassword(verification_code, new_password, {
-    onSuccess() {
-      res.status(201).json({ message: 'password reset successfully'});
-    },
-    onFailure(err) {
-      res.status(400).json({ message: err })
-    },
-  });
-});
-
+    cognitoUser.confirmPassword(verification_code, new_password, {
+      onSuccess() {
+        res.status(201).json({ message: "password reset successfully" });
+      },
+      onFailure(err) {
+        res.status(400).json({ message: err });
+      },
+    });
+  }
+);
 
 /**
  * Send another verification code to user
- * 
+ *
  * @route POST /login/global_signout
  * @body req.body.username - the user's username
  * @returns {status} - A successful status indicates user is signed out on all devices he is logged in on
  * @throws {Error} - If there are errors dont sign user out on any device
  */
-router.post('/global_signout', rateLimiter(), (req, res) => {
-
+router.post("/global_signout", rateLimiter(), (req, res) => {
   getUserFromTokens((err, result) => {
     if (err) {
       return res.status(400).json(err);
     } else if (result) {
-
       const cognitoUser = result;
       console.log(cognitoUser);
 
-      cognitoUser.deleteUser( async (err, result) => {
+      cognitoUser.deleteUser(async (err, result) => {
         if (err) {
-          return res.status(400).json({ message: err.msg })
-        };
+          return res.status(400).json({ message: err.msg });
+        }
         try {
-          await pgQuery('DELETE FROM users WHERE username = $1', username);
+          await pgQuery("DELETE FROM users WHERE username = $1", username);
         } catch (error) {
-          return res.status(400).json({ message: 'user not deleted from database'});
+          return res
+            .status(400)
+            .json({ message: "user not deleted from database" });
         }
         res.status(200).json({ message: `user, ${username}, deleted` });
       });
-    };
+    }
   });
 });
 
@@ -438,28 +439,28 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
 
 
 router.delete('/delete_user', rateLimiter(), (req, res) => {
-
   const username = req.body.username;
 
   getUserFromTokens((err, result) => {
     if (err) {
       return res.status(400).json(err);
     } else if (result) {
-
       const cognitoUser = result;
 
-      cognitoUser.deleteUser( async (err, result) => {
+      cognitoUser.deleteUser(async (err, result) => {
         if (err) {
           return res.status(400).json({ message: err.msg });
-        };
+        }
         try {
-          await pgQuery('DELETE FROM users WHERE username = $1', username);
+          await pgQuery("DELETE FROM users WHERE username = $1", username);
         } catch (error) {
-          return res.status(400).json({ message: 'user not deleted from database'});
+          return res
+            .status(400)
+            .json({ message: "user not deleted from database" });
         }
         res.status(200).json({ message: `user, ${username}, deleted` });
       });
-    };
+    }
   });
 });
 

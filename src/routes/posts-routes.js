@@ -327,10 +327,10 @@ router.get("/category/:category_id/:user_id", rateLimiter(), inputValidator, asy
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.get("/homepage/user/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+      // getting user ID
+      const user_id =parseInt(req.params.user_id);
   try {
-    // getting user ID
-    const { user_id } = req.params;
 
     // getting posts liked by user
     const postLikeCount = await getDynamoRequestBuilder("Likes").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").exec();
