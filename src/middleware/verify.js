@@ -1,13 +1,29 @@
-import { CognitoJwtVerifier } from "aws-jwt-verify";
-import cognitoUserPool from "../cognito.js";
+import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../cognito.js";
+
 // Verifier that expects valid access tokens:
 
-const verifyAccess = async (req, res, next) => {
-  const verifier = CognitoJwtVerifier.create({
-    userPoolId: process.env.USER_POOL_ID,
-    tokenUse: "access",
-    clientId: process.env.CLIENT_ID,
-  });
+export const verifyAccessToken = async (req, res, next) => {
+
+  const userAccessToken = req.header['Access-Token'];
+  
+  if (!!userAccessToken) {
+    try {
+      const payload = await accessVerifier.verify(
+        userAccessToken.getJwtToken()
+      );
+    } catch {
+      // If the access token is not valid, the refresh token will be validated. 
+      return res.status(400).json({message: 'Request new access token'});
+    };
+  } else {
+    return res.status(404).json({message: 'Access token is null'});
+  };
+  next();
+};
+
+// The function below is only necessary for an extra layer of security with id tokens. It is not yet needed for implementation.
+
+export const verifyIdToken = async (req, res, next) => {
   
   const cognitoUser = cognitoUserPool.getCurrentUser()  
 
@@ -18,7 +34,7 @@ const verifyAccess = async (req, res, next) => {
   });
 
   try {
-    const payload = await verifier.verify(
+    const payload = await idVerifier.verify(
       cognitoUser.getCurrentUser().get
     );
     res.status(200).json({message: `Token is valid. Payload: ${payload}`});
@@ -28,28 +44,12 @@ const verifyAccess = async (req, res, next) => {
   next()
 }
 
-const verifyId= async (req, res, next) => {
-  const verifier = CognitoJwtVerifier.create({
-    userPoolId: process.env.USER_POOL_ID,
-    tokenUse: "id",
-    clientId: process.env.CLIENT_ID,
-  });
-  
-  const cognitoUser = cognitoUserPool.getCurrentUser()  
+export const verifySession = async (req, res, next) => {
+  const cognitoUser = cognitoUserPool.getCurrentUser() 
 
   cognitoUser.getSession((err, session) => {
     if (err) {
-      return res.status(400).json(err.message)
+      return res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
     }
   });
-
-  try {
-    const payload = await verifier.verify(
-      cognitoUser.getCurrentUser().get
-    );
-    res.status(200).json({message: `Token is valid. Payload: ${payload}`});
-  } catch {
-    res.status(400).json({ message: "Token not valid" });
-  }
-  next()
-}
+} 
