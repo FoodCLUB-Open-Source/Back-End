@@ -12,6 +12,7 @@ CREATE TABLE users (
   username VARCHAR(255) UNIQUE NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
+  full_name VARCHAR(255) NOT NULL,
   phone_number VARCHAR(255),
   profile_picture VARCHAR(255),
   user_bio TEXT,
@@ -206,7 +207,3 @@ VALUES  (1, 2, 6),
         (3, 2, 6),
         (4, 2, 6),
         (5, 2, 6);
-
-ALTER TABLE users 
-ADD COLUMN full_name VARCHAR(255)
-ADD COLUMN verified BOOLEAN
