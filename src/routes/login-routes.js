@@ -51,14 +51,34 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
       console.error(err);
       return res.status(400).json({message: err.message});
     }
+    
+    const userData = {
+      Username: username,
+      Pool: cognitoUserPool,
+    };
+  
+    const cognitoUser = new CognitoUser(userData);
+
     try {
-      const verified = false
+      const verified = false;
       await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5)`,
       username, email, passwordHashed, full_name, verified);
     } catch (error) {
-      return res.status(400).json({  message: error.message });
+      cognitoUser.deleteUser( async (err, result) => {
+        if (err) {
+          return res.status(400).json({ message: err.message });
+        }
+      });
+      return res.status(400).json({ message: error.message });
     }
-    return res.status(201).json({user: result.user});
+
+    return res.status(201).json({
+      username: username,
+      verification_status: 'not verified',
+      email: email,
+      full_name: full_name,
+      session: null
+    });
   });  
 });
 
@@ -68,12 +88,13 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
+ * @body {string} req.body.password - password, for logging in user after confirmation
  * @returns {status} - A successful status indicates code verfified
  * @throws {Error} - If there are errors dont verify code
  */
 router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) => {
 
-  const { username, verification_code } = req.body;
+  const { username, password, verification_code } = req.body;
 
   const userData = {
     Username: username,
@@ -91,7 +112,29 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
     } catch (error) {
       res.status(400).json({ message: error.message })
     }
-    return res.status(201).json({message: 'user verified'});
+
+    const authenticationDetails = new AuthenticationDetails({
+      Username: username,
+      Password: password
+    });
+    
+    cognitoUser.authenticateUser(authenticationDetails, {
+      onSuccess: async (result) => {
+        const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
+        res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken());
+        res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken());
+        res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken());
+        res.status(200).json({ 
+          header: 'user logged in',
+          message: 'user email verified successfully',
+          user: user.rows[0],
+          result: result
+        });
+      },
+      onFailure: (err) => {
+        return res.status(400).json({message: err.message})      
+      }
+    }); 
   });
 });
 
@@ -118,7 +161,9 @@ router.post('/resend_verification_code', inputValidator, rateLimiter(), (req, re
     if (err) {
       return res.status(400).json({ message: err.msg })
     }
-    res.status(200).json({ message: 'new code sent successfully' })
+    res.status(200).json({ 
+      header: 'User email is not confirmed',
+      message: 'new code sent successfully' })
   });
 });
 
@@ -150,14 +195,14 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
       const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
-      res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken())
-      res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken())
-      res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken())
+      res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken());
+      res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken());
+      res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken());
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
       if (err.message == "User is not confirmed.") {
-        res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`)
+        res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`);
       } else if (err.code == "UserNotFoundException") {
         res.status(400).json({
           header: 'user not found',
@@ -168,7 +213,7 @@ router.post('/signin', inputValidator, rateLimiter(), emailOrUsername(), (req, r
           header: 'sign in error',
           message: err.message
         });
-      }
+      };
     }
   });  
 });

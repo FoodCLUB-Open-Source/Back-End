@@ -45,7 +45,7 @@ const inputValidator = [
 		.optional()
 		.isEmail().withMessage("Must be a valid email address")
 		.normalizeEmail()
-		.isLength({ min: 5, max: 30 }).withMessage('Email must be between 5 and 30 characters')
+		.isLength({ min: 5, max: 50 }).withMessage('Email must be between 5 and 30 characters')
 		.customSanitizer(value => sanitisedInput(value))
 		.trim(),
 	check(["password", "old_password", "new_password"])
