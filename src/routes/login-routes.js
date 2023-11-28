@@ -192,6 +192,11 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
   };
 
   const cognitoUser = new CognitoUser(userData);
+
+  const authenticationDetails = new AuthenticationDetails({
+    Username: username,
+    Password: password
+  });
   
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
@@ -203,7 +208,15 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
     },
     onFailure: (err) => {
       if (err.message == "User is not confirmed.") {
-        res.redirect(307, `${process.env.BASE_PATH}/login/resend_verification_code`);
+        cognitoUser.resendConfirmationCode((err, result) => {
+          if (err) {
+            return res.status(400).json({ message: err.msg })
+          }
+          res.status(400).json({ 
+            message: 'User is not verified',
+            description: 'new verification code email sent'
+          })
+        });
       } else if (err.code == "UserNotFoundException") {
         res.status(400).json({
           header: 'user not found',
