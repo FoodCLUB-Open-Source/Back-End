@@ -115,11 +115,10 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
   try {
     const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec();
     
-    console.log(stories);
     const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
     const filteredStories = stories.filter( story => { // filtering out stories that are older than 24 hours
       const timeDiff = Date.now() - Date.parse(story.created_at);
-      return timeDiff < 50000000000;
+      return timeDiff < ONE_DAY;
     });
 
     res.status(200).json({ stories: filteredStories });
