@@ -40,7 +40,7 @@ router.get("/testing", async (req, res) => {
 
 router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
   //retrieves data in object format from front end and stores correspoding values in the variables
-  const { username, email, password } = req.body;
+  const { username, email, password, full_name } = req.body;
 
   //if the following varaible are not valid, it will execute this error condition
   if (!(username && email && password)) {
