@@ -43,7 +43,7 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
   const { username, email, password, full_name } = req.body;
 
   //if the following varaible are not valid, it will execute this error condition
-  if (!(username && email && password)) {
+  if (!(username && email && password && full_name)) {
     return res.status(400).json({ message: "Necessary input fields not given." });
   }
 
