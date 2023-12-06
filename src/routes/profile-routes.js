@@ -95,7 +95,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
  * @param {string} req.params.user_id - The ID of the user to retrieve users that are followed by the user
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
- * @returns {Object} - An object containing details of the users that are followed by the user such as id, username and profile picture
+ * @returns {Object} - An object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res, next) => {
@@ -103,9 +103,21 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
         const userID = req.params.user_id; // getting userID
         const { page_number, page_size } = req.query; // getting page number and page size
 
-        const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
-        const userFollowing = await pgQuery(query, userID, page_number, page_size);
+        // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
+        
+        // queries for id of users, usernames, profile pictures, and whether they follow them back that the given user is following
+        const query = `
+        SELECT f1.user_following_id, u.username, u.profile_picture,
+               CASE WHEN f2.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS followsBack
+        FROM following f1
+        LEFT JOIN following f2 ON f1.user_following_id = f2.user_id AND f2.user_following_id = f1.user_id
+        JOIN users u ON f1.user_following_id = u.id
+        WHERE f1.user_id = $1
+        ORDER BY f1.created_at ASC 
+        LIMIT $3 OFFSET (($2 - 1) * $3)`
 
+        const userFollowing = await pgQuery(query, userID, page_number, page_size);
+        
         return res.status(200).json({ data: userFollowing.rows }); // sends details to client
     } catch (error) {
         next(error) // server side error

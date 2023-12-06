@@ -118,7 +118,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
     const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
     const filteredStories = stories.filter( story => { // filtering out stories that are older than 24 hours
       const timeDiff = Date.now() - Date.parse(story.created_at);
-      return timeDiff < ONE_DAY
+      return timeDiff < ONE_DAY;
     });
 
     res.status(200).json({ stories: filteredStories });
