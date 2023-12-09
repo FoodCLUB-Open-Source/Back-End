@@ -3,6 +3,7 @@ import {
   AuthenticationDetails,
   CognitoUser,
   CognitoUserAttribute,
+  CognitoUserSession
 } from "amazon-cognito-identity-js";
 import { hash } from "bcrypt";
 import { Router } from "express";
@@ -13,7 +14,6 @@ import inputValidator from "../middleware/input_validator.js";
 import { cognitoUserPool, refreshVerifier } from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
-import { getUserFromTokens } from "../functions/apply_cognito.js";
 
 const router = Router();
 
@@ -166,7 +166,7 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
   
   cognitoUser.resendConfirmationCode((err, result) => {
     if (err) {
-      return res.status(400).json({ message: err.msg })
+      return res.status(400).json({ message: err.message })
     }
     res.status(200).json({ 
       header: 'User email is not confirmed',
@@ -210,7 +210,7 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
       if (err.message == "User is not confirmed.") {
         cognitoUser.resendConfirmationCode((err, result) => {
           if (err) {
-            return res.status(400).json({ message: err.msg })
+            return res.status(400).json({ message: err.message })
           }
           res.status(400).json({ 
             message: 'User is not verified',
@@ -268,31 +268,47 @@ router.post("/signout", rateLimiter(), (req, res) => {
  * Changes a users password from old to new
  *
  * @route POST /login/change_password
+ * @header {CognitoAccessToken} - the user's access token
+ * @header {CognitoIdToken} - the user's id token
  * @body {string} req.body.old_password - Users old password
  * @body {string} req.body.new_password - Users new password
  * @returns {status} - A successful status indicates password successfully changed
  * @throws {Error} - If there are errors dont change the users passwords
  */
 router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
-  const { old_password, new_password } = req.body;
+  const { username, old_password, new_password } = req.body;
 
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool
+  };
+  
+  const userAccessToken = req.header['Access-Token']
+  const userIdToken = req.header['Id-Token']
+  /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
+  authenticated. For this, the id token and the access token are required in the request header.
+  */
 
-  getUserFromTokens((err, result) => {
+  const sessionData = {
+    IdToken: userIdToken,
+    AccessToken: userAccessToken,
+    RefreshToken: null,
+    ClockDrift: null,
+  };
+
+  const cognitoUserSession = new CognitoUserSession(sessionData)
+
+  const cognitoUser = new CognitoUser(userData);
+
+  cognitoUser.setSignInUserSession(cognitoUserSession) 
+
+  cognitoUser.changePassword(old_password, new_password, (err, result) => {
     if (err) {
-      return res.status(400).json(err);
-    } else if (result) {
-      const cognitoUser = result;
-      console.log(cognitoUser);
-
-      cognitoUser.changePassword(old_password, new_password, (err, result) => {
-        if (err) {
-          return res.status(400).json({ message: err.msg });
-        }
-        return res
-          .status(201)
-          .json({ message: "password changed successfully" });
-      });
+      return res.status(400).json({ message: err.message });
     }
+    return res
+      .status(201)
+      .json({ message: "password changed successfully" });
   });
 });
 
@@ -319,7 +335,7 @@ router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),em
         res.status(200).json({ message: "Verification code sent" });
       },
       onFailure: (err) => {
-        res.status(400).json({ message: err.msg });
+        res.status(400).json({ message: err.message });
       },
     });
   }
