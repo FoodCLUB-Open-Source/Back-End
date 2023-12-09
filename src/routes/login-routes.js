@@ -236,38 +236,30 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
  * Sign a user out
  *
  * @route POST /login/signout
- * @body
+ * @body {string} req.body.username - the username of the user.
  * @returns {status} - A successful status means sign out successful
  * @throws {Error} - If there are errors dont sign a user out
  */
 router.post("/signout", rateLimiter(), (req, res) => {
-  // const { username } = req.body
+  const { username } = req.body
 
-  const cognitoUser = cognitoUserPool.getCurrentUser();
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool
+  };
 
-  try {
-    cognitoUser.getSession((err, session) => {
-      if (err) {
-        return res.status(400).json(err.message);
-      }
-    });
-  } catch (err) {
-    return res.status(400).json({
-      header: "session not found",
-      message: "no user tokens in local storage: cannot log user out",
-    });
-  }
+  const cognitoUser = new CognitoUser(userData);
 
   if (cognitoUser != null) {
-    cognitoUser.signOut((err) => {
+    cognitoUser.signOut((err, result) => {
       if (err) {
         return res.status(400).json(err.message);
       }
     });
     return res.status(200).json({ message: "user successfully logged out" });
   } else {
-    return res.status(500).json({
-      message: "no user tokens in local storage: cannot log user out",
+    return res.status(404).json({
+      message: "Username is not found: user could not be signed out.",
     });
   }
 });
@@ -373,26 +365,21 @@ router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(r
  * @throws {Error} - If there are errors dont sign user out on any device
  */
 router.post("/global_signout", rateLimiter(), (req, res) => {
-  getUserFromTokens((err, result) => {
-    if (err) {
-      return res.status(400).json(err);
-    } else if (result) {
-      const cognitoUser = result;
-      console.log(cognitoUser);
+  const { username } = req.body;
+  
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
 
-      cognitoUser.deleteUser(async (err, result) => {
-        if (err) {
-          return res.status(400).json({ message: err.msg });
-        }
-        try {
-          await pgQuery("DELETE FROM users WHERE username = $1", username);
-        } catch (error) {
-          return res
-            .status(400)
-            .json({ message: "user not deleted from database" });
-        }
-        res.status(200).json({ message: `user, ${username}, deleted` });
-      });
+  const cognitoUser = new CognitoUser(userData);
+
+  cognitoUser.globalSignOut({
+    onSuccess: (result) => { 
+      res.status(200).json('User signed out globally')
+    },
+    onFailure: (err) => {
+      res.status(400).json('Global sign out failed')
     }
   });
 });
@@ -448,33 +435,6 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
   } else {
     res.status(400).json({message: 'Refresh token not provided'});
   };
-});
-
-
-router.delete('/delete_user', rateLimiter(), (req, res) => {
-  const username = req.body.username;
-
-  getUserFromTokens((err, result) => {
-    if (err) {
-      return res.status(400).json(err);
-    } else if (result) {
-      const cognitoUser = result;
-
-      cognitoUser.deleteUser(async (err, result) => {
-        if (err) {
-          return res.status(400).json({ message: err.msg });
-        }
-        try {
-          await pgQuery("DELETE FROM users WHERE username = $1", username);
-        } catch (error) {
-          return res
-            .status(400)
-            .json({ message: "user not deleted from database" });
-        }
-        res.status(200).json({ message: `user, ${username}, deleted` });
-      });
-    }
-  });
 });
 
 export default router;
