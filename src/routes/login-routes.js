@@ -387,15 +387,32 @@ router.post("/global_signout", rateLimiter(), (req, res) => {
     Username: username,
     Pool: cognitoUserPool,
   };
+  
+  const userAccessToken = req.header['Access-Token']
+  const userIdToken = req.header['Id-Token']
+  /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
+  authenticated. For this, the id token and the access token are required in the request header.
+  */
+
+  const sessionData = {
+    IdToken: userIdToken,
+    AccessToken: userAccessToken,
+    RefreshToken: null,
+    ClockDrift: null,
+  };
+
+  const cognitoUserSession = new CognitoUserSession(sessionData)
 
   const cognitoUser = new CognitoUser(userData);
+
+  cognitoUser.setSignInUserSession(cognitoUserSession) 
 
   cognitoUser.globalSignOut({
     onSuccess: (result) => { 
       res.status(200).json('User signed out globally')
     },
     onFailure: (err) => {
-      res.status(400).json('Global sign out failed')
+      res.status(400).json(err.message)
     }
   });
 });
