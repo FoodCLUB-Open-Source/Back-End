@@ -240,6 +240,8 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
  * @returns {status} - A successful status means sign out successful
  * @throws {Error} - If there are errors dont sign a user out
  */
+
+///@dev this endpoint will need the verify endpoint, to only allow a signed in user to make a sign out request.
 router.post("/signout", rateLimiter(), (req, res) => {
   const { username } = req.body
 
@@ -256,7 +258,10 @@ router.post("/signout", rateLimiter(), (req, res) => {
         return res.status(400).json(err.message);
       }
     });
-    return res.status(200).json({ message: "user successfully logged out" });
+    return res.status(200).json({ 
+      message: "user successfully logged out" 
+      
+    });
   } else {
     return res.status(404).json({
       message: "Username is not found: user could not be signed out.",
@@ -373,7 +378,7 @@ router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(r
 );
 
 /**
- * Send another verification code to user
+ * Global sign out: invalidates all user tokens on all devices.
  *
  * @route POST /login/global_signout
  * @body req.body.username - the user's username
@@ -390,9 +395,6 @@ router.post("/global_signout", rateLimiter(), (req, res) => {
   
   const userAccessToken = req.header['Access-Token']
   const userIdToken = req.header['Id-Token']
-  /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
-  authenticated. For this, the id token and the access token are required in the request header.
-  */
 
   const sessionData = {
     IdToken: userIdToken,
@@ -454,7 +456,7 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
         };
         // if user_id not in payload, we can just use a lookup in psql with username.
 
-        // if successful, the user;s new tokens are returned as a CognitoUserSession object instance.
+        // if successful, the user's new tokens are returned as a CognitoUserSession object instance.
         return res.status(200).json({
           message: 'Session refresh successful',
           new_session: result
