@@ -135,7 +135,6 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
           header: 'user logged in',
           message: 'user email verified successfully',
           user: user.rows[0],
-          result: result
         });
       },
       onFailure: (err) => {
