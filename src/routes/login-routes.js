@@ -456,9 +456,12 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
         // if user_id not in payload, we can just use a lookup in psql with username.
 
         // if successful, the user's new tokens are returned as a CognitoUserSession object instance.
+        res.setHeader('Id-Token', result.getIdToken());
+        res.setHeader('Access-Token', result.getAccessToken());
+        res.setHeader('Refresh-Token', result.getRefreshToken());
+
         return res.status(200).json({
           message: 'Session refresh successful',
-          new_session: result
         });
       })
     } catch {
