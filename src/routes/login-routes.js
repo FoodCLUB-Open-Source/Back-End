@@ -71,7 +71,7 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
       await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5)`,
       username, email, passwordHashed, full_name, verified);
     } catch (error) {
-      cognitoUser.deleteUser( async (err, result) => {
+      cognitoUser.deleteUser((err, result) => {
         if (err) {
           return res.status(400).json({ message: err.message });
         }
