@@ -1,4 +1,5 @@
 import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../cognito.js";
+import { pgQuery } from "../functions/general_functions.js";
 
 // Verifier that expects valid access tokens:
 
@@ -11,6 +12,13 @@ export const verifyAccessToken = async (req, res, next) => {
       const payload = await accessVerifier.verify(
         userAccessToken.getJwtToken()
       );
+      const username = payload.username
+      const user_id = await pgQuery('SELECT user_id FROM users WHERE username = $1', username);
+      return {
+        username: username,
+        user_id: user_id,
+        userSignedIn: true
+      };
     } catch {
       // If the access token is not valid, the refresh token will be validated. 
       return res.status(400).json({message: 'Request new access token'});

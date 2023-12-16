@@ -6,6 +6,7 @@ import {
 } from "amazon-cognito-identity-js";
 import { hash } from "bcrypt";
 import { Router } from "express";
+//import { sign } from "jsonwebtoken";
 
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
@@ -201,9 +202,24 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
       const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
-      res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken());
-      res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken());
-      res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken());
+
+      // signInUserSession is an instance of CognitoUserSession
+      // these return object instances, not just strings of the tokens.
+      // we need the special key to use jwt.sign to add to the payload.
+      const signInUserSession = cognitoUser.getSignInUserSession()
+
+      const idToken =  signInUserSession.getIdToken()
+      const accessToken = signInUserSession.getAccessToken()
+      const refreshToken = signInUserSession.getRefreshToken()
+
+      // now add the user_id from the users table in psql to the jwt payload of the access token.
+      const accessTokenString = accessToken.getJwtToken()
+      const accessTokenPayload = accessToken.decodePayload()
+      accessTokenPayload.user_id = user.id
+      const newAccessTokenString =       
+      res.setHeader('Id-Token', idToken);
+      res.setHeader('Access-Token', accessToken);
+      res.setHeader('Refresh-Token', refreshToken);
       res.status(200).json({ user: user.rows[0] });
     },
     onFailure: (err) => {
