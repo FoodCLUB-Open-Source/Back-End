@@ -12,6 +12,29 @@ const upload = multer({ storage: storage })
 const router = Router();
 
 /**
+ * Retrieves users -- this is meant to be used with query parameters to
+ * search for users. Without query parameters, this returns all profiles,
+ * which is very expensive and in general SHOULD NOT be used.
+ *
+ * Currently, only the username parameter is supported.
+ *
+ * @route GET /
+ * @param {string} req.query.username - Username of the profile to search for
+ */
+router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { username = "" } = req.query;
+    const query = "SELECT username, id, profile_picture, full_name FROM users WHERE username ILIKE ('%' || $1 || '%')";
+
+    const users = await pgQuery(query, username);
+    return res.status(200).json({ data: users.rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ message: "Unknown error occurred." });
+  }
+});
+
+/**
  * Retrieves user details
  * 
  * @route GET /:userid/details
