@@ -58,7 +58,36 @@ const removeLikesAndViews = async (post_id) => {
 
 }
 
+/**
+ * Retrieves posts -- this is meant to be used with query parameters to
+ * search for posts. Without query parameters, this returns ALL posts,
+ * which is very expensive and in general SHOULD NOT be used.
+ *
+ * Currently, only the username (of the creator of the post)
+ * and post title parameters are supported.
+ *
+ * @route GET /
+ * @param {string} req.query.username - Username of the profile to search for
+ * @param {string} req.query.title - Title of the post to search for
+ */
+router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { username = "", title = "" } = req.query;
+    const query = `
+      SELECT p.id, p.title, p.thumbnail_name, u.username, u.profile_picture
+      FROM users u
+      JOIN posts p
+      ON p.user_id = u.id
+      WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
+    `;
 
+    const posts = await pgQuery(query, title, username);
+    return res.status(200).json({ data: posts.rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ message: "Unknown error occurred." });
+  }
+});
 
 /**
  * Uploading a Post, video and recipe
