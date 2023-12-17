@@ -111,19 +111,39 @@ router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (
  * @throws {Error} - If there is error retrieving stories
  */
 router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  const { user_id } = req.params;
   try {
-    const stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec();
-    
-    const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
-    const filteredStories = stories.filter( story => { // filtering out stories that are older than 24 hours
+    //we get the id of the user in string format
+    const { user_id } = req.params;
+
+    //retrive all storeis realted to the user
+    const userStories = await getDynamoRequestBuilder("Stories")
+      .query("user_id", parseInt(user_id))
+      .useIndex("user_id-created_at-index")
+      .scanIndexDescending()
+      .exec();
+
+    const ONE_DAY = 1000 * 60 * 60 * 24; // One day in milliseconds
+
+    //filter the story
+    const filteredStories = userStories.filter((story) => {
       const timeDiff = Date.now() - Date.parse(story.created_at);
       return timeDiff < ONE_DAY;
     });
 
-    res.status(200).json({ stories: filteredStories });
+    //change the name of the sotry into url form
+    const s3Promises = filteredStories.map(async (story) => {
+      story.video_url = await s3Retrieve(story.video_url);
+      story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+      return story;
+    });
+
+    //wait for all the promises to be executed and store the urls in the updates Srotes varaible
+    const updatedStories = await Promise.all(s3Promises);
+
+    //return the variable onject
+    res.status(200).json({ stories: updatedStories });
   } catch (err) {
-      next(err);
+    next(err);
   }
 });
 
@@ -236,5 +256,7 @@ router.delete("/story/:story_id/user/:user_id", inputValidator, rateLimiter(), a
       next(err);
   }
 });
+
+
 
 export default router;
