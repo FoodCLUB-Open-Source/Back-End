@@ -21,17 +21,28 @@ const router = Router();
  */
 router.get("/:user_id/details", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
-        const {user_id} = req.params; // getting userID
+        const { user_id } = req.params;
 
-        const query = 'SELECT id, username, email, phone_number, profile_picture, user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1'; // returns user details
+        const query = `
+            SELECT id, username, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
+
         const userDetails = await pgQuery(query, user_id);
+        if (userDetails.rows.length < 1) {
+            return res.json({ messege: "User not found" })
+        }
+        try {
 
-        return res.status(200).json({ data: userDetails.rows[0] }); // sends details to client
+            userDetails.rows[0].profile_picture = (userDetails.rows[0].profile_picture !== null) ? await s3Retrieve(userDetails.rows[0].profile_picture) : null;
+            return res.status(200).json({ data: userDetails.rows[0] })
+        }
+        catch (err) {
+            console.error(err)
+        }
+
     } catch (error) {
-        next(error) // server side error
+        next(error); // Pass the error to the error-handling middleware
     }
 });
-
 /**
  * Retrieves profile page data based on the received user ID 
  * 
@@ -104,7 +115,7 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
         const { page_number, page_size } = req.query; // getting page number and page size
 
         // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
-        
+
         // queries for id of users, usernames, profile pictures, and whether they follow them back that the given user is following
         const query = `
         SELECT f1.user_following_id, u.username, u.profile_picture,
@@ -117,7 +128,7 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
         LIMIT $3 OFFSET (($2 - 1) * $3)`
 
         const userFollowing = await pgQuery(query, userID, page_number, page_size);
-        
+
         return res.status(200).json({ data: userFollowing.rows }); // sends details to client
     } catch (error) {
         next(error) // server side error
@@ -161,19 +172,19 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
     try {
         // Extract user IDs from request parameters
         const { user_id, user_following_id } = req.params;
-        
+
         // Wrap each query in a function that returns a promise
         const verifyUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
         const verifyFollowingUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
         const checkFollowQuery = () => pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
-          
+
         // Use Promise.all() to run all queries concurrently
         const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
             verifyUserExistenceQuery(),
             verifyFollowingUserExistenceQuery(),
             checkFollowQuery()
         ]);
-        
+
         // Verify the existence of the user based on their ID
         if (verifyUserExistence.rows.length === 0) {
             return res.status(400).json({ "error": "User not found" });
@@ -188,7 +199,7 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
         if (checkFollow.rows.length === 0) {
             return res.status(400).json({ "error": "Not following user" });
         }
-    
+
         // Delete the following relationship from the database
         const query = [
             `DELETE FROM following WHERE user_id = $1 AND user_following_id = $2`
@@ -197,20 +208,20 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
 
         // helper function of database transaction
         const result = await makeTransactions(query, values);
-    
+
         if (result.length === 0) {
             return res.status(400).json({ "error": "Follow not deleted" });
         }
-    
+
         // Respond with success message
         return res.status(200).json({ "success": "user unfollowed" });
-  
+
     }
     catch (err) {
         // Handle errors
         next(err);
     }
-  });
+});
 
 /**
  * Follows A User
@@ -225,51 +236,51 @@ router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(),
     try {
         // Extract user IDs from request parameter
         const { user_id, user_following_id } = req.params;
-        
+
         const verifyUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
         const verifyFollowingUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
         const checkFollowQuery = pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
-      
+
         const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
-          verifyUserExistenceQuery,
-          verifyFollowingUserExistenceQuery,
-          checkFollowQuery
+            verifyUserExistenceQuery,
+            verifyFollowingUserExistenceQuery,
+            checkFollowQuery
         ]);
-          
+
         // Verify the existence of the user based on their ID
         if (verifyUserExistence.rows.length === 0) {
-           return res.status(400).json({ "error": "User not found" });
+            return res.status(400).json({ "error": "User not found" });
         }
-        
+
         // Verify the existence of the user being followed based on their ID
         if (verifyFollowingUserExistence.rows.length === 0) {
-           return res.status(400).json({ "error": "Following user not found" });
+            return res.status(400).json({ "error": "Following user not found" });
         }
-        
+
         // Check if the user is already following the target user     
         if (checkFollow.rows.length !== 0) {
-           return res.status(400).json({ "error": "Already following user" });
+            return res.status(400).json({ "error": "Already following user" });
         }
-        
+
         // Insert a new following relationship into the database
         const query = [
-        `INSERT INTO following (user_id, user_following_id, created_at) VALUES ($1, $2, NOW()) RETURNING *`
+            `INSERT INTO following (user_id, user_following_id, created_at) VALUES ($1, $2, NOW()) RETURNING *`
         ];
         const values = [[user_id, user_following_id]];
-        
+
         //helper function of database transactions
         const result = await makeTransactions(query, values);
-  
+
         if (result.length === 0) {
-           return res.status(400).json({ "error": "Follow not created" });
+            return res.status(400).json({ "error": "Follow not created" });
         }
-  
+
         // Respond with success message
         return res.status(200).json({ "success": "Follow created" });
-  
+
     } catch (err) {
-       // Handle errors
-       next(err);
+        // Handle errors
+        next(err);
     }
 });
 
@@ -320,12 +331,12 @@ router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, r
 router.put("/profile_details/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
-        const {user_id } = req.params;
+        const { user_id } = req.params;
 
         // Getting user details
         const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
 
-       // Query to update user details
+        // Query to update user details
         const query = `
         UPDATE users
         SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences = $5, country = $6, shipping_address= $7, full_name= $8, 
@@ -336,7 +347,7 @@ router.put("/profile_details/:user_id", rateLimiter(), inputValidator, async (re
         await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
 
         res.status(200).json({ "Status": "Profile Details Updated" });
-    
+
     } catch (error) {
         next(error); // Handle server-side error
     }
@@ -370,7 +381,7 @@ router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValida
         //here check if the existing profile picture is the not null then delete the existing profile picture
         if (existingProfilePicture.rows[0].profile_picture !== "") {
             await s3Delete(existingProfilePicture.rows[0].profile_picture);
-        } 
+        }
         const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
         // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
         const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`)
