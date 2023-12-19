@@ -149,6 +149,16 @@ export async function updatePosts(userPosts,user_id) {
   return updatedPosts;
 }
 
+export const checkBookmarked = async (postId, userId) => {
+  const bookmarks = await pgQuery(`
+    SELECT TOP 1
+    FROM bookmarks b
+    WHERE b.post_id = $1 AND b.user_id = $2
+  `, postId, userId);
+
+  return bookmarks.rows.length > 0;
+}
+
 
 /* Checks if a user has liked a post or not, returns true or false */
 export const checkLike = async (postId, userId) => {
