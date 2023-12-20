@@ -1,24 +1,21 @@
+import { CognitoAccessToken, CognitoIdToken } from "amazon-cognito-identity-js"
 import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 
+// All tokens should be passed from frontend and stored as strings, not as objects.
 // Verifier that expects valid access tokens:
 
 export const verifyAccessToken = async (req, res, next) => {
 
-  const userAccessToken = req.header['Access-Token'];
-  
-  if (!!userAccessToken) {
+  const access_token = req.header['Access-Token'];
+
+  if (!!access_token) {
     try {
-      const payload = await accessVerifier.verify(
-        userAccessToken.getJwtToken()
+      const accessTokenObject = new CognitoAccessToken(access_token);
+      await accessVerifier.verify(
+        accessTokenObject.getJwtToken()
       );
-      const username = payload.username
-      const user_id = await pgQuery('SELECT user_id FROM users WHERE username = $1', username);
-      return {
-        username: username,
-        user_id: user_id,
-        userSignedIn: true
-      };
+      return 'Access Token Valid';
     } catch {
       // If the access token is not valid, the refresh token will be validated. 
       return res.status(400).json({message: 'Request new access token'});
@@ -33,21 +30,28 @@ export const verifyAccessToken = async (req, res, next) => {
 
 export const verifyIdToken = async (req, res, next) => {
   
-  const cognitoUser = cognitoUserPool.getCurrentUser()  
+  const id_token = req.header['Id-Token'];
 
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      return res.status(400).json(err.message)
+  if (!!id_token) {
+    const idTokenObject = new CognitoIdToken(id_token)
+    try {
+      const payload = await idVerifier.verify(
+        idTokenObject.getJwtToken()
+      );
+      req.body.payload = {
+        user_id: payload['custom:id'],
+        username: payload['cognito:username']
+      };
+    } catch {
+      return res.status(400).json({ 
+        header: "ID Token not valid",
+        message: "Session refresh required"
+      });
     }
-  });
-
-  try {
-    const payload = await idVerifier.verify(
-      cognitoUser.getCurrentUser().get
-    );
-    res.status(200).json({message: `Token is valid. Payload: ${payload}`});
-  } catch {
-    res.status(400).json({ message: "Token not valid" });
+  } else {
+    return res.status(400).json({
+      message: "ID token is null"
+    })
   }
   next()
 }
