@@ -56,7 +56,7 @@ export const verifyIdToken = async (idToken) => {
       });
     }
   } else {
-    return res.status(400).json({
+    return new Error({
       message: "ID token is null"
     })
   }
