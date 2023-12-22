@@ -1,10 +1,12 @@
 /* For login system routes */
 import {
   AuthenticationDetails,
-  CognitoRefreshToken,
   CognitoUser,
   CognitoUserAttribute,
-  CognitoUserSession
+  CognitoUserSession,
+  CognitoAccessToken,
+  CognitoIdToken,
+  CognitoRefreshToken,
 } from "amazon-cognito-identity-js";
 import { hash } from "bcrypt";
 import { Router } from "express";
@@ -15,6 +17,8 @@ import inputValidator from "../middleware/input_validator.js";
 import { cognitoUserPool, refreshVerifier } from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
+import { parseHeader } from "../functions/cognito_functions.js";
+import { parse } from "path";
 
 const router = Router();
 
@@ -140,18 +144,17 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
           })
 
         const signInUserSession = cognitoUser.getSignInUserSession()
-        const idToken =  signInUserSession.getIdToken()
-        const accessToken = signInUserSession.getAccessToken()
-        const refreshToken = signInUserSession.getRefreshToken()
-
-        res.setHeader('Id-Token', idToken);
-        res.setHeader('Access-Token', accessToken);
-        res.setHeader('Refresh-Token', refreshToken);
+        const idToken =  signInUserSession.getIdToken().getJwtToken()
+        const accessToken = signInUserSession.getAccessToken().getJwtToken()
+        const refreshToken = signInUserSession.getRefreshToken().getJwtToken()
 
         res.status(200).json({ 
           header: 'user logged in',
           message: 'user email verified successfully',
           user: user.rows[0],
+          access_token: accessToken,
+          id_token: idToken,
+          refresh_token: refreshToken
         });
       },
       onFailure: (err) => {
@@ -219,18 +222,19 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
       const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
       // signInUserSession is an instance of CognitoUserSession
       // these return object instances, not just strings of the tokens.
-      // we need the special key to use jwt.sign to add to the payload.
       const signInUserSession = cognitoUser.getSignInUserSession()
 
-      const idToken =  signInUserSession.getIdToken()
-      const accessToken = signInUserSession.getAccessToken()
-      const refreshToken = signInUserSession.getRefreshToken()
+      const idToken =  signInUserSession.getIdToken().getJwtToken()
+      const accessToken = signInUserSession.getAccessToken().getJwtToken()
+      const refreshToken = signInUserSession.getRefreshToken().getJwtToken()
 
       // user id is in idToken.payload['custom:id']       
-      res.setHeader('Id-Token', idToken);
-      res.setHeader('Access-Token', accessToken);
-      res.setHeader('Refresh-Token', refreshToken);
-      res.status(200).json({ user: user.rows[0] });
+      res.status(200).json({
+        user: user.rows[0],
+        access_token: accessToken,
+        id_token: idToken,
+        refresh_token: refreshToken
+      });
     },
     onFailure: (err) => {
       if (err.message == "User is not confirmed.") {
@@ -314,33 +318,42 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
     Pool: cognitoUserPool
   };
   
-  const userAccessToken = req.header['Access-Token']
-  const userIdToken = req.header['Id-Token']
-  /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
-  authenticated. For this, the id token and the access token are required in the request header.
-  */
+  const authorisation = req.header['Authorisation']
+  try {
+    const { access_token, id_token } = parseHeader(authorisation)
+    const cognitoAccessToken = new CognitoAccessToken(access_token)
+    const cognitoIdToken = new CognitoIdToken(id_token)
 
-  const sessionData = {
-    IdToken: userIdToken,
-    AccessToken: userAccessToken,
-    RefreshToken: null,
-    ClockDrift: null,
-  };
+    /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
+    authenticated. For this, the id token and the access token are required in the request header.
+    */
 
-  const cognitoUserSession = new CognitoUserSession(sessionData)
+    const sessionData = {
+      IdToken: cognitoIdToken,
+      AccessToken: cognitoAccessToken,
+      RefreshToken: null,
+      ClockDrift: null,
+    };
 
-  const cognitoUser = new CognitoUser(userData);
+    const cognitoUserSession = new CognitoUserSession(sessionData)
 
-  cognitoUser.setSignInUserSession(cognitoUserSession) 
+    const cognitoUser = new CognitoUser(userData);
 
-  cognitoUser.changePassword(old_password, new_password, (err, result) => {
-    if (err) {
-      return res.status(400).json({ message: err.message });
-    }
-    return res
-      .status(201)
-      .json({ message: "password changed successfully" });
-  });
+    cognitoUser.setSignInUserSession(cognitoUserSession) 
+
+    cognitoUser.changePassword(old_password, new_password, (err, result) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      return res
+        .status(201)
+        .json({ message: "password changed successfully" });
+    });
+    
+  } catch (error) {
+    res.status(400).json({ message: error.message })
+  }
+
 });
 
 /**
@@ -411,7 +424,7 @@ router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(r
  * @returns {status} - A successful status indicates user is signed out on all devices he is logged in on
  * @throws {Error} - If there are errors dont sign user out on any device
  */
-router.post("/global_signout", rateLimiter(), (req, res) => {
+router.post("/global_signout", rateLimiter(), async (req, res) => {
   const { username } = req.body;
   
   const userData = {
@@ -419,30 +432,37 @@ router.post("/global_signout", rateLimiter(), (req, res) => {
     Pool: cognitoUserPool,
   };
   
-  const userAccessToken = req.header['Access-Token']
-  const userIdToken = req.header['Id-Token']
-
-  const sessionData = {
-    IdToken: userIdToken,
-    AccessToken: userAccessToken,
-    RefreshToken: null,
-    ClockDrift: null,
-  };
-
-  const cognitoUserSession = new CognitoUserSession(sessionData)
-
-  const cognitoUser = new CognitoUser(userData);
-
-  cognitoUser.setSignInUserSession(cognitoUserSession) 
-
-  cognitoUser.globalSignOut({
-    onSuccess: (result) => { 
-      res.status(200).json('User signed out globally')
-    },
-    onFailure: (err) => {
-      res.status(400).json(err.message)
-    }
-  });
+  // Get the authorisation header and tokens
+  const authorisation = req.header['Authorisation']
+  try {
+    const { access_token, id_token } = parseHeader(authorisation)
+    const cognitoAccessToken = new CognitoAccessToken(access_token)
+    const cognitoIdToken = new CognitoIdToken(id_token)
+    
+    const sessionData = {
+      IdToken: cognitoIdToken,
+      AccessToken: cognitoAccessToken,
+      RefreshToken: null,
+      ClockDrift: null,
+    };
+  
+    const cognitoUserSession = new CognitoUserSession(sessionData)
+  
+    const cognitoUser = new CognitoUser(userData);
+  
+    cognitoUser.setSignInUserSession(cognitoUserSession) 
+  
+    cognitoUser.globalSignOut({
+      onSuccess: (result) => { 
+        res.status(200).json('User signed out globally')
+      },
+      onFailure: (err) => {
+        res.status(400).json(err.message)
+      }
+    });
+  } catch (err) {
+    return res.status(400).json(err.message)
+  }
 });
 
 /**
@@ -459,12 +479,10 @@ router.post("/global_signout", rateLimiter(), (req, res) => {
 
 router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
 
-  const refresh_token = req.header['Refresh-Token'];
-  const { username } = req.body
-  // First check whether the refresh token is valid
+  const { username, refresh_token } = req.body
 
   if (!!refresh_token) {
-    // first check if valid: verify the token
+    // first check if refresh token is valid: verify the token
     const refreshTokenObject  = new CognitoRefreshToken(refresh_token)
     try {
       await refreshVerifier.verify(
@@ -484,17 +502,19 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
         };
         // if user_id not in payload, we can just use a lookup in psql with username.
 
-        // if successful, the user's new tokens are returned as a CognitoUserSession object instance.
-        res.setHeader('Id-Token', result.getIdToken());
-        res.setHeader('Access-Token', result.getAccessToken());
-        res.setHeader('Refresh-Token', result.getRefreshToken());
+        // if successful, the user's new tokens are returned as a string
 
         return res.status(200).json({
-          message: 'Session refresh successful',
+          header: 'Session refresh successful',
+          message: 'User signed in',
+          access_token: result.getAccessToken().getJwtToken(),
+          id_token: result.getIdToken().getJwtToken(),
+          refresh_token: result.getRefreshToken().getJwtToken()
         });
       })
-    } catch {
+    } catch (err) {
       res.status(400).json({
+        error: err.message,
         message: 'Refresh token invalid. Please re-authenticate.'
       });
     };

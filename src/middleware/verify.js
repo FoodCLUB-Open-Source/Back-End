@@ -1,50 +1,57 @@
 import { CognitoAccessToken, CognitoIdToken } from "amazon-cognito-identity-js"
-import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../cognito.js";
-import { pgQuery } from "../functions/general_functions.js";
+import { accessVerifier, idVerifier }from "../cognito.js";
+import { parseHeader, parseHeaderAccess } from "../functions/cognito_functions.js";
 
 // All tokens should be passed from frontend and stored as strings, not as objects.
 // Verifier that expects valid access tokens:
+/**
+ * INTERNAL USE ONLY
+ * @param {*} accessToken 
+ * @returns 
+ */
 
-export const verifyAccessToken = async (req, res, next) => {
+export const verifyAccessToken = async (accessToken) => {
 
-  const access_token = req.header['Access-Token'];
-
-  if (!!access_token) {
+  if (!!accessToken) {
     try {
-      const accessTokenObject = new CognitoAccessToken(access_token);
+      const cognitoAccessToken = new CognitoAccessToken(accessToken);
       await accessVerifier.verify(
-        accessTokenObject.getJwtToken()
+        cognitoAccessToken.getJwtToken()
       );
-      return 'Access Token Valid';
     } catch {
       // If the access token is not valid, the refresh token will be validated. 
-      return res.status(400).json({message: 'Request new access token'});
+      return new Error({
+        header: 'Access token invalid',
+        message: 'Session refresh required'
+      });
     };
   } else {
-    return res.status(404).json({message: 'Access token is null'});
+    return new Error({message: 'Access token is null'});
   };
-  next();
 };
 
-// The function below is only necessary for an extra layer of security with id tokens. It is not yet needed for implementation.
+// Function to verify Id token
+/** INTERNAL USE ONLY
+ * 
+ * @param {*} idToken 
+ * @returns 
+ */
 
-export const verifyIdToken = async (req, res, next) => {
-  
-  const id_token = req.header['Id-Token'];
+export const verifyIdToken = async (idToken) => {
 
-  if (!!id_token) {
-    const idTokenObject = new CognitoIdToken(id_token)
+  if (!!idToken) {
+    const cognitoIdToken = new CognitoIdToken(idToken)
     try {
       const payload = await idVerifier.verify(
-        idTokenObject.getJwtToken()
+        cognitoIdToken.getJwtToken()
       );
-      req.body.payload = {
+      return {
         user_id: payload['custom:id'],
         username: payload['cognito:username']
       };
     } catch {
-      return res.status(400).json({ 
-        header: "ID Token not valid",
+      return new Error({ 
+        header: "ID token invalid",
         message: "Session refresh required"
       });
     }
@@ -53,15 +60,41 @@ export const verifyIdToken = async (req, res, next) => {
       message: "ID token is null"
     })
   }
-  next()
 }
 
-export const verifySession = async (req, res, next) => {
-  const cognitoUser = cognitoUserPool.getCurrentUser() 
 
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      return res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
-    }
-  });
-} 
+/**
+ * Middleware for verification of both access and id tokens, to be used with endpoints that accept both.
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ */
+export const verifyTokens = async (req, res, next) => {
+  try {
+    const authorisation = req.header['Authorisation'];
+    const { access_token, id_token } = parseHeader(authorisation);
+    await verifyAccessToken(access_token);
+    req.body.payload = await verifyIdToken(id_token);
+    next()
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  };
+};
+
+/**
+ * Middleware for authenticating only the access token, for endpoints that only require the access token.
+ * Endpoints that only require the access token will be endpoints that do not require any user information.
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ */
+export const verifyAccessOnly = async (req, res, next) => {
+  try {
+    const authorisation = req.header['Authorisation'];
+    const { access_token } = parseHeaderAccess(authorisation);
+    await verifyAccessToken(access_token)
+    next()
+  } catch (error) {
+    res.status(400).json({ message: error.message })
+  }
+}
