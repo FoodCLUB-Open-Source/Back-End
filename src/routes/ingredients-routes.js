@@ -19,8 +19,8 @@ router.get('/search_ingredient/:ingredient', rateLimiter(), inputValidator, asyn
   try {
     const { ingredient } = req.params;
 
-    const EDAMAM_APP_ID = '';
-    const EDAMAM_APP_KEY = '';
+    const EDAMAM_APP_ID = process.env.INGREDIENTS_API_ID;
+    const EDAMAM_APP_KEY = process.env.INGREDIENTS_API_KEY;
 
     const response = await axios.get('https://api.edamam.com/api/food-database/v2/parser', {
       params: {
