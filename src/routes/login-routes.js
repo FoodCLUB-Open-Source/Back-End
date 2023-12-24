@@ -477,7 +477,7 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
  * @throws {Error} - If the refresh token is not valid, or there is another internal error.
  */
 
-router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
+router.post('/refresh_session', rateLimiter(10, 1), async (req, res) => {
 
   const { username, refresh_token } = req.body
 
