@@ -18,7 +18,7 @@ import { cognitoUserPool, refreshVerifier } from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
 import { parseHeader } from "../functions/cognito_functions.js";
-import { parse } from "path";
+import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
 
@@ -146,7 +146,7 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
         const signInUserSession = cognitoUser.getSignInUserSession()
         const idToken =  signInUserSession.getIdToken().getJwtToken()
         const accessToken = signInUserSession.getAccessToken().getJwtToken()
-        const refreshToken = signInUserSession.getRefreshToken().getJwtToken()
+        const refreshToken = signInUserSession.getRefreshToken().getToken()
 
         res.status(200).json({ 
           header: 'user logged in',
@@ -226,14 +226,14 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
 
       const idToken =  signInUserSession.getIdToken().getJwtToken()
       const accessToken = signInUserSession.getAccessToken().getJwtToken()
-      const refreshToken = signInUserSession.getRefreshToken().getJwtToken()
+      const refreshToken = signInUserSession.getRefreshToken().getToken()
 
       // user id is in idToken.payload['custom:id']       
       res.status(200).json({
         user: user.rows[0],
         access_token: accessToken,
         id_token: idToken,
-        refresh_token: refreshToken
+        refresh_token: refreshToken,
       });
     },
     onFailure: (err) => {
@@ -321,8 +321,8 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
   const authorisation = req.header['Authorisation']
   try {
     const { access_token, id_token } = parseHeader(authorisation)
-    const cognitoAccessToken = new CognitoAccessToken(access_token)
-    const cognitoIdToken = new CognitoIdToken(id_token)
+    const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
+    const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
 
     /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
     authenticated. For this, the id token and the access token are required in the request header.
@@ -436,8 +436,8 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
   const authorisation = req.header['Authorisation']
   try {
     const { access_token, id_token } = parseHeader(authorisation)
-    const cognitoAccessToken = new CognitoAccessToken(access_token)
-    const cognitoIdToken = new CognitoIdToken(id_token)
+    const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
+    const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
     
     const sessionData = {
       IdToken: cognitoIdToken,
@@ -483,11 +483,8 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
 
   if (!!refresh_token) {
     // first check if refresh token is valid: verify the token
-    const refreshTokenObject  = new CognitoRefreshToken(refresh_token)
+    const cognitoRefreshToken  = new CognitoRefreshToken({RefreshToken: refresh_token})
     try {
-      await refreshVerifier.verify(
-        refreshTokenObject.getJwtToken()
-      );
 
       const userData = {
         Username: username,
@@ -496,7 +493,7 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
     
       const cognitoUser = new CognitoUser(userData);
 
-      cognitoUser.refreshSession(refreshTokenObject, (err, result) => {
+      cognitoUser.refreshSession(cognitoRefreshToken, (err, result) => {
         if (err) {
           return res.status(400).json(err.message);
         };
@@ -509,7 +506,7 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
           message: 'User signed in',
           access_token: result.getAccessToken().getJwtToken(),
           id_token: result.getIdToken().getJwtToken(),
-          refresh_token: result.getRefreshToken().getJwtToken()
+          refresh_token: result.getRefreshToken().getToken()
         });
       })
     } catch (err) {
@@ -523,4 +520,9 @@ router.post('/refresh_token', rateLimiter(10, 1), async (req, res) => {
   };
 });
 
+
+router.get('/test_tokens', verifyTokens, (req, res) => {
+  console.log(req.body)
+  res.send('Done')
+})
 export default router;

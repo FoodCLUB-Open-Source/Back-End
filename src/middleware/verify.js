@@ -1,5 +1,5 @@
 import { CognitoAccessToken, CognitoIdToken } from "amazon-cognito-identity-js"
-import { accessVerifier, idVerifier }from "../cognito.js";
+import { accessVerifier, idVerifier }from "../config/cognito.js";
 import { parseHeader, parseHeaderAccess } from "../functions/cognito_functions.js";
 
 // All tokens should be passed from frontend and stored as strings, not as objects.
@@ -14,19 +14,18 @@ export const verifyAccessToken = async (accessToken) => {
 
   if (!!accessToken) {
     try {
-      const cognitoAccessToken = new CognitoAccessToken(accessToken);
+      const cognitoAccessToken = new CognitoAccessToken({AccessToken: accessToken});
       await accessVerifier.verify(
         cognitoAccessToken.getJwtToken()
       );
-    } catch {
+    } catch (error) {
       // If the access token is not valid, the refresh token will be validated. 
-      return new Error({
-        header: 'Access token invalid',
-        message: 'Session refresh required'
-      });
+      console.log('Access token invalid')
+      throw new Error(error.message);
     };
   } else {
-    return new Error({message: 'Access token is null'});
+    console.log('access token null')
+    throw new Error('Access token is null');
   };
 };
 
@@ -40,7 +39,8 @@ export const verifyAccessToken = async (accessToken) => {
 export const verifyIdToken = async (idToken) => {
 
   if (!!idToken) {
-    const cognitoIdToken = new CognitoIdToken(idToken)
+    const cognitoIdToken = new CognitoIdToken({IdToken: idToken})
+    console.log(cognitoIdToken)
     try {
       const payload = await idVerifier.verify(
         cognitoIdToken.getJwtToken()
@@ -49,18 +49,15 @@ export const verifyIdToken = async (idToken) => {
         user_id: payload['custom:id'],
         username: payload['cognito:username']
       };
-    } catch {
-      return new Error({ 
-        header: "ID token invalid",
-        message: "Session refresh required"
-      });
+    } catch (error) {
+      console.log('id token invalid')
+      throw new Error(error.message);
     }
   } else {
-    return new Error({
-      message: "ID token is null"
-    })
-  }
-}
+    console.log('id token null')
+    throw new Error("ID Token is null");
+  };
+};
 
 
 /**
@@ -71,13 +68,15 @@ export const verifyIdToken = async (idToken) => {
  */
 export const verifyTokens = async (req, res, next) => {
   try {
-    const authorisation = req.header['Authorisation'];
-    const { access_token, id_token } = parseHeader(authorisation);
+    const authorisation = req.headers['authorisation'];
+    const bearerTokens = await parseHeader(authorisation);
+    const access_token = bearerTokens.access_token;
+    const id_token = bearerTokens.id_token;
     await verifyAccessToken(access_token);
     req.body.payload = await verifyIdToken(id_token);
-    next()
+    return next();
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    return res.status(404).json({ message: error.message });
   };
 };
 
@@ -90,11 +89,12 @@ export const verifyTokens = async (req, res, next) => {
  */
 export const verifyAccessOnly = async (req, res, next) => {
   try {
-    const authorisation = req.header['Authorisation'];
-    const { access_token } = parseHeaderAccess(authorisation);
-    await verifyAccessToken(access_token)
-    next()
+    const authorisation = req.header['authorisation'];
+    const bearerToken = await parseHeaderAccess(authorisation);
+    const access_token = bearerToken.access_token;
+    await verifyAccessToken(access_token);
+    return next();
   } catch (error) {
-    res.status(400).json({ message: error.message })
-  }
-}
+    return res.status(404).json({ message: error.message });
+  };
+};

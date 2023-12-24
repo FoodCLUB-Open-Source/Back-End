@@ -35,7 +35,7 @@ export const changeAttribute = (attributeName, attributeValue) => {
  * Function to parse the authorisation header for both id and access bearer tokens
  */
 
-export const parseHeader = (header) => {
+export const parseHeader = async (header) => {
   if (!!header && header.startsWith('Bearer ')) {
     const parseResult = header.split(' ');
     const access_token = parseResult[1];
@@ -45,7 +45,7 @@ export const parseHeader = (header) => {
       id_token: id_token
     };
   } else {
-    return new Error('Invalid request authorisation header')
+    throw new Error('Invalid request authorisation header')
   }
 }
 
@@ -55,7 +55,7 @@ export const parseHeader = (header) => {
  * @returns 
  */
 
-export const parseHeaderAccess = (header) => {
+export const parseHeaderAccess = async (header) => {
   if (!!header && header.startsWith('Bearer ')) {
     const parseResult = header.split(' ');
     const access_token = parseResult[1];
@@ -63,6 +63,6 @@ export const parseHeaderAccess = (header) => {
       access_token: access_token,
     };
   } else {
-    return new Error('Invalid request authorisation header')
+    throw new Error('Invalid request authorisation header')
   }
 }
