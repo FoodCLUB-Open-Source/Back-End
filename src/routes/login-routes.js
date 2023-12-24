@@ -14,7 +14,7 @@ import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
-import { cognitoUserPool, refreshVerifier } from "../config/cognito.js";
+import { cognitoUserPool } from "../config/cognito.js";
 import { pgQuery } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
 import { parseHeader } from "../functions/cognito_functions.js";
