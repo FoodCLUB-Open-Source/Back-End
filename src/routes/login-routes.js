@@ -523,6 +523,6 @@ router.post('/refresh_session', rateLimiter(10, 1), async (req, res) => {
 
 router.get('/test_tokens', verifyTokens, (req, res) => {
   console.log(req.body)
-  res.send('Done')
+  res.status(200).json(req.body)
 })
 export default router;
