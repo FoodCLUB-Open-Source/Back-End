@@ -1,4 +1,4 @@
-import { CognitoUser, CognitoUserAttribute } from "amazon-cognito-identity-js";
+import { CognitoUser, CognitoUserAttribute, CognitoAccessToken, CognitoIdToken, CognitoUserSession} from "amazon-cognito-identity-js";
 import { cognitoUserPool } from "../config/cognito.js";
 /**  
  * This file holds functions (not middleware) that may need to be used in other backend microservices.
@@ -9,26 +9,54 @@ import { cognitoUserPool } from "../config/cognito.js";
  * NEEDS ADDITION OF AUTHENTICATION BY TOKENS -id and access tokens needed.
 */
 
-export const changeAttribute = (attributeName, attributeValue) => {
+export const changeAttribute = (attributeName, attributeValue, req) => {
+    
+  const { username } = req.body.payload.username;
   
-  const cognitoUser = cognitoUserPool.getCurrentUser();
-
-  const attributeList = [];
-  
-  const newAttribute = {
-    Name: attributeName,
-    Value: attributeValue,
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
   };
+  
+  // Get the authorisation header and tokens
+  const authorisation = req.header['Authorisation']
+  try {
+    const { access_token, id_token } = parseHeader(authorisation)
+    const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
+    const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
+    
+    const sessionData = {
+      IdToken: cognitoIdToken,
+      AccessToken: cognitoAccessToken,
+      RefreshToken: null,
+      ClockDrift: null,
+    };
+  
+    const cognitoUserSession = new CognitoUserSession(sessionData);
+  
+    const cognitoUser = new CognitoUser(userData);
+  
+    cognitoUser.setSignInUserSession(cognitoUserSession);
 
-  attributeList.push(new CognitoUserAttribute(newAttribute));
+    const attributeList = [];
+    
+    const newAttribute = {
+      Name: attributeName,
+      Value: attributeValue,
+    };
 
-  cognitoUser.updateAttributes(attributeList, (err, result) => {
-    if (err) {
-      throw new Error(err.message);
-    }
-    return `user ${username}'s ${attributeName} was updated successfully to ${attributeValue}`
-  });
-}
+    attributeList.push(new CognitoUserAttribute(newAttribute));
+
+    cognitoUser.updateAttributes(attributeList, (err, result) => {
+      if (err) {
+        throw new Error(err.message);
+      }
+      return `user ${username}'s ${attributeName} was updated successfully to ${attributeValue}`;
+    });
+  } catch (error) {
+    throw new Error(error.message) ;
+  };
+};
 
 
 /** 
