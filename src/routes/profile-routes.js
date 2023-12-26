@@ -128,6 +128,12 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
 
         const userFollowing = await pgQuery(query, userID, page_number, page_size);
 
+        userFollowing.rows = await Promise.all(
+            userFollowing.rows.map(async (row) => {
+                row.profile_picture = await s3Retrieve(row.profile_picture);
+                return row;
+            })
+        );
         return res.status(200).json({ data: userFollowing.rows }); // sends details to client
     } catch (error) {
         next(error) // server side error
