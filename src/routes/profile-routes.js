@@ -128,6 +128,7 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
 
         const userFollowing = await pgQuery(query, userID, page_number, page_size);
 
+        //maps all profile picture to retrieve a http link for the profile pic
         userFollowing.rows = await Promise.all(
             userFollowing.rows.map(async (row) => {
                 row.profile_picture = await s3Retrieve(row.profile_picture);
@@ -157,6 +158,15 @@ router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res
 
         const query = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that follow the user with pagination
         const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+
+        //maps all profile picture to retrieve a http link for the profile pic
+        userFollowers.rows = await Promise.all(
+            userFollowers.rows.map(async (row) => {
+                row.profile_picture = await s3Retrieve(row.profile_picture);
+                return row;
+            })
+        );
 
         return res.status(200).json({ data: userFollowers.rows }); // sends details to client
     } catch (error) {
