@@ -31,7 +31,6 @@ router.get("/:user_id/details", rateLimiter(), inputValidator, async (req, res, 
             return res.json({ messege: "User not found" })
         }
         try {
-
             userDetails.rows[0].profile_picture = (userDetails.rows[0].profile_picture !== null) ? await s3Retrieve(userDetails.rows[0].profile_picture) : null;
             return res.status(200).json({ data: userDetails.rows[0] })
         }
@@ -84,7 +83,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
         // storing data as object
         const userDataObject = {
             username: userNameProfile.rows[0].username,
-            profile_picture: userNameProfile.rows[0].profile_picture,
+            profile_picture: await s3Retrieve(userNameProfile.rows[0].profile_picture),
             total_user_likes: userLikesCount,
             total_user_followers: userFollowersCount,
             total_user_following: userFollowingCount,
