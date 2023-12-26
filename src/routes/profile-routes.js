@@ -315,8 +315,21 @@ router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, r
         const userID = req.params.user_id; // retrieving userID
         const { page_number, page_size } = req.query; // getting page number and page size
 
+
         const query = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT $3 OFFSET (($2 - 1) * $3)'; // top creators query, returns random users that the user does not follow
         const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+        //return s3 link if the profile picture exists.
+        userFollowers.rows = await Promise.all(
+            userFollowers.rows.map(async (follower) => {
+                if (follower.profile_picture !== null) {
+                    follower.profile_picture = await s3Retrieve(follower.profile_picture);
+                }
+
+                return follower;
+            })
+        );
+
 
         return res.status(200).json({ data: userFollowers.rows }); // sends details to client
     } catch (error) {
