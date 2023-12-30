@@ -98,3 +98,24 @@ export const verifyAccessOnly = async (req, res, next) => {
     return res.status(404).json({ message: error.message });
   };
 };
+
+/**
+ * Middleware for authenticating both the access token and the id token, but which does not change the request body.
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @returns 
+ */
+export const verifyUserIdentity = async (req, res, next) => {
+  try {
+    const authorisation = req.headers['authorisation'];
+    const bearerTokens = await parseHeader(authorisation);
+    const access_token = bearerTokens.access_token;
+    const id_token = bearerTokens.id_token;
+    await verifyAccessToken(access_token);
+    await verifyIdToken(id_token);
+    return next();
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  };
+}

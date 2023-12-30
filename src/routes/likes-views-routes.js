@@ -5,6 +5,7 @@ import inputValidator from "../middleware/input_validator.js";
 
 import { setCommentsLike, setLikes, setStoryViews, setViews } from "../dynamo_schemas/dynamo_schemas.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
+import { verifyTokens, verifyUserIdentity } from "../middleware/verify.js";
 
 const router = Router();
 
@@ -21,14 +22,15 @@ router.get("/testing", async (req, res) => {
  * Process A Video Like
  * 
  * @route POST /like/:post_id/user/:user_id
- * @param {string} req.params.user_id - The ID of the user liking the video
  * @param {string} req.params.post_id - The ID of the video post being liked
  * @returns {Object} - Returns a status of video like if successful
  * @throws {Error} - If there is an error, the post liking failed
  */
-router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.post("/like/:post_id/user", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
 	try {
-	  const { post_id, user_id } = req.params;
+	  const { post_id } = req.params;
+		const { payload } = req.body
+		const user_id = payload.user_id
 	  const likeSchema = setLikes(parseInt(user_id), parseInt(post_id));
   
 	  // Check if the like exists
@@ -55,15 +57,15 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
    * Remove A Video Like 
    * 
    * @route DELETE /like/:post_id/user/:user_id
-   * @param {string} req.params.user_id - The ID of the user deleting the video like
    * @param {string} req.params.post_id - The ID of the video post being unliked
    * @returns {Object} - Returns a status of video like removed if successful
    * @throws {Error} - If there is an error, the post is already unliked
    */
-  router.delete("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  router.delete("/like/:post_id/user", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
 	try {
-	  const { post_id, user_id } = req.params;
-  
+	  const { post_id } = req.params;
+		const { payload } = req.body
+		const user_id = payload.user_id
 	  // Check if the like exists
 	  const checkLikeExistance = await getDynamoRequestBuilder("Likes")
 		.query("post_id", parseInt(post_id))
@@ -95,15 +97,15 @@ router.post("/like/:post_id/user/:user_id", rateLimiter(), inputValidator, async
  * @route POST /posts/comment/like/:id
  * @param {string} req.params.id - The ID of the comment being liked
  * @body {string} req.params.post_id - The ID of the post with the comment
- * @body {string} req.params.user_id - The ID of the user liking the comment
  * @returns {Object} - Returns a status of comment like if successful
  * @throws {Error} - If there are errors, the comment liking failed
  */
-router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id;
-		const { user_id, post_id } = req.body;
+		const { payload, post_id } = req.body;
+		const user_id = payload.user_id
 
 		const commentLikeSchema = setCommentsLike(parseInt(user_id), commentId);
 		
@@ -131,11 +133,10 @@ router.post("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req
    * @route DELETE /like/:post_id/user/:user_id
    * @param {string} req.params.id - The ID of the comment being unliked
    * @body {string} req.params.post_id - The ID of the post with the comment
-   * @body {string} req.params.user_id - The ID of the user unliking the comment
    * @returns {Object} Returns a status of comment like removed if successful
    * @throws {Error} If there is an error, the comment unliking failed
    */
-router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity(), inputValidator, async (req, res, next) => {
 	try {
 		const commentId = req.params.id;
 		const { comment_like_id, post_id } = req.body;
@@ -166,11 +167,12 @@ router.delete("/posts/comment/like/:id", rateLimiter(), inputValidator, async (r
  * @route POST /story:story_id/view:user_id
  * @params 
  *    {string} req.params.story_id - The unique identifier of the story being viewed.
- *    {string} req.params.user_id - The unique identifier of the user who is viewing the story.
 **/
-router.post("/story/:story_id/view/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.post("/story/:story_id/view", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
 	try {
-		const { story_id, user_id } = req.params;
+		const { story_id } = req.params;
+		const { payload } = req.body;
+		const user_id = payload.user_id
 		const StoryViewSchema = setStoryViews(story_id, parseInt(user_id));
 
 		// Check if the story view exists
@@ -200,14 +202,15 @@ router.post("/story/:story_id/view/:user_id", inputValidator, rateLimiter(), asy
  * @route POST /post:post_id/view:user_id
  * @params 
  *    {string} req.params.post_id - The unique identifier of the post being viewed.
- *    {string} req.params.user_id - The unique identifier of the user who is viewing the post.
  * 
  * @returns {status} - A successful status indicates that the view has been processed successfully.
  * @throws {Error} - If there are errors during processing.
  */
-router.post("/post/:post_id/view/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.post("/post/:post_id/view", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
 	try {
-		const { post_id, user_id } = req.params;
+		const { post_id } = req.params;
+		const { payload } = req.body
+		const user_id = payload.user_id
 		const ViewSchema = setViews(parseInt(user_id), parseInt(post_id));
 
 		// Check if the view exists

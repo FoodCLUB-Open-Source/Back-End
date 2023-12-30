@@ -19,9 +19,11 @@ export const changeAttribute = (attributeName, attributeValue, req) => {
   };
   
   // Get the authorisation header and tokens
-  const authorisation = req.header['Authorisation']
+  const authorisation = req.header['authorisation']
   try {
-    const { access_token, id_token } = parseHeader(authorisation)
+    const bearerTokens = parseHeader(authorisation)
+    const access_token = bearerTokens.access_token;
+    const id_token = bearerTokens.id_token;
     const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
     const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
     
