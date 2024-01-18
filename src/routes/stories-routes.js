@@ -3,6 +3,7 @@ import { Router } from "express";
 import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
+import { getUserFromTokens } from "../functions/apply_cognito.js";
 
 import { pgQuery, s3Delete, s3Upload, s3Retrieve } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
@@ -103,6 +104,70 @@ router.get("/:user_id/following_stories", rateLimiter(), inputValidator, async (
 });
 
 /**
+ * Retrieves a user's  saved stories
+ * @route GET /user/:user_id
+ * @param {string} req.params.user_id - The ID of the user to retrieve stories for
+ * @query {string} req.query.page_number - The page number for pagination
+ * @query {String} req.query.page_size - The page size for pagination
+ * @returns {Object} - An object of  list of stories that have been saved sorted by created_at
+ * @throws {Error} - If there is error in retrieving stories
+ */
+router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { user_id } = req.params;
+    const pageSize = parseInt(req.query.page_size) || 15;
+    const page_number = parseInt(req.query.page_number) || 1
+
+    if (isNaN(page_number) || isNaN(pageSize)) {
+      return res.status(400).json({ message: "Invalid page_number or page_size" });
+    }
+
+    // Calculate the offset based on page size and page number
+    const offset = (page_number - 1) * pageSize;
+    console.log(offset)
+
+    
+    // Retrieve stories with pagination
+    const stories = await getDynamoRequestBuilder("Stories")
+      .query("user_id", parseInt(user_id))
+      .useIndex("user_id-created_at-index")
+      .scanIndexDescending()
+      .exclusiveStartKey(offset > 0 ? { created_at: stories[offset - 1].created_at } : undefined) // Use startKey for pagination
+      .limit(pageSize)
+      .exec();
+
+    // Check if stories array is not empty before sorting
+    if (stories.length > 0) {
+      console.log('First DynamoDB Item:', stories[0]);
+    }
+
+    // Sort the stories according to created_at so latest stories show first
+    const savedStories = stories.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // Use map to concurrently retrieve S3 URLs for video and thumbnail
+    const s3Promises = savedStories.map(async (story) => {
+      story.video_url = await s3Retrieve(story.video_url);
+      story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+      return {
+        story_id: story.story_id,
+        video_url: story.video_url,
+        thumbnail_url: story.thumbnail_url,
+        created_at: story.created_at,
+        view_count: story.view_count,
+      };
+    });
+
+    // Wait for all promises to resolve
+    const updatedStories = await Promise.all(s3Promises);
+
+    res.status(200).json({ stories: updatedStories });
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+});
+
+/**
  * Retrieves stories of a user
  * 
  * @rourte GET /:user_id
@@ -189,7 +254,7 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
         s3Delete(req.files[0], S3_STORY_PATH),
         s3Delete(req.files[1], S3_STORY_PATH)
       ]);
-
+      
       // Throw the error to the next error handler
       res.status(500).json({  message: "Story Post Failed" });
     }
