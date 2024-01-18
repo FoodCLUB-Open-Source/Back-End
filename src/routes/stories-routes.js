@@ -165,8 +165,11 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
 
       const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
 
+      const currentTime = new Date();
+      const StorySchema = setStory(parseInt(user_id), newImageName, null, currentTime.toISOString());
+
       // Create a StorySchema object with user_id and image URL
-      const StorySchema = setStory(parseInt(user_id), newImageName, null);
+      // const StorySchema = setStory(parseInt(user_id), newImageName, null);
     
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
