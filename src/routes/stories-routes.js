@@ -148,6 +148,7 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.any(), async (req
     const { user_id } = req.params;
     // Define S3 bucket paths for storing files
     // const S3_STORY_PATH = "stories/active/";
+    const S3_IMAGE_PATH = "stories/active/"
   
     try {
       // Upload the first file (video) and the second file (thumbnail) to an S3 bucket
