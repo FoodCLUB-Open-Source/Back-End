@@ -125,11 +125,18 @@ router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, nex
 
     // Calculate the offset based on page size and page number
     const offset = (page_number - 1) * pageSize;
-    console.log(offset)
+    console.log("The offset number is: ", offset)
 
+    const CognitoUser =  await getUserFromTokens((err, user) => {
+      if (err) {
+        return res.status(401).json({ message: "User not authenticated" });
+      } else {
+        return user
     
-    // Retrieve stories with pagination
-    const stories = await getDynamoRequestBuilder("Stories")
+      }
+     })
+    try {
+      const stories = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
       .useIndex("user_id-created_at-index")
       .scanIndexDescending()
@@ -162,6 +169,10 @@ router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, nex
     const updatedStories = await Promise.all(s3Promises);
 
     res.status(200).json({ stories: updatedStories });
+    } catch (err){
+
+      return res.status(500).json({message: error})
+    }
   } catch (err) {
     console.log(err);
     next(err);
