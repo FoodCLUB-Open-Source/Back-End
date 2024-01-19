@@ -82,14 +82,8 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
 });
 
 /**
-<<<<<<< HEAD
-
- * Verify a users email using verification code after sign up.
- * 
-=======
  * Verify a users verification code after sign up.
  *
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
  * @route POST /login/confirm_verification
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
@@ -108,23 +102,6 @@ router.post(
       Pool: cognitoUserPool,
     };
 
-<<<<<<< HEAD
-
-    const cognitoUser = new CognitoUser(userData);
-    cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
-      if (err) {
-        return res.status(400).json({ message: err.message })
-      }
-      try {
-        const verified = true
-        await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
-      } catch (error) {
-        res.status(400).json({ message: error.message })
-      }
-      return res.status(201).json({message: 'user verified'});
-    });
-});
-=======
     const cognitoUser = new CognitoUser(userData);
     cognitoUser.confirmRegistration(verification_code, true, (err, result) => {
       if (err) {
@@ -134,7 +111,6 @@ router.post(
     });
   }
 );
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
 
 /**
  * Send another verification code to user
@@ -203,8 +179,6 @@ router.post(
           "SELECT id, username, profile_picture FROM users WHERE username = $1",
           username
         );
-<<<<<<< HEAD
-=======
 
         const returnData = {
           user_id: user.rows[0].id,
@@ -218,7 +192,6 @@ router.post(
           birth_date: user.rows[0].date_of_birth,
           dietary_preferences: user.rows[0].dietary_preferences,
         };
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
         res.setHeader(
           "Id-Token",
           cognitoUser.getSignInUserSession().getIdToken()
@@ -231,12 +204,7 @@ router.post(
           "Refresh-Token",
           cognitoUser.getSignInUserSession().getRefreshToken()
         );
-<<<<<<< HEAD
-        const fullName = `${user.rows[0].firstName} + " " + ${user.rows[0].lastName}`;
-        res.status(200).json({ user: user.rows[0], full_name: fullName });
-=======
         res.status(200).json({ user: returnData });
->>>>>>> c8d7175bd52bfc19461cc02c4ce6025c3cfe64ff
       },
       onFailure: (err) => {
         if (err.message == "User is not confirmed.") {
