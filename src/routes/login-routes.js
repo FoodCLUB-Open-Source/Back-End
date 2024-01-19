@@ -38,55 +38,48 @@ router.get("/testing", async (req, res) => {
  * @throws {Error} - If there are errors Dont create user.
  */
 
-router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
-  //retrieves data in object format from front end and stores correspoding values in the variables
+router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
+  
   const { username, email, password, full_name } = req.body;
 
   //if the following varaible are not valid, it will execute this error condition
   if (!(username && email && password && full_name)) {
-    return res.status(400).json({ message: "Necessary input fields not given." });
+    return res.status(400).json({ message :"Necessary input fields not given in request" });
   }
 
   const attributeArray = [];
   const passwordHashed = await hash(password, 10);
 
+  /* aws cognito assigns a UUID value to each user's sub attribute */
+  attributeArray.push(
+    new CognitoUserAttribute({ Name: "email", Value: email })
+  );
 
-  attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
+  cognitoUserPool.signUp(
+    username,
+    password,
+    attributeArray,
+    null,
+    async (err, result) => {
+      if (err) {
+        console.error(err);
+        return res.status(400).json({ message: err.message });
+      }
+      try {
+        await pgQuery(
+          `INSERT INTO users (username, email, password, full_name) VALUES ($1, $2, $3, $4) RETURNING *`,
+          username,
+          email,
+          passwordHashed,
+          full_name
+        );
+      } catch (error) {
+        return res.status(400).json({ message: error.message });
+      }
+      return res.status(201).json({ user: result.user });
 
-  cognitoUserPool.signUp(username, password, attributeArray, null, async (err, result) => {
-    if (err) {
-      console.error(err);
-      return res.status(400).json({message: err.message});
     }
-    
-    const userData = {
-      Username: username,
-      Pool: cognitoUserPool,
-    };
-  
-    const cognitoUser = new CognitoUser(userData);
-
-    try {
-      const verified = false;
-      await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5)`,
-      username, email, passwordHashed, full_name, verified);
-    } catch (error) {
-      cognitoUser.deleteUser( async (err, result) => {
-        if (err) {
-          return res.status(400).json({ message: err.message });
-        }
-      });
-      return res.status(400).json({ message: error.message });
-    }
-
-    return res.status(201).json({
-      username: username,
-      verification_status: 'not verified',
-      email: email,
-      full_name: full_name,
-      session: null
-    });
-  });  
+  );
 });
 
 /**
@@ -108,41 +101,21 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
     Pool: cognitoUserPool,
   };
 
-  const cognitoUser = new CognitoUser(userData);
-  cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
-    if (err) {
-      return res.status(400).json({ message: err.message })
-    }
-    try {
-      const verified = true
-      await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
-    } catch (error) {
-      res.status(400).json({ message: error.message })
-    }
+<<<<<<< HEAD
 
-    const authenticationDetails = new AuthenticationDetails({
-      Username: username,
-      Password: password
-    });
-    
-    cognitoUser.authenticateUser(authenticationDetails, {
-      onSuccess: async (result) => {
-        const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
-        res.setHeader('Id-Token', cognitoUser.getSignInUserSession().getIdToken());
-        res.setHeader('Access-Token', cognitoUser.getSignInUserSession().getAccessToken());
-        res.setHeader('Refresh-Token', cognitoUser.getSignInUserSession().getRefreshToken());
-        res.status(200).json({ 
-          header: 'user logged in',
-          message: 'user email verified successfully',
-          user: user.rows[0],
-          result: result
-        });
-      },
-      onFailure: (err) => {
-        return res.status(400).json({message: err.message})      
+    const cognitoUser = new CognitoUser(userData);
+    cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
+      if (err) {
+        return res.status(400).json({ message: err.message })
       }
-    }); 
-  });
+      try {
+        const verified = true
+        await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
+      } catch (error) {
+        res.status(400).json({ message: error.message })
+      }
+      return res.status(201).json({message: 'user verified'});
+    });
 });
 
 
