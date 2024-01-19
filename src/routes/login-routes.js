@@ -101,7 +101,7 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
     Pool: cognitoUserPool,
   };
 
-<<<<<<< HEAD
+
 
     const cognitoUser = new CognitoUser(userData);
     cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
