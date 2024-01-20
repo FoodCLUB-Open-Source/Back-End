@@ -6,6 +6,7 @@ import inputValidator from "../middleware/input_validator.js";
 import redis from"../config/redisConfig.js";
 import { pgQuery } from "../functions/general_functions.js";
 import {redisNewRecipe,redisRecipeExists} from "../functions/redis_functions.js"
+import { verifyAccessOnly, verifyUserIdentity } from "../middleware/verify.js";
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * @returns {JSON} The recipe as a JSON object.
  */
 
-router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (req, res, next) => {
 	const postId = parseInt(req.params.post_id);
 	try {
 	  const REDIS_KEY = `RECIPE|${postId}`;
@@ -78,7 +79,7 @@ router.get("/:post_id", inputValidator, rateLimiter(), async (req, res, next) =>
 		 serving_size       = INTEGER,
  * @returns {message} Recipe updated.
  */
-router.put("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.put("/:post_id", inputValidator, verifyUserIdentity, rateLimiter(), async (req, res, next) => {
 	try {
 		const { post_id } = req.params;
 

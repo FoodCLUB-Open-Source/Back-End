@@ -1,55 +1,121 @@
-import { cognitoUserPool, accessVerifier, refreshVerifier, idVerifier }from "../cognito.js";
+import { CognitoAccessToken, CognitoIdToken } from "amazon-cognito-identity-js"
+import { accessVerifier, idVerifier }from "../config/cognito.js";
+import { parseHeader, parseHeaderAccess } from "../functions/cognito_functions.js";
 
+// All tokens should be passed from frontend and stored as strings, not as objects.
 // Verifier that expects valid access tokens:
+/**
+ * INTERNAL USE ONLY
+ * @param {*} accessToken 
+ * @returns 
+ */
 
-export const verifyAccessToken = async (req, res, next) => {
+export const verifyAccessToken = async (accessToken) => {
 
-  const userAccessToken = req.header['Access-Token'];
-  
-  if (!!userAccessToken) {
+  if (!!accessToken) {
     try {
-      const payload = await accessVerifier.verify(
-        userAccessToken.getJwtToken()
+      const cognitoAccessToken = new CognitoAccessToken({AccessToken: accessToken});
+      await accessVerifier.verify(
+        cognitoAccessToken.getJwtToken()
       );
-    } catch {
+    } catch (error) {
       // If the access token is not valid, the refresh token will be validated. 
-      return res.status(400).json({message: 'Request new access token'});
+      console.log('Access token invalid')
+      throw new Error(error.message);
     };
   } else {
-    return res.status(404).json({message: 'Access token is null'});
+    console.log('access token null')
+    throw new Error('Access token is null');
   };
-  next();
 };
 
-// The function below is only necessary for an extra layer of security with id tokens. It is not yet needed for implementation.
+// Function to verify Id token
+/** INTERNAL USE ONLY
+ * 
+ * @param {*} idToken 
+ * @returns 
+ */
 
-export const verifyIdToken = async (req, res, next) => {
-  
-  const cognitoUser = cognitoUserPool.getCurrentUser()  
+export const verifyIdToken = async (idToken) => {
 
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      return res.status(400).json(err.message)
+  if (!!idToken) {
+    const cognitoIdToken = new CognitoIdToken({IdToken: idToken})
+    console.log(cognitoIdToken)
+    try {
+      const payload = await idVerifier.verify(
+        cognitoIdToken.getJwtToken()
+      );
+      return {
+        user_id: payload['custom:id'],
+        username: payload['cognito:username']
+      };
+    } catch (error) {
+      console.log('id token invalid')
+      throw new Error(error.message);
     }
-  });
+  } else {
+    console.log('id token null')
+    throw new Error("ID Token is null");
+  };
+};
 
+
+/**
+ * Middleware for verification of both access and id tokens, to be used with endpoints that accept both.
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ */
+export const verifyTokens = async (req, res, next) => {
   try {
-    const payload = await idVerifier.verify(
-      cognitoUser.getCurrentUser().get
-    );
-    res.status(200).json({message: `Token is valid. Payload: ${payload}`});
-  } catch {
-    res.status(400).json({ message: "Token not valid" });
-  }
-  next()
+    const authorisation = req.headers['authorisation'];
+    const bearerTokens = await parseHeader(authorisation);
+    const access_token = bearerTokens.access_token;
+    const id_token = bearerTokens.id_token;
+    await verifyAccessToken(access_token);
+    req.body.payload = await verifyIdToken(id_token);
+    return next();
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  };
+};
+
+/**
+ * Middleware for authenticating only the access token, for endpoints that only require the access token.
+ * Endpoints that only require the access token will be endpoints that do not require any user information.
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ */
+export const verifyAccessOnly = async (req, res, next) => {
+  try {
+    const authorisation = req.header['authorisation'];
+    const bearerToken = await parseHeaderAccess(authorisation);
+    const access_token = bearerToken.access_token;
+    await verifyAccessToken(access_token);
+    return next();
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  };
+};
+
+/**
+ * Middleware for authenticating both the access token and the id token, but which does not change the request body.
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @returns 
+ */
+export const verifyUserIdentity = async (req, res, next) => {
+  try {
+    const authorisation = req.headers['authorisation'];
+    const bearerTokens = await parseHeader(authorisation);
+    const access_token = bearerTokens.access_token;
+    const id_token = bearerTokens.id_token;
+    await verifyAccessToken(access_token);
+    await verifyIdToken(id_token);
+    return next();
+  } catch (error) {
+    return res.status(404).json({ message: error.message });
+  };
 }
-
-export const verifySession = async (req, res, next) => {
-  const cognitoUser = cognitoUserPool.getCurrentUser() 
-
-  cognitoUser.getSession((err, session) => {
-    if (err) {
-      return res.redirect(307, `${process.env.BASE_PATH}/login/signin`)
-    }
-  });
-} 
