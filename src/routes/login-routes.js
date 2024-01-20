@@ -48,18 +48,17 @@ router.get('psql_schema', async (req, res) => {
  * @throws {Error} - If there are errors Dont create user.
  */
 
-router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
-  //retrieves data in object format from front end and stores correspoding values in the variables
-  const { username, email, password, full_name } = req.body;
 
-  //if the following varaible are not valid, it will execute this error condition
+router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
+  
+  const { username, email, password, full_name } = req.body;
+  
   if (!(username && email && password && full_name)) {
-    return res.status(400).json({ message: "Necessary input fields not given." });
+    return res.status(400).json({ message :"Necessary input fields not given in request" });
   }
 
   const attributeArray = [];
   const passwordHashed = await hash(password, 10);
-
 
   attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
 
