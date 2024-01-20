@@ -3,7 +3,6 @@ import { Router } from "express";
 import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
-import { getUserFromTokens } from "../functions/apply_cognito.js";
 
 import { pgQuery, s3Delete, s3Upload, s3Retrieve } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
@@ -113,9 +112,10 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
  * @returns {Object} - An object of  list of stories that have been saved sorted by created_at
  * @throws {Error} - If there is error in retrieving stories
  */
-router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/user", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
   try {
-    const { user_id } = req.params;
+    const { payload} = req.body;
+    const { user_id } = payload.user_id
     const pageSize = parseInt(req.query.page_size) || 15;
     const page_number = parseInt(req.query.page_number) || 1
 
@@ -126,15 +126,6 @@ router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, nex
     // Calculate the offset based on page size and page number
     const offset = (page_number - 1) * pageSize;
     console.log("The offset number is: ", offset)
-
-    const CognitoUser =  await getUserFromTokens((err, user) => {
-      if (err) {
-        return res.status(401).json({ message: "User not authenticated" });
-      } else {
-        return user
-    
-      }
-     })
     try {
       const stories = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
