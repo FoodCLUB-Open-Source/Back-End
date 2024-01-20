@@ -68,7 +68,7 @@ const removeLikesAndViews = async (post_id) => {
  * @returns {Object} - Returns a status of video posted if successful
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
  */
-router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens(), upload.any(), async (req, res, next) => {
+router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(), async (req, res, next) => {
   try {
 
     const { payload } = req.body;
@@ -140,7 +140,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens(), upload.an
  * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
-router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens(), async (req, res, next) => {
+router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
   try {
 
     const { post_id } = req.params; 
@@ -199,7 +199,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens(), async (re
  * @returns {status} - A successful status indicates that posts have been deleted
  * @throws {Error} - If there are errors dont delete any post.
  */
-router.delete("/:post_id", rateLimiter(), verifyUserIdentity(), inputValidator, async (req, res, next) => {
+router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
     const { post_id } = req.params;
@@ -240,7 +240,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity(), inputValidator, 
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 
-router.get("/category/:category_id", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
     const user_id = payload.user_id;
@@ -328,7 +328,7 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens(), inputValidat
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens(), async (req, res, next) => {
+router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
       // getting user ID
   const { payload } = req.body
   const user_id = payload.user_id
@@ -400,7 +400,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens(), asyn
  * @returns {Object} - Returns a status indicating the update was successful
  * @throws {Error} - If there are errors during the update
  */
-router.put("/:post_id", verifyUserIdentity(), inputValidator, rateLimiter(), async (req, res, next) => {
+router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async (req, res, next) => {
   try {
     const { post_id } = req.params;
     const { title, description } = req.body;

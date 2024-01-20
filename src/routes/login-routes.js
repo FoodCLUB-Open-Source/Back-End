@@ -32,6 +32,11 @@ router.get("/testing", async (req, res) => {
   }
 });
 
+router.get('psql_schema', async (req, res) => {
+  const result = await pgQuery("SELECT table_schema, table_name FROM information_schema.tables")
+  console.log(result)
+})
+
 /**
  * Sign up a user
  *

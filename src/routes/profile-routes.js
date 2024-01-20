@@ -19,7 +19,7 @@ const router = Router();
  * @returns {Object} - An object containing details of the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/details", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         const { payload } = req.body;
         const user_id = payload.user_id;
@@ -42,7 +42,7 @@ router.get("/details", rateLimiter(), verifyTokens(), inputValidator, async (req
  * @returns {Object} - An object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
-router.get("/", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // getting userID and converting to integer
         const { page_number, page_size } = req.query; // getting page number and page size
@@ -99,7 +99,7 @@ router.get("/", rateLimiter(), verifyTokens(), inputValidator, async (req, res, 
  * @returns {Object} - An object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/following", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         const { page_number, page_size } = req.query; // getting page number and page size
         const { payload } = req.body;
@@ -135,7 +135,7 @@ router.get("/following", rateLimiter(), verifyTokens(), inputValidator, async (r
  * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/followers", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         const { page_number, page_size } = req.query; // getting page number and page size
         const { payload } = req.body;
@@ -158,7 +158,7 @@ router.get("/followers", rateLimiter(), verifyTokens(), inputValidator, async (r
  * @returns {Object} - With a successful message
  * @throws {Error} - This must not unfollow the user
  */
-router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameters
         const { user_following_id } = req.params;
@@ -223,7 +223,7 @@ router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), veri
  * @returns {Object} - With a successful message
  * @throws {Error} - This must not follow the user
  * */
-router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameter
         const { user_following_id } = req.params;
@@ -286,7 +286,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
  * @returns {Array} - An array of objects containing details of the users to follow
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/topcreators", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
 
         const { page_number, page_size } = req.query; // getting page number and page size
@@ -320,7 +320,7 @@ router.get("/topcreators", rateLimiter(), verifyTokens(), inputValidator, async 
  * @returns {Status} - Updated user profile status
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_details", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
         const { payload } = req.body;
@@ -354,7 +354,7 @@ router.put("/profile_details", rateLimiter(), verifyTokens(), inputValidator, as
  * @returns {Status} - Updated user profile picture status
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_picture", rateLimiter(), verifyTokens(), upload.any(), inputValidator, async (req, res, next) => {
+router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
         const { payload } = req.body;

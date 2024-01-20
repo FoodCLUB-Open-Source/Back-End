@@ -33,7 +33,7 @@ router.get("/testing", async (req, res, next) => {
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/following_stories", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         const { page_number, page_size } = req.query; // getting page number and page size
         const { payload } = req.body;
@@ -110,7 +110,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens(), inputValidator, 
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
@@ -160,7 +160,7 @@ router.get("/", rateLimiter(), verifyTokens(), inputValidator, async (req, res, 
  *       The video should be attached as the first file in req.files[0], 
  *       The thumbnail should be attached as the second file in req.files[1].
  */
-router.post("/", rateLimiter(), verifyTokens(), inputValidator, upload.any(), async (req, res, next) => {
+router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
   try {
     // Parse the user_id from the request parameters
     const { payload } = req.body;
@@ -213,7 +213,7 @@ router.post("/", rateLimiter(), verifyTokens(), inputValidator, upload.any(), as
  *   This route allows the user to delete their story.
  *   It deletes the story from the DynamoDB and removes associated files from the S3 bucket.
  */
-router.delete("/story/:story_id/user", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     // Parse the user_id from the request parameters
     const { story_id } = req.params;

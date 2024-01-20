@@ -2,7 +2,7 @@ import { Router } from "express";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 import pgPool from "../config/pgdb.js";
-import { verifyAccessOnly } from "../middleware/verify.js";
+import { verifyAccessOnly, verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
 
@@ -15,7 +15,7 @@ const router = Router();
  * @returns {Object} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the comment posting failed
  */
-router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly(), inputValidator, async (req, res, next) => {
+router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
     try {
       console.log(`Req body contains: ${req.body.user_id}`);
 
@@ -71,7 +71,7 @@ router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly(), inputValidato
  * @returns {Object} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the comment posting failed
  */
-router.delete("/posts/block/:id", rateLimiter(), verifyAccessOnly(), inputValidator, async (req, res, next) => {
+router.delete("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
     try {
       console.log(`Expected URL:, ${req.originalUrl}`);
 

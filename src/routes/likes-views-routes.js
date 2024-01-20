@@ -26,7 +26,7 @@ router.get("/testing", async (req, res) => {
  * @returns {Object} - Returns a status of video like if successful
  * @throws {Error} - If there is an error, the post liking failed
  */
-router.post("/like/:post_id/user", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.post("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
 	  const { post_id } = req.params;
 		const { payload } = req.body
@@ -61,7 +61,7 @@ router.post("/like/:post_id/user", rateLimiter(), verifyTokens(), inputValidator
    * @returns {Object} - Returns a status of video like removed if successful
    * @throws {Error} - If there is an error, the post is already unliked
    */
-  router.delete("/like/:post_id/user", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+  router.delete("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
 	  const { post_id } = req.params;
 		const { payload } = req.body
@@ -100,7 +100,7 @@ router.post("/like/:post_id/user", rateLimiter(), verifyTokens(), inputValidator
  * @returns {Object} - Returns a status of comment like if successful
  * @throws {Error} - If there are errors, the comment liking failed
  */
-router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
 
 		const commentId = req.params.id;
@@ -136,7 +136,7 @@ router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens(), inputValid
    * @returns {Object} Returns a status of comment like removed if successful
    * @throws {Error} If there is an error, the comment unliking failed
    */
-router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity(), inputValidator, async (req, res, next) => {
+router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
 	try {
 		const commentId = req.params.id;
 		const { comment_like_id, post_id } = req.body;
@@ -168,7 +168,7 @@ router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity(), in
  * @params 
  *    {string} req.params.story_id - The unique identifier of the story being viewed.
 **/
-router.post("/story/:story_id/view", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.post("/story/:story_id/view", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
 		const { story_id } = req.params;
 		const { payload } = req.body;
@@ -206,7 +206,7 @@ router.post("/story/:story_id/view", rateLimiter(), verifyTokens(), inputValidat
  * @returns {status} - A successful status indicates that the view has been processed successfully.
  * @throws {Error} - If there are errors during processing.
  */
-router.post("/post/:post_id/view", rateLimiter(), verifyTokens(), inputValidator, async (req, res, next) => {
+router.post("/post/:post_id/view", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
 		const { post_id } = req.params;
 		const { payload } = req.body

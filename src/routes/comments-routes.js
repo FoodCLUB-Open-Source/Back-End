@@ -28,7 +28,7 @@ router.get("/testing", async (req, res) => {
  * @returns {Object} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the comment posting failed
  */
-router.post("/posts/comments/:id", rateLimiter(), verifyTokens(), async (req, res, next) => {
+router.post("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
 	try {
 		const postId = parseInt(req.params.id);
 		const { user_id, comment } = req.body;
@@ -58,7 +58,7 @@ router.post("/posts/comments/:id", rateLimiter(), verifyTokens(), async (req, re
  * @returns {Object} - Returns a JSON Object of the results from the query
  * @throws {Error} - If there are errors, retrieving 30 most liked comments failed
  */
-router.get("/posts/comments/:id", rateLimiter(), verifyTokens(), async (req, res, next) => {
+router.get("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
 	try {
 		const postId = parseInt(req.params.id);
 
@@ -88,7 +88,7 @@ router.get("/posts/comments/:id", rateLimiter(), verifyTokens(), async (req, res
  * @returns {Object} - Returns a status of comment if update is successful
  * @throws {Error} - If there are errors, the comment update failed
  */ 
-router.put("/posts/comments/:id", rateLimiter(), verifyTokens(), async (req, res, next) => {
+router.put("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
 	try {
 		const commentId = req.params.id;
 		const { comment, post_id } = req.body;
