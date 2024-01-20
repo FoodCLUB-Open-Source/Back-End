@@ -1,7 +1,6 @@
 /* For video/image posting routes */
 import { Router } from "express";
 import multer, { memoryStorage } from "multer";
-import { validationResult } from "express-validator";
 
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
@@ -10,6 +9,7 @@ import { checkLike, checkView, makeTransactions, pgQuery, s3Delete, s3Retrieve, 
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
+import { verifyTokens, verifyUserIdentity } from "../middleware/verify.js";
 
 const router = Router();
 const storage = memoryStorage();
@@ -17,7 +17,7 @@ const upload = multer({ storage: storage })
 
 
 /* Testing Posts Route */
-router.get("/testing/:user_id/test/:post_id", inputValidator, async (req, res) => {
+router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
   try {
     console.log(req.params);
 
@@ -64,15 +64,15 @@ const removeLikesAndViews = async (post_id) => {
  * Uploading a Post, video and recipe
  * 
  * @route POST /:userid
- * @param {string} req.params.user_id - The ID of the user to retrieve profile page data for
  * @body {string} req.body - This contains all of the information needed for creating a post.
  * @returns {Object} - Returns a status of video posted if successful
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
  */
-router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
+router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(), async (req, res, next) => {
   try {
 
-    const userId = parseInt(req.params.user_id);
+    const { payload } = req.body;
+    const user_id = payload.user_id;
     const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
     let { recipe_ingredients, recipe_equipment, recipe_steps } = req.body;
 
@@ -93,7 +93,7 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
       await client.query('BEGIN');
       
       const insertPostQuery = 'INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id';
-      const postValues = [userId, title, description, newVideoName, newThumbNaileName];
+      const postValues = [user_id, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
       
       const { post_id } = newPost.rows[0];
@@ -137,14 +137,15 @@ router.post("/:user_id", inputValidator, rateLimiter(500, 15), upload.any(), asy
  * 
  * @route GET /posts/:post_id/user_id
  * @param {string} req.params.post_id - The ID of the post to retrieve details for
- * @param {string} req.params.user_id - The ID of the user to check isLiked and isViewed the post
  * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
-router.get("/:post_id/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
   try {
 
-    const { post_id, user_id } = req.params; 
+    const { post_id } = req.params; 
+    const { payload } = req.body;
+    const user_id = payload.user_id;
     const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
@@ -198,7 +199,7 @@ router.get("/:post_id/:user_id", rateLimiter(), inputValidator, async (req, res,
  * @returns {status} - A successful status indicates that posts have been deleted
  * @throws {Error} - If there are errors dont delete any post.
  */
-router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
     const { post_id } = req.params;
@@ -233,18 +234,18 @@ router.delete("/:post_id", rateLimiter(), inputValidator, async (req, res, next)
  * 
  * @route GET /category/:category_id/:user_id
  * @param {string} req.params.category_id - ID of the category that is needed
- * @param {string} req.params.user_id - ID of the user that is needed for check isLiked And isViewed th post
  * @query {number} req.query.page_size - Number of posts to fetch per page (optional, default: 15)
  * @query {number} req.query.page_number - Page number to fetch (optional, default: 1)
  * @returns {Object} - Returns an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 
-router.get("/category/:category_id/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    
+    const { payload } = req.body;
+    const user_id = payload.user_id;
     // Extract category ID from URL parameters
-    const { category_id ,user_id} = req.params;
+    const { category_id } = req.params;
 
     // Pagination settings
     // Get query parameters for pagination
@@ -327,9 +328,10 @@ router.get("/category/:category_id/:user_id", rateLimiter(), inputValidator, asy
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/user/:user_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
       // getting user ID
-      const user_id =parseInt(req.params.user_id);
+  const { payload } = req.body
+  const user_id = payload.user_id
   try {
 
     // getting posts liked by user
@@ -398,7 +400,7 @@ router.get("/homepage/user/:user_id", inputValidator, rateLimiter(), async (req,
  * @returns {Object} - Returns a status indicating the update was successful
  * @throws {Error} - If there are errors during the update
  */
-router.put("/:post_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async (req, res, next) => {
   try {
     const { post_id } = req.params;
     const { title, description } = req.body;

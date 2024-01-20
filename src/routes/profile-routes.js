@@ -6,6 +6,7 @@ import multer, { memoryStorage } from "multer";
 
 import { makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload, updatePosts } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
+import { verifyTokens } from "../middleware/verify.js";
 
 const storage = memoryStorage();
 const upload = multer({ storage: storage })
@@ -15,13 +16,14 @@ const router = Router();
  * Retrieves user details
  * 
  * @route GET /:userid/details
- * @param {string} req.params.user_id - The ID of the user to retrieve details for
  * @returns {Object} - An object containing details of the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/:user_id/details", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
-        const { user_id } = req.params;
+
+        const { payload } = req.body;
+        const user_id = payload.user_id;
 
         const query = `
             SELECT id, username, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
@@ -45,17 +47,18 @@ router.get("/:user_id/details", rateLimiter(), inputValidator, async (req, res, 
 /**
  * Retrieves profile page data based on the received user ID 
  * 
- * @route GET /:userid
- * @param {string} req.params.user_id - The ID of the user to retrieve profile page data for
+ * @route GET /
  * @query {string} req.query.page_number - The page number for pagination. In this API pagination is only implemented for user posts
  * @query {string} req.query.page_size - The page size for pagination. In this API pagination is only implemented for user posts
  * @returns {Object} - An object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
-router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
-        const userID = req.params.user_id; // getting userID and converting to integer
+        // getting userID and converting to integer
         const { page_number, page_size } = req.query; // getting page number and page size
+        const { payload } = req.body;
+        const userID = payload.user_id;
 
         // QUERIES
         const userNameQuery = 'SELECT username, profile_picture FROM users WHERE id = $1'; // username and profile picture query
@@ -102,16 +105,16 @@ router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) =>
  * Retrieves users that are followed by the user
  * 
  * @route GET /:user_id/following
- * @param {string} req.params.user_id - The ID of the user to retrieve users that are followed by the user
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
  * @returns {Object} - An object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
-        const userID = req.params.user_id; // getting userID
         const { page_number, page_size } = req.query; // getting page number and page size
+        const { payload } = req.body;
+        const userID = payload.user_id;
 
         // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
 
@@ -145,16 +148,16 @@ router.get("/:user_id/following", rateLimiter(), inputValidator, async (req, res
  * Retrieves users that follow the user
  * 
  * @route GET /:userid/followers
- * @param {string} req.params.user_id - The ID of the user to retrieve users that follow the user
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
  * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
-        const userID = req.params.user_id; // getting userID
         const { page_number, page_size } = req.query; // getting page number and page size
+        const { payload } = req.body;
+        const userID = payload.user_id; // getting userID
 
         const query = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that follow the user with pagination
         const userFollowers = await pgQuery(query, userID, page_number, page_size);
@@ -178,16 +181,17 @@ router.get("/:user_id/followers", rateLimiter(), inputValidator, async (req, res
  * Unfollows a user
  * 
  * @route GET /:userid
- * @param {string} req.params.user_id - The ID of the user that is unfollowing another user
  * @param {string} req.params.user_following_id - The ID of the user that is getting unfollowed
  * @returns {Object} - With a successful message
  * @throws {Error} - This must not unfollow the user
  */
-router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameters
-        const { user_id, user_following_id } = req.params;
-
+        const { user_following_id } = req.params;
+        const { payload } = req.body;
+        const user_id = payload.user_id;
+        
         // Wrap each query in a function that returns a promise
         const verifyUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
         const verifyFollowingUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
@@ -242,16 +246,17 @@ router.delete("/unfollow/user/:user_id/following/:user_following_id", rateLimite
  * Follows A User
  * 
  * @route POST /follow/user/:user_id/following/:user_following_id
- * @param {string} req.params.user_id - The ID of the user that is following another user
  * @param {string} req.params.user_following_id - The ID of the user that is getting followed
  * @returns {Object} - With a successful message
  * @throws {Error} - This must not follow the user
  * */
-router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Extract user IDs from request parameter
-        const { user_id, user_following_id } = req.params;
-
+        const { user_following_id } = req.params;
+        const { payload } = req.body;
+        const user_id = payload.user_id;
+        
         const verifyUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
         const verifyFollowingUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
         const checkFollowQuery = pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
@@ -303,17 +308,17 @@ router.post("/follow/user/:user_id/following/:user_following_id", rateLimiter(),
  * Top creators query
  * 
  * @route GET /:user_id/topcreators
- * @param {string} req.query.user_id - The ID of the user to retrieve top creator users for
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
  * @returns {Array} - An array of objects containing details of the users to follow
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
 
-        const userID = req.params.user_id; // retrieving userID
         const { page_number, page_size } = req.query; // getting page number and page size
+        const { payload } = req.body;
+        const userID = payload.user_id;
 
 
         const query = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT $3 OFFSET (($2 - 1) * $3)'; // top creators query, returns random users that the user does not follow
@@ -342,7 +347,6 @@ router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, r
  * Update user profile detials 
  *
  * @route PUT /:user_id
- * @param {string} req.params.user_id - The ID of the user to update
  * @body
  *    {string} req.body.username - The username of the user
  *    {string} req.body.phone_number - The phone number of the user
@@ -356,10 +360,11 @@ router.get("/:user_id/topcreators", rateLimiter(), inputValidator, async (req, r
  * @returns {Status} - Updated user profile status
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_details/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
-        const { user_id } = req.params;
+        const { payload } = req.body;
+        const user_id = payload.user_id;
 
         // Getting user details
         const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
@@ -385,15 +390,15 @@ router.put("/profile_details/:user_id", rateLimiter(), inputValidator, async (re
 /**
  * Update user profile picture
  *
- * @route PUT /:user_id
- * @param {string} req.params.user_id - The ID of the user to update
+ * @route PUT /profile_picture
  * @returns {Status} - Updated user profile picture status
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_picture/:user_id", rateLimiter(), upload.any(), inputValidator, async (req, res, next) => {
+router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
-        const user_id = req.params.user_id;
+        const { payload } = req.body;
+        const user_id = payload.user_id;
 
         const S3_PROFILE_PICTURE_PATH = 'profile_pictures/active/';
 
