@@ -75,11 +75,13 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
     };
   
     const cognitoUser = new CognitoUser(userData);
+    let userId;
 
     try {
       const verified = false;
-      await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5)`,
+      const insertQuery = await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       username, email, passwordHashed, full_name, verified);
+      userId = insertQuery.rows[0].id; 
     } catch (error) {
       cognitoUser.deleteUser((err, result) => {
         if (err) {
@@ -90,6 +92,7 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
     }
 
     return res.status(201).json({
+      user_id: userId,
       username: username,
       verification_status: 'not verified',
       email: email,
