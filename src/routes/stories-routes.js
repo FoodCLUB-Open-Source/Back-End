@@ -116,6 +116,7 @@ router.get("/user", rateLimiter(), inputValidator, verifyTokens, async (req, res
   try {
     const { payload} = req.body;
     const { user_id } = payload.user_id
+
     const pageSize = parseInt(req.query.page_size) || 15;
     const page_number = parseInt(req.query.page_number) || 1
 
@@ -126,6 +127,7 @@ router.get("/user", rateLimiter(), inputValidator, verifyTokens, async (req, res
     // Calculate the offset based on page size and page number
     const offset = (page_number - 1) * pageSize;
     console.log("The offset number is: ", offset)
+
     try {
       const stories = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
