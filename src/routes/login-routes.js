@@ -62,10 +62,19 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
 
   attributeArray.push(new CognitoUserAttribute({ Name: "email", Value: email }));
 
+  // Checks if email already exists in database
+  try {
+    const checkEmail = await pgQuery('SELECT id from users WHERE email=$1', email); // query to check if duplicate email does exist in PG
+    if (checkEmail.rows.length > 0) {
+      return res.status(400).json({message: "User with email already exists"})
+    }
+  } catch (error) {
+    return res.status(500).json({message: error});
+  }
   cognitoUserPool.signUp(username, password, attributeArray, null, async (err, result) => {
     if (err) {
       console.error(err);
-      return res.status(400).json({message: err.message});
+      return res.status(400).json({message: err.message}); //Handled gracefully
     }
     
     const userData = {
