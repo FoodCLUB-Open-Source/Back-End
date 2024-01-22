@@ -106,7 +106,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
 /**
  * Retrieves stories of a user
  * 
- * @rourte GET /:user_id
+ * @route GET /:user_id
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */

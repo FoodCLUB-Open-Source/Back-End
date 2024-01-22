@@ -52,7 +52,7 @@ router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (
 		  }
 		  //add new recipe to redis
 		  await redisNewRecipe(postId).then(()=>{
-			  console.log("New Recipw on Redis created")
+			  console.log("New Recipe on Redis created")
 		  })
 		  return res.status(200).json({ recipe: specificRecipe.rows[0] });
 		} catch (err) {
