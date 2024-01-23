@@ -114,9 +114,10 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
  * @throws {Error} - If there is error in retrieving stories
  */
 
-router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/user", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const { user_id } = req.params;
+    const { payload } = req.body;
+    const user_id = payload.user_id;
     const pageSize = parseInt(req.query.page_size) || 15;
     const page_number = parseInt(req.query.page_number) || 1
 
