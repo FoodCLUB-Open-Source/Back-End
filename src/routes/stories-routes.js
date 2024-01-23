@@ -115,7 +115,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
 router.get("/user", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
   try {
     const { payload} = req.body;
-    const { user_id } = payload.user_id
+    const user_id  = payload.user_id
 
     const pageSize = parseInt(req.query.page_size) || 15;
     const page_number = parseInt(req.query.page_number) || 1
