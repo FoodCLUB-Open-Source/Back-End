@@ -4,6 +4,7 @@ import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
+
 import { pgQuery, s3Delete, s3Upload, s3Retrieve } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
@@ -112,11 +113,10 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
  * @returns {Object} - An object of  list of stories that have been saved sorted by created_at
  * @throws {Error} - If there is error in retrieving stories
  */
-router.get("/user", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
-  try {
-    const { payload} = req.body;
-    const user_id  = payload.user_id
 
+router.get("/user/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { user_id } = req.params;
     const pageSize = parseInt(req.query.page_size) || 15;
     const page_number = parseInt(req.query.page_number) || 1
 
@@ -127,7 +127,6 @@ router.get("/user", rateLimiter(), inputValidator, verifyTokens, async (req, res
     // Calculate the offset based on page size and page number
     const offset = (page_number - 1) * pageSize;
     console.log("The offset number is: ", offset)
-
     try {
       const stories = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
