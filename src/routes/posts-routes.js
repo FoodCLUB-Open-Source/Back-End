@@ -153,42 +153,13 @@ router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req,
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // getting video_name and thumbnail_name URL's
-    const [videoUrl, thumbnailUrl] = await Promise.all([
-      await s3Retrieve(postDetails.rows[0].video_name),
-      await s3Retrieve(postDetails.rows[0].thumbnail_name),
-    ]);
+    const updatedPosts = await updatePosts(postDetails.rows, user_id);
 
-    // getting users who liked and viewed the post to get total number of likes and views (NEED TO ADD COMMENTS COUNT)
-    const postLikeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
-    const postViewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
-  
-    // checking if user has liked and viewed post or not
-    const isLiked = await checkLike(parseInt(post_id), parseInt(user_id));
-    const isViewed = await checkView(parseInt(post_id), parseInt(user_id));
-
-    // adding URLs to posts data and removing video_name and thumbnail_name
-    postDetails.rows[0].video_url = videoUrl;
-    postDetails.rows[0].thumbnail_url = thumbnailUrl;
-
-    delete postDetails.rows[0].video_name;
-    delete postDetails.rows[0].thumbnail_name;
-
-    // adding post total likes and views count to posts data
-    postDetails.rows[0].total_likes = postLikeCount.length;
-    postDetails.rows[0].total_views = postViewCount.length;
-
-     // Adding isLiked and isViewed fields
-     postDetails.rows[0].isLiked = isLiked;
-     postDetails.rows[0].isViewed = isViewed;
-
-    return res.status(200).json({ data: postDetails.rows }); // sending data to client
+    return res.status(200).json({ data: updatedPosts }); // sending data to client
   } catch (error) {
     next(error); // server side error
   }
 });
-
-
 
 
 /**
@@ -296,22 +267,11 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     const specificCategoryPosts = await pgQuery(query, category_id, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
-    const processedPosts = await Promise.all(
-      specificCategoryPosts.rows.map(async (post) => {
-        const videoUrl = await s3Retrieve(post.video_name);
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
-        
-        const isLiked = await checkLike(post.id, parseInt(user_id));
-        const isViewed = await checkView(post.id, parseInt(user_id));
-        const { video_name, thumbnail_name, ...rest } = post;
-        
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, isLiked: isLiked, isViewed: isViewed };
-      })
-    );
+    const updatedPosts = await updatedPosts(specificCategoryPosts.rows, user_id);
 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": updatedPosts }));
     console.log("Cache Miss");
 
    // Respond with an object containing the "posts" key and the 15 array of objects with post information
@@ -363,24 +323,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     const randomPosts = await pgQuery(query, likedPostsLiteral, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs
-    const processedRandomPosts = await Promise.all(
-      randomPosts.rows.map(async (post) => {
-        const videoUrl = await s3Retrieve(post.video_name); // getting video URL
-        const thumbnailUrl = await s3Retrieve(post.thumbnail_name); // getting thumbnail URL
-
-        // getting like count and view count
-        const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec();
-        const viewCount = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec();
-
-        const { video_name, thumbnail_name, ...rest } = post;
-
-        // checking if user has liked and viewed post or not
-        const isLiked = await checkLike(post.id, parseInt(user_id));
-        const isViewed = await checkView(post.id, parseInt(user_id));
-        
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, isLiked:isLiked, isViewed:isViewed };
-      })
-    );
+    const updatedPosts = await updatePosts(randomPosts.rows, user_id);
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({ "posts": processedRandomPosts });
