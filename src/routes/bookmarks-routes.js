@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 import { pgQuery, updatePosts } from "../functions/general_functions.js";
+import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
 
@@ -14,9 +15,11 @@ const router = Router();
  * @returns {status} - A status indicating successful removal of post from bookmarks
  * @throws {Error} - If there are error removing post
  */
-router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
-        const { user_id, post_id } = req.params; // retrieving userID and postID
+        const { post_id } = req.params; // retrieving userID and postID
+        const { payload } = req.body
+        const user_id = payload.user_id
 
         const query = 'DELETE FROM bookmarks WHERE user_id = $1 AND post_id = $2'; // query to remove post from bookmarks
         const postgresQuery = await pgQuery(query, user_id, post_id);
@@ -44,9 +47,11 @@ router.delete("/profile/:user_id/bookmark/:post_id", rateLimiter(), inputValidat
  * @returns {status} - A status indicating successful bookmark of post
  * @throws {Error} - If there are errors bookmarking post
  */
-router.post("/post/:user_id/bookmark/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
-        const { user_id, post_id } = req.params; // retrieving userID and postID
+        const { post_id } = req.params; // retrieving userID and postID
+        const { payload } = req.body
+        const user_id = payload.user_id
 
         const query = 'INSERT INTO bookmarks (user_id, post_id, created_at) VALUES ($1, $2, NOW())'; // query to add a post to bookmarks
         const postgresQuery = await pgQuery(query, user_id, post_id);
@@ -74,7 +79,29 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
         const { user_id } = req.params; // retrieving userID
         const { page_number, page_size } = req.query; // getting page number and page size
 
-        const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
+        // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
+        const bookmarkPostsQuery = `
+        SELECT 
+            p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture,
+            CASE 
+                WHEN fol.user_following_id IS NOT NULL THEN true 
+                ELSE false 
+            END as isFollowed
+        FROM 
+            posts p 
+        JOIN 
+            bookmarks b ON p.id = b.post_id 
+        JOIN 
+            users u ON p.user_id = u.id
+        LEFT JOIN
+            following fol ON u.id = fol.user_following_id AND fol.user_id = $1
+        WHERE 
+            b.user_id = $1 
+        ORDER BY 
+            b.created_at DESC 
+        LIMIT $3 
+        OFFSET (($2 - 1) * $3)`; // query to get bookmarked post details
+
         const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
         const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows,parseInt(user_id)); // updating post objects to include further information
         

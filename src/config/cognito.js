@@ -15,12 +15,6 @@ export const accessVerifier = CognitoJwtVerifier.create({
   clientId: process.env.CLIENT_ID,
 });
 
-export const refreshVerifier = CognitoJwtVerifier.create({
-  userPoolId: process.env.USER_POOL_ID,
-  tokenUse: "refresh",
-  clientId: process.env.CLIENT_ID,
-});
-
 export const idVerifier = CognitoJwtVerifier.create({
   userPoolId: process.env.USER_POOL_ID,
   tokenUse: "id",
