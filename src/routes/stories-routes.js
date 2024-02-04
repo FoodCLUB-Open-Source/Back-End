@@ -199,11 +199,11 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
-    const user_id = 217
+    const user_id = payload.user_id
 
     // Query to retrive user details from database
     const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
