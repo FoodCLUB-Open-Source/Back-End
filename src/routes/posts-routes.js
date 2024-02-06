@@ -335,12 +335,12 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-//verifyTokens,
-router.get("/homepage/user", inputValidator, rateLimiter(), async (req, res, next) => {
+
+router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
   // getting user ID
   const { payload } = req.body
-  // const user_id = payload.user_id
-  const user_id = 3
+  const user_id = payload.user_id
+
   try {
 
     // getting posts liked by user
