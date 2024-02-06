@@ -13,7 +13,7 @@ import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
 const storage = memoryStorage();
-const upload = multer({ storage: storage })
+const upload = multer({ storage: storage });
 
 
 // Testing stories
