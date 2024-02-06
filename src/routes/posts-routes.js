@@ -5,7 +5,7 @@ import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
-import { checkLike, checkView, makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload } from "../functions/general_functions.js";
+import { checkLike, checkView, makeTransactions, pgQuery, s3Delete, s3Retrieve, s3Upload, removeLikesAndViews } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
@@ -26,36 +26,7 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
   }
 });
 
-/* Functions for Posts */
-const removeLikesAndViews = async (post_id) => {
-  const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
-  const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
-  // Prepare the list of items to delete from the 'Likes' table
-  const likesToDelete = Likes.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
-
-  // Prepare the list of items to delete from the 'Views' table
-  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
-
-  // Create an array of delete requests for 'Likes' and 'Views' tables
-  const deleteRequests = [
-    {
-      tableName: "Likes",
-      items: likesToDelete,
-    },
-    {
-      tableName: "Views",
-      items: viewsToDelete,
-    },
-  ];
-
-  // Perform batch deletions
-  deleteRequests.forEach(async (deleteRequest) => {
-    const { tableName, items } = deleteRequest;
-    await performBatchDeletion(tableName, items);
-  });
-
-}
 
 
 
@@ -198,6 +169,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req,
  * @returns {status} - A successful status indicates that posts have been deleted
  * @throws {Error} - If there are errors dont delete any post.
  */
+//verifyUserIdentity
 router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
@@ -239,10 +211,10 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 
-router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
-    const user_id = payload.user_id;
+    const user_id = 213;
     // Extract category ID from URL parameters
     const { category_id } = req.params;
 
@@ -404,8 +376,6 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
     const { post_id } = req.params;
     const { title, description } = req.body;
 
-    console.log(post_id);
-
     // Update the post title and title description
     try {
       await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
@@ -436,5 +406,7 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
     res.status(500).json({ response: "Internal server error" });
   }
 });
+
+// console.log(await pgQuery("SELECT * FROM posts"))
 
 export default router;
