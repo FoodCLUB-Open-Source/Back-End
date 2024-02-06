@@ -118,7 +118,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
 router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
-    const user_id = payload.user_id
+    const user_id = payload.user_id;
     const pageSize = parseInt(req.query.page_size) || 15;
     const page_number = parseInt(req.query.page_number) || 1
 
@@ -128,10 +128,10 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 
     // Query to retrive user details from database
     const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
-    const userDetails = await pgQuery(query, parseInt(user_id)) 
+    const userDetails = await pgQuery(query, parseInt(user_id));
 
     if (userDetails.rows.length === 0) {
-      return res.status(404).json({message: 'User not found'})
+      return res.status(404).json({message: 'User not found'});
     }
 
     const userDetail = userDetails.rows[0];
@@ -179,12 +179,12 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
       saved_stories: [...updatedStories]
       // Include other user details as needed
     };
-    console.log(user_details)
+    
 
     res.status(200).json({ stories: user_details});
     } catch (err){
 
-      return res.status(500).json({message: err})
+      return res.status(500).json({message: err});
     }
   } catch (err) {
     console.log(err);
@@ -203,14 +203,14 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
-    const user_id = payload.user_id
+    const user_id = payload.user_id;
 
     // Query to retrive user details from database
     const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
     const userDetails = await pgQuery(query, parseInt(user_id)) 
 
     if (userDetails.rows.length === 0) {
-      return res.status(404).json({message: 'User not found'})
+      return res.status(404).json({message: 'User not found'});
     }
 
     const userDetail = userDetails.rows[0]
@@ -245,7 +245,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
       full_name: userDetail.full_name,
       user_name: userDetail.username,
       profile_picture: userDetail.profile_picture,
-      saved_stories: [...updatedStories]
+      users_stories: [...updatedStories]
      
     };
     //return the variable object
