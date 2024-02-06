@@ -335,10 +335,12 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
+//verifyTokens,
+router.get("/homepage/user", inputValidator, rateLimiter(), async (req, res, next) => {
   // getting user ID
   const { payload } = req.body
-  const user_id = payload.user_id
+  // const user_id = payload.user_id
+  const user_id = 3
   try {
 
     // getting posts liked by user
@@ -359,7 +361,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
 
     // SQL query to fetch specific category posts
     const query = `
-          SELECT id, title, description, video_name, thumbnail_name, created_at
+          SELECT * 
           FROM posts
           WHERE id != ALL ($1::integer[])
           ORDER BY RANDOM()
@@ -369,9 +371,13 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // Execute the query with parameters
     const randomPosts = await pgQuery(query, likedPostsLiteral, pageSize, offset);
 
+
     // Process the posts to add video and thumbnail URLs
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
+        const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id=$1", post.user_id)
+
+        contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture)
         const videoUrl = await s3Retrieve(post.video_name); // getting video URL
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name); // getting thumbnail URL
 
@@ -385,7 +391,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
         const isLiked = await checkLike(post.id, parseInt(user_id));
         const isViewed = await checkView(post.id, parseInt(user_id));
 
-        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, isLiked: isLiked, isViewed: isViewed };
+        return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, like_count: likeCount.length, view_count: viewCount.length, isLiked: isLiked, isViewed: isViewed, contentCreator: contentCreator.rows[0] };
       })
     );
 
