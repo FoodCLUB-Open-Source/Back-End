@@ -211,10 +211,10 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 
-router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
-    const user_id = 213;
+    const user_id = payload.user_id;
     // Extract category ID from URL parameters
     const { category_id } = req.params;
 
@@ -407,6 +407,6 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
   }
 });
 
-// console.log(await pgQuery("SELECT * FROM posts"))
+
 
 export default router;
