@@ -241,11 +241,12 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {Object} - Returns an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-
-router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+//verifyTokens
+router.get("/category/:category_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
-    const user_id = payload.user_id;
+    // const user_id = payload.user_id;
+    const user_id = 2;
     // Extract category ID from URL parameters
     const { category_id } = req.params;
 
@@ -261,28 +262,28 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     // Calculate the offset based on page size and page number
     const offset = (currentPage - 1) * pageSize;
 
-    // Key for Redis cache
-    const cacheKey = `CATEGORY|${category_id}`;
+    // // Key for Redis cache
+    // const cacheKey = `CATEGORY|${category_id}`;
 
-    // Check if data is already cached
-    const cachedData = await redis.get(cacheKey);
+    // // Check if data is already cached
+    // const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
+    // if (cachedData) {
 
-      // Return cached data if available
-      // IMPORTANT: If you update a post, remember to delete this cache
-      // For example, if you update post with ID 2:
-      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
-      // await redis.del('category:' + categoryId + ':page:' + currentPage);
+    //   // Return cached data if available
+    //   // IMPORTANT: If you update a post, remember to delete this cache
+    //   // For example, if you update post with ID 2:
+    //   // const cacheKeys = await redis.keys(`category:${category}:page:*`);
+    //   // await redis.del('category:' + categoryId + ':page:' + currentPage);
 
-      const cachedPosts = JSON.parse(cachedData);
-      const paginatedPosts = {};
-      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
+    //   const cachedPosts = JSON.parse(cachedData);
+    //   const paginatedPosts = {};
+    //   paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
 
-      //For testing cache proccess
-      console.log("Cache Hit");
-      return res.status(200).json(paginatedPosts);
-    }
+    //   //For testing cache proccess
+    //   console.log("Cache Hit");
+    //   return res.status(200).json(paginatedPosts);
+    // }
 
     // SQL query to fetch specific category posts
     const query = `
@@ -306,18 +307,23 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
         const isLiked = await checkLike(post.id, parseInt(user_id));
         const isViewed = await checkView(post.id, parseInt(user_id));
         const { video_name, thumbnail_name, ...rest } = post;
-
         return { ...rest, video_url: videoUrl, thumbnail_url: thumbnailUrl, isLiked: isLiked, isViewed: isViewed };
       })
     );
 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
+    // await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": processedPosts }));
     console.log("Cache Miss");
 
+
+    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id)
+    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture)
+    console.log(contentCreator)
+
+
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
-    res.status(200).json({ "posts": processedPosts });
+    res.status(200).json({ "posts": processedPosts, contentCreator: contentCreator.rows[0] });
   } catch (err) {
     next(err);
   }
@@ -439,5 +445,7 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
     res.status(500).json({ response: "Internal server error" });
   }
 });
+
+
 
 export default router;
