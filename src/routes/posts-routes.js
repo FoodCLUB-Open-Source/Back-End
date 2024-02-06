@@ -139,7 +139,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
  * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
-router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
+router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
 
     const { post_id } = req.params;
@@ -181,7 +181,10 @@ router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req,
     postDetails.rows[0].isLiked = isLiked;
     postDetails.rows[0].isViewed = isViewed;
 
-    return res.status(200).json({ data: postDetails.rows }); // sending data to client
+    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users where username =$1", postDetails.rows[0].username)
+    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture)
+
+    return res.status(200).json({ data: postDetails.rows, contentCreator: contentCreator.rows[0] }); // sending data to client
   } catch (error) {
     next(error); // server side error
   }
