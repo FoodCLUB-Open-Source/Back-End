@@ -169,7 +169,7 @@ router.get("/:post_id", rateLimiter(), inputValidator, verifyTokens, async (req,
  * @returns {status} - A successful status indicates that posts have been deleted
  * @throws {Error} - If there are errors dont delete any post.
  */
-//verifyUserIdentity
+
 router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
