@@ -14,6 +14,7 @@ import {
   bookmarksRouter,
   recipeRouter,
   storiesRouter,
+  ingredientsRouter,
 } from "./routes/index.js";
 
 const app = express();
@@ -46,6 +47,7 @@ router.use("/bookmarks", bookmarksRouter);
 router.use("/profile", profileRouter);
 router.use("/recipe", recipeRouter);
 router.use("/stories", storiesRouter);
+router.use("/ingredients", ingredientsRouter);
 
 const BASE_PATH = process.env.BASE_PATH;
 app.use(BASE_PATH, router);
