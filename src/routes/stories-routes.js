@@ -82,6 +82,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
                             story_id: story.story_id,
                             thumbnail_url: story.thumbnail_url,
                             video_url: story.video_url,
+                            created_at: story.created_at,
                         }];
                         userStoryMap[user.user_following_id].stories = storiesList;
                         });
