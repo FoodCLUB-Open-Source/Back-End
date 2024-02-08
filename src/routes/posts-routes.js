@@ -16,7 +16,8 @@ import {
   pgQuery,
   s3Delete,
   s3Retrieve,
-  s3Upload
+  s3Upload,
+  removeLikesAndViews
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
@@ -45,11 +46,6 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
     console.error(err.message);
   }
 });
-
-/* Functions for Posts */
-const removeLikesAndViews = async (post_id) => {
-  const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
-  const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
   // Prepare the list of items to delete from the 'Likes' table
   const likesToDelete = Likes.map((item) => ({
@@ -82,10 +78,38 @@ const removeLikesAndViews = async (post_id) => {
     } = deleteRequest;
     await performBatchDeletion(tableName, items);
   });
-
 }
 
+/**
+ * Retrieves posts -- this is meant to be used with query parameters to
+ * search for posts. Without query parameters, this returns ALL posts,
+ * which is very expensive and in general SHOULD NOT be used.
+ *
+ * Currently, only the username (of the creator of the post)
+ * and post title parameters are supported.
+ *
+ * @route GET /
+ * @param {string} req.query.username - Username of the profile to search for
+ * @param {string} req.query.title - Title of the post to search for
+ */
+router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    const { username = "", title = "" } = req.query;
+    const query = `
+      SELECT p.id, p.title, p.thumbnail_name, u.username, u.profile_picture
+      FROM users u
+      JOIN posts p
+      ON p.user_id = u.id
+      WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
+    `;
 
+    const posts = await pgQuery(query, title, username);
+    return res.status(200).json({ data: posts.rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({ message: "Unknown error occurred." });
+  }
+});
 
 /**
  * Uploading a Post, video and recipe
@@ -255,6 +279,7 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
  * @returns {status} - A successful status indicates that posts have been deleted
  * @throws {Error} - If there are errors dont delete any post.
  */
+
 router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
@@ -521,8 +546,6 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
       description
     } = req.body;
 
-    console.log(post_id);
-
     // Update the post title and title description
     try {
       await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
@@ -593,7 +616,5 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
     res.status(500).json({ response: "Internal server error" });
   }
 });
-
-
 
 export default router;
