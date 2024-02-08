@@ -16,8 +16,7 @@ import {
   pgQuery,
   s3Delete,
   s3Retrieve,
-  s3Upload,
-  removeLikesAndViews
+  s3Upload
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
