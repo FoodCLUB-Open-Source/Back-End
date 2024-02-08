@@ -17,7 +17,7 @@ export const pgQuery = async (query, ...inputs) => {
   };
 
   try {
-    return await pgPool.query(pgQuery); 
+    return await pgPool.query(pgQuery);
   } catch (err) {
     console.error('Error executing postgreSQL query:', err);
     return { error: `There has been an error performing this query: ${err}` };
@@ -32,16 +32,16 @@ export const pgQuery = async (query, ...inputs) => {
 */
 export const makeTransactions = async (queries, values) => {
   const client = await pgPool.connect();
-  
+
   let res = null;
-  
+
   try {
     await client.query('BEGIN');
-    
+
     for (let i = 0; i < queries.length; i++) {
-        res = await client.query(queries[i], values[i]);
+      res = await client.query(queries[i], values[i]);
     }
-    
+
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -49,7 +49,7 @@ export const makeTransactions = async (queries, values) => {
   } finally {
     client.release();
   }
-  
+
   return res;
 };
 
@@ -75,14 +75,14 @@ export const s3Upload = async (file, path) => {
 };
 
 /* Retrieves a image from s3 */
-export const s3Retrieve = async(fileName) => {
+export const s3Retrieve = async (fileName) => {
   try {
     const command = new GetObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME, 
+      Bucket: process.env.S3_BUCKET_NAME,
       Key: fileName,
     });
 
-    const urlExpiration = 3600; 
+    const urlExpiration = 3600;
 
     const fileUrl = await getSignedUrl(s3Client, command, {
       expiresIn: urlExpiration
@@ -99,14 +99,14 @@ export const s3Retrieve = async(fileName) => {
 /* Deletes a image in the s3 bucket */
 export const s3Delete = async (fileNameWithPath) => {
   try {
-    const params ={
+    const params = {
       Bucket: process.env.S3_BUCKET_NAME,
       Key: fileNameWithPath,
     };
-  
+
     const s3GetCommand = new DeleteObjectCommand(params);
     await s3Client.send(s3GetCommand);
-    
+
   } catch (error) {
     console.log(error);
   }
@@ -114,19 +114,19 @@ export const s3Delete = async (fileNameWithPath) => {
 };
 
 /* Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT ) */
-export async function updatePosts(userPosts,user_id) {
-  const updatedPostsPromises = await userPosts.map(async (post)=> {
+export async function updatePosts(userPosts, user_id) {
+  const updatedPostsPromises = await userPosts.map(async (post) => {
 
     // getting video_name and thumbnail_name URL's, likes and views of the post
-    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount,isLiked,isViewed] = await Promise.all([
-        s3Retrieve(post.video_name),
-        s3Retrieve(post.thumbnail_name),
-        getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
-        getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec(),
-        checkLike(post.id, parseInt(user_id)),
-        checkView(post.id, parseInt(user_id)),
+    const [videoUrl, thumbnailUrl, postLikeCount, postViewCount, isLiked, isViewed] = await Promise.all([
+      s3Retrieve(post.video_name),
+      s3Retrieve(post.thumbnail_name),
+      getDynamoRequestBuilder("Likes").query("post_id", parseInt(post.id)).exec(),
+      getDynamoRequestBuilder("Views").query("post_id", parseInt(post.id)).exec(),
+      checkLike(post.id, parseInt(user_id)),
+      checkView(post.id, parseInt(user_id)),
     ]);
-  
+
     // adding URLs to posts data and removing video_name and thumbnail_name
     post.video_url = videoUrl;
     post.thumbnail_url = thumbnailUrl;
@@ -140,7 +140,7 @@ export async function updatePosts(userPosts,user_id) {
     // Adding isLiked and isViewed fields to posts data
     post.isLiked = isLiked;
     post.isViewed = isViewed;
-   
+
     return post;
   });
 
@@ -154,10 +154,10 @@ export async function updatePosts(userPosts,user_id) {
 export const checkLike = async (postId, userId) => {
 
   const isLiked = await getDynamoRequestBuilder("Likes")
-                       .query("post_id", postId)
-                       .whereSortKey("user_id").eq(userId)
-                       .exec();
- 
+    .query("post_id", postId)
+    .whereSortKey("user_id").eq(userId)
+    .exec();
+
   //if length is 1, means user has liked post hence liked is set to true
   return isLiked.length === 1 ? true : false;
 }
@@ -166,10 +166,10 @@ export const checkLike = async (postId, userId) => {
 export const checkView = async (postId, userId) => {
 
   const isViewed = await getDynamoRequestBuilder("Views")
-                        .query("post_id", postId)
-                        .whereSortKey("user_id").eq(userId)
-                        .exec();
-  
+    .query("post_id", postId)
+    .whereSortKey("user_id").eq(userId)
+    .exec();
+
   //if length is 1, means user has viewed post hence viewed is set to true
   return isViewed.length === 1 ? true : false;
 }
@@ -192,9 +192,9 @@ same usage for multipe tables
     await performBatchDeletion(tableName, items);
   });
 */
-export  const  performBatchDeletion= async (tableName, items)=> {
+export const performBatchDeletion = async (tableName, items) => {
   const requestBuilder = getDynamoRequestBuilder(tableName);
- 
+
 
   const deletePromises = items.map((item) => {
     const keys = Object.keys(item);
@@ -202,7 +202,7 @@ export  const  performBatchDeletion= async (tableName, items)=> {
     if (keys.length !== 2) {
       throw new Error('Item does not have exactly 2 keys.');
     }
-  
+
     const pk = keys[0];
     const sk = keys[1];
     return requestBuilder
@@ -217,4 +217,35 @@ export  const  performBatchDeletion= async (tableName, items)=> {
   } catch (error) {
     console.error(`Error deleting ${tableName}:`, error);
   }
+}
+
+/* Functions for Posts */
+export const removeLikesAndViews = async (post_id) => {
+  const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+  const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
+
+  // Prepare the list of items to delete from the 'Likes' table
+  const likesToDelete = Likes.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+
+  // Prepare the list of items to delete from the 'Views' table
+  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+
+  // Create an array of delete requests for 'Likes' and 'Views' tables
+  const deleteRequests = [
+    {
+      tableName: "Likes",
+      items: likesToDelete,
+    },
+    {
+      tableName: "Views",
+      items: viewsToDelete,
+    },
+  ];
+
+  // Perform batch deletions
+  deleteRequests.forEach(async (deleteRequest) => {
+    const { tableName, items } = deleteRequest;
+    await performBatchDeletion(tableName, items)
+  });
+
 }

@@ -13,7 +13,7 @@ import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
 const storage = memoryStorage();
-const upload = multer({ storage: storage })
+const upload = multer({ storage: storage });
 
 
 // Testing stories
@@ -66,6 +66,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
                             user_id: user.user_following_id,
                             profile_picture: user.profile_picture,
                             username: user.username,
+                            full_name: user.full_name, // added full name
                             stories: [],
                         };
                     }
@@ -81,6 +82,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
                             story_id: story.story_id,
                             thumbnail_url: story.thumbnail_url,
                             video_url: story.video_url,
+                            created_at: story.created_at,
                         }];
                         userStoryMap[user.user_following_id].stories = storiesList;
                         });
@@ -125,6 +127,15 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
       return res.status(400).json({ message: "Invalid page_number or page_size" });
     }
 
+    // Query to retrive user details from database
+    const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
+    const userDetails = await pgQuery(query, parseInt(user_id));
+
+    if (userDetails.rows.length === 0) {
+      return res.status(404).json({message: 'User not found'});
+    }
+
+    const userDetail = userDetails.rows[0];
     // Calculate the offset based on page size and page number
     const offset = (page_number - 1) * pageSize;
     console.log("The offset number is: ", offset)
@@ -138,7 +149,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
       .exec();
 
     // Check if stories array is not empty before sorting
-    if (stories.length > 0) {
+    if (stories && stories.length > 0) {
       console.log('First DynamoDB Item:', stories[0]);
     }
 
@@ -161,10 +172,20 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
     // Wait for all promises to resolve
     const updatedStories = await Promise.all(s3Promises);
 
-    res.status(200).json({ stories: updatedStories });
+    const user_details = {
+      user_id: user_id,
+      full_name: userDetail.full_name,
+      user_name: userDetail.username,
+      profile_picture: userDetail.profile_picture,
+      saved_stories: [...updatedStories]
+      // Include other user details as needed
+    };
+    
+
+    res.status(200).json({ stories: user_details});
     } catch (err){
 
-      return res.status(500).json({message: error})
+      return res.status(500).json({message: err});
     }
   } catch (err) {
     console.log(err);
@@ -175,7 +196,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 /**
  * Retrieves stories of a user
  * 
- * @rourte GET /:user_id
+ * @route GET /:user_id
  * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
  * @throws {Error} - If there is error retrieving stories
  */
@@ -185,6 +206,15 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     const { payload } = req.body;
     const user_id = payload.user_id;
 
+    // Query to retrive user details from database
+    const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
+    const userDetails = await pgQuery(query, parseInt(user_id)) 
+
+    if (userDetails.rows.length === 0) {
+      return res.status(404).json({message: 'User not found'});
+    }
+
+    const userDetail = userDetails.rows[0]
     //retrive all storeis realted to the user
     const userStories = await getDynamoRequestBuilder("Stories")
       .query("user_id", user_id)
@@ -210,8 +240,17 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     //wait for all the promises to be executed and store the urls in the updates Srotes varaible
     const updatedStories = await Promise.all(s3Promises);
 
-    //return the variable onject
-    res.status(200).json({ stories: updatedStories });
+    // user details and stories
+    const user_details = {
+      user_id: user_id,
+      full_name: userDetail.full_name,
+      user_name: userDetail.username,
+      profile_picture: userDetail.profile_picture,
+      users_stories: [...updatedStories]
+     
+    };
+    //return the variable object
+    res.status(200).json({ stories: user_details });
   } catch (err) {
     next(err);
   }
