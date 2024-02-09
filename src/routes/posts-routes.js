@@ -46,38 +46,7 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
   }
 });
 
-  // Prepare the list of items to delete from the 'Likes' table
-  const likesToDelete = Likes.map((item) => ({
-    post_id: item.post_id,
-    user_id: item.user_id
-  }));
 
-  // Prepare the list of items to delete from the 'Views' table
-  const viewsToDelete = Views.map((item) => ({
-    post_id: item.post_id,
-    user_id: item.user_id
-  }));
-
-  // Create an array of delete requests for 'Likes' and 'Views' tables
-  const deleteRequests = [{
-    tableName: "Likes",
-    items: likesToDelete,
-  },
-  {
-    tableName: "Views",
-    items: viewsToDelete,
-  },
-  ];
-
-  // Perform batch deletions
-  deleteRequests.forEach(async (deleteRequest) => {
-    const {
-      tableName,
-      items
-    } = deleteRequest;
-    await performBatchDeletion(tableName, items);
-  });
-}
 
 /**
  * Retrieves posts -- this is meant to be used with query parameters to
