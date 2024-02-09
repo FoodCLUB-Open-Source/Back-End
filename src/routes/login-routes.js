@@ -71,36 +71,28 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   } catch (error) {
     return res.status(500).json({message: error});
   }
+
+  let user_id;
+
+  try {
+    const verified = false;
+    const insertQuery = await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    username, email, passwordHashed, full_name, verified);
+    user_id = insertQuery.rows[0].id; 
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+
+  attributeArray.push(new CognitoUserAttribute({ Name: "custom:id", Value: user_id.toString()}))
+
   cognitoUserPool.signUp(username, password, attributeArray, null, async (err, result) => {
     if (err) {
-      console.error(err);
-      return res.status(400).json({message: err.message}); //Handled gracefully
-    }
-    
-    const userData = {
-      Username: username,
-      Pool: cognitoUserPool,
-    };
-  
-    const cognitoUser = new CognitoUser(userData);
-    let userId;
-
-    try {
-      const verified = false;
-      const insertQuery = await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      username, email, passwordHashed, full_name, verified);
-      userId = insertQuery.rows[0].id; 
-    } catch (error) {
-      cognitoUser.deleteUser((err, result) => {
-        if (err) {
-          return res.status(400).json({ message: err.message });
-        }
-      });
-      return res.status(400).json({ message: error.message });
+      await pgQuery(`DELETE FROM users WHERE username = $1`, username)
+      return res.status(400).json({message: err.message}); 
     }
 
     return res.status(201).json({
-      user_id: userId,
+      user_id: user_id,
       username: username,
       verification_status: 'not verified',
       email: email,
@@ -149,16 +141,6 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: async (result) => {
         const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
-        const user_id = user.rows[0].id.toString()
-        cognitoUser.updateAttributes(
-          [new CognitoUserAttribute({ Name: "custom:id", Value: user_id})],
-          (err, result) => {
-            if (err) {
-              //return res.status(400).json(err.message)
-              console.log(err.message)
-            }
-          })
-
         const signInUserSession = cognitoUser.getSignInUserSession()
         const idToken =  signInUserSession.getIdToken().getJwtToken()
         const accessToken = signInUserSession.getAccessToken().getJwtToken()
