@@ -364,11 +364,10 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
   const user_id = payload.user_id
 
   try {
+    // Get posts liked by the user
+    const postLikeCount = await getDynamoRequestBuilder("Likes").query("user_id", userId).useIndex("user_id-created_at-index").exec();
 
-    // getting posts liked by user
-    const postLikeCount = await getDynamoRequestBuilder("Likes").query("user_id", parseInt(user_id)).useIndex("user_id-created_at-index").exec();
-
-    // extracting post ID's
+    // Extract post IDs
     const likedPosts = postLikeCount.map(post => post.post_id);
 
     // Convert the array to an array literal
@@ -381,26 +380,47 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // Calculate the offset based on page size and page number
     const offset = (currentPage - 1) * pageSize;
 
-    // SQL query to fetch specific category posts
+    // SQL query to fetch homepage posts with additional user information
     const query = `
-          SELECT * 
-          FROM posts
-          WHERE id != ALL ($1::integer[])
-          ORDER BY RANDOM()
-          LIMIT $2 OFFSET $3;
+      SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at,
+             u.username, u.full_name, u.id as user_id, u.profile_picture,
+             COALESCE((SELECT COUNT(*) FROM bookmarks b WHERE b.user_id = $1 AND b.post_id = p.id), 0) AS is_bookmarked
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      WHERE p.id != ALL ($2::integer[])
+      ORDER BY RANDOM()
+      LIMIT $3 OFFSET $4;
     `;
 
     // Execute the query with parameters
-    const randomPosts = await pgQuery(query, likedPostsLiteral, pageSize, offset);
+    const randomPosts = await pgQuery(query, userId, likedPostsLiteral, pageSize, offset);
 
+    // Process the posts to add video and thumbnail URLs, like count, and view count
+    const processedRandomPosts = await Promise.all(
+      randomPosts.rows.map(async (post) => {
+        const videoUrl = await s3Retrieve(post.video_name);
+        const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
-    // Process the posts to add video and thumbnail URLs
-    const updatedPosts = await updatePosts(randomPosts.rows, user_id);
+        const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", post.id).exec();
+        const viewCount = await getDynamoRequestBuilder("Views").query("post_id", post.id).exec();
 
-    // Respond with an object containing the "posts" key and the 15 array of objects with post information
-    res.status(200).json({
-      "posts": processedRandomPosts
-    });
+        const isLiked = await checkLike(post.id, userId);
+        const isViewed = await checkView(post.id, userId);
+
+        return {
+          ...post,
+          video_url: videoUrl,
+          thumbnail_url: thumbnailUrl,
+          like_count: likeCount.length,
+          view_count: viewCount.length,
+          is_liked: isLiked,
+          is_viewed: isViewed,
+        };
+      })
+    );
+
+    // Respond with an object containing the "posts" key and the array of objects with post information
+    res.status(200).json({ posts: processedRandomPosts });
   } catch (err) {
     next(err);
   }
