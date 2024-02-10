@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
-import { pgQuery, updatePosts } from "../functions/general_functions.js";
+import { checkLike, checkView, pgQuery, updatePosts } from "../functions/general_functions.js";
 import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
@@ -82,7 +82,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
         // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
         const bookmarkPostsQuery = `
         SELECT 
-            p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture,
+            p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username, pc.name as post_category,
             CASE 
                 WHEN fol.user_following_id IS NOT NULL THEN true 
                 ELSE false 
@@ -93,6 +93,8 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
             bookmarks b ON p.id = b.post_id 
         JOIN 
             users u ON p.user_id = u.id
+        JOIN
+            posts_categories pc ON pc.post_id = p.id
         LEFT JOIN
             following fol ON u.id = fol.user_following_id AND fol.user_id = $1
         WHERE 
@@ -104,7 +106,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
 
         const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
         const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows,parseInt(user_id)); // updating post objects to include further information
-        
+
         return res.status(200).json({ data: updatedPostsData }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
     } catch (error) {
         next(error); // server side error
