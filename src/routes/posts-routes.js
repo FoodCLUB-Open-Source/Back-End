@@ -82,7 +82,7 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
 /**
  * Uploading a Post, video and recipe
  * 
- * @route POST /:userid
+ * @route POST /
  * @body {string} req.body - This contains all of the information needed for creating a post.
  * @returns {Object} - Returns a status of video posted if successful
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
@@ -351,7 +351,7 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
 /**
  * Get Posts For The Home Page
  * For now random posts later implement the Algorithm
- * @route GET /posts/homepage/:user_id
+ * @route GET /posts/homepage/user
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
@@ -365,7 +365,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
 
   try {
     // Get posts liked by the user
-    const postLikeCount = await getDynamoRequestBuilder("Likes").query("user_id", userId).useIndex("user_id-created_at-index").exec();
+    const postLikeCount = await getDynamoRequestBuilder("Likes").query("user_id", user_id).useIndex("user_id-created_at-index").exec();
 
     // Extract post IDs
     const likedPosts = postLikeCount.map(post => post.post_id);
@@ -393,7 +393,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     `;
 
     // Execute the query with parameters
-    const randomPosts = await pgQuery(query, userId, likedPostsLiteral, pageSize, offset);
+    const randomPosts = await pgQuery(query, user_id, likedPostsLiteral, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, like count, and view count
     const processedRandomPosts = await Promise.all(
@@ -404,8 +404,8 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
         const likeCount = await getDynamoRequestBuilder("Likes").query("post_id", post.id).exec();
         const viewCount = await getDynamoRequestBuilder("Views").query("post_id", post.id).exec();
 
-        const isLiked = await checkLike(post.id, userId);
-        const isViewed = await checkView(post.id, userId);
+        const isLiked = await checkLike(post.id, user_id);
+        const isViewed = await checkView(post.id, user_id);
 
         return {
           ...post,
