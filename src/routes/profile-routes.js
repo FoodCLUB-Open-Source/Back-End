@@ -176,7 +176,7 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
  * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
     try {
         const { page_number, page_size } = req.query; // getting page number and page size
         const { payload } = req.body;
@@ -189,7 +189,9 @@ router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req
         //maps all profile picture to retrieve a http link for the profile pic
         userFollowers.rows = await Promise.all(
             userFollowers.rows.map(async (row) => {
-                row.profile_picture = await s3Retrieve(row.profile_picture);
+                if (row.profile_picture) {           // Check if profile picture exists
+                    row.profile_picture = await s3Retrieve(row.profile_picture);
+                }
                 return row;
             })
         );
