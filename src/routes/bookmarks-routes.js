@@ -10,7 +10,6 @@ const router = Router();
  * Removes a post that has been bookmarked by a user
  * 
  * @route DELETE /profile/:userid/bookmark/:postid
- * @param {string} req.params.user_id - The ID of the user
  * @param {string} req.params.post_id - The ID of the post to unbookmark
  * @returns {status} - A status indicating successful removal of post from bookmarks
  * @throws {Error} - If there are error removing post
@@ -42,7 +41,6 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
  * Bookmarks a post
  * 
  * @route POST /post/:user_id/bookmark/:post_id
- * @param {string} req.params.user_id - The ID of the user
  * @param {string} req.params.post_id - The ID of the post to bookmark
  * @returns {status} - A status indicating successful bookmark of post
  * @throws {Error} - If there are errors bookmarking post
