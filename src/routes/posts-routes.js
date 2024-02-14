@@ -461,6 +461,14 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
   }
 });
 
+/**
+ * Retrieves user posts based on search text 
+ * 
+ * @route GET posts/search/user-posts
+ * @param {string} req.body.search_text - Text to search for in user posts
+ * @returns {Object} Returns a JSON object of the users and posts matching the search criteria
+ * @throws {Error} If there are errors, no posts are retrieved
+ */
 router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res) => {
   try {
     // Extract search text from request body
