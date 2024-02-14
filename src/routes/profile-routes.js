@@ -76,7 +76,7 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
  * @returns {Object} - An object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
-router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
     try {
         // getting userID and converting to integer
         const { page_number, page_size } = req.query; // getting page number and page size
@@ -106,10 +106,14 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
         const userLikesCount = userLikes.length; // total user likes count
         const updatedPostsData = await updatePosts(userPosts.rows, userID); // updating post objects to include further information
 
+        // Check if profile picture exists before retrieving from S3
+        const profilePicture = userNameProfile.rows[0].profile_picture;
+        const profilePictureUrl = profilePicture ? await s3Retrieve(profilePicture) : null;
+
         // storing data as object
         const userDataObject = {
             username: userNameProfile.rows[0].username,
-            profile_picture: await s3Retrieve(userNameProfile.rows[0].profile_picture),
+            profile_picture: profilePictureUrl,
             total_user_likes: userLikesCount,
             total_user_followers: userFollowersCount,
             total_user_following: userFollowingCount,
@@ -157,7 +161,9 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
         //maps all profile picture to retrieve a http link for the profile pic
         userFollowing.rows = await Promise.all(
             userFollowing.rows.map(async (row) => {
-                row.profile_picture = await s3Retrieve(row.profile_picture);
+                if (row.profile_picture) {           // Check if profile picture exists
+                    row.profile_picture = await s3Retrieve(row.profile_picture);
+                }
                 return row;
             })
         );
@@ -338,7 +344,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
  * @returns {Array} - An array of objects containing details of the users to follow
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
     try {
 
         const { page_number, page_size } = req.query; // getting page number and page size
@@ -385,7 +391,7 @@ router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (r
  * @returns {Status} - Updated user profile status
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
         const { payload } = req.body;
