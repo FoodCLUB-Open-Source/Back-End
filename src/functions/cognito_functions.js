@@ -9,7 +9,7 @@ import { cognitoUserPool } from "../config/cognito.js";
  * NEEDS ADDITION OF AUTHENTICATION BY TOKENS -id and access tokens needed.
 */
 
-export const changeAttribute = (attributeName, attributeValue, req) => {
+export const changeAttribute = (attributeList, req) => {
     
   const { username } = req.body.payload.username;
   
@@ -40,16 +40,16 @@ export const changeAttribute = (attributeName, attributeValue, req) => {
   
     cognitoUser.setSignInUserSession(cognitoUserSession);
 
-    const attributeList = [];
+    const updatedAttributeList = attributeList.map({attributeName, attributeValue});
     
     const newAttribute = {
       Name: attributeName,
       Value: attributeValue,
     };
 
-    attributeList.push(new CognitoUserAttribute(newAttribute));
+    updatedAttributeList.push(new CognitoUserAttribute(newAttribute));
 
-    cognitoUser.updateAttributes(attributeList, (err, result) => {
+    cognitoUser.updateAttributes(updatedAttributeList, (err, result) => {
       if (err) {
         throw new Error(err.message);
       }

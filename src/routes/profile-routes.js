@@ -1,5 +1,5 @@
 import { Router } from "express";
-
+import { changeAttribute } from "../functions/cognito_functions.js";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 import multer, { memoryStorage } from "multer";
@@ -372,6 +372,7 @@ router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (r
  * @route PUT /:user_id
  * @body
  *    {string} req.body.username - The username of the user
+ *     {string} req.body.email - The email of the user
  *    {string} req.body.phone_number - The phone number of the user
  *    {string} req.body.user_bio - The bio of the user
  *    {string} req.body.gender - The gender of the user
@@ -390,17 +391,21 @@ router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, asyn
         const user_id = payload.user_id;
 
         // Getting user details
-        const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
+        const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, user_name, email, full_name } = req.body;
 
         // Query to update user details
         const query = `
         UPDATE users
-        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences = $5, country = $6, shipping_address= $7, full_name= $8, 
+        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences=$5, country =$6, shipping_address=$7, username=$8, full_name= $10, email= $11 
         updated_at = NOW()
-        WHERE id = $9`;
+        WHERE id = $12`;
 
         // Execute the query
-        await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
+        await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, user_name, full_name, email, user_id);
+
+        const attributeArray = [  { attributeName: 'email', attributeValue: email }, { attributeName: 'username', attributeValue: user_name }]
+        changeAttribute(attributeArray, req);
+
 
         res.status(200).json({ "Status": "Profile Details Updated" });
 
