@@ -213,7 +213,6 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
  * @returns {status} - A successful status indicates that posts have been deleted
  * @throws {Error} - If there are errors dont delete any post.
  */
-
 router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
@@ -264,7 +263,6 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {Object} - Returns an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-
 router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const {
@@ -355,7 +353,6 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
  * @returns {posts} - Array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-
 router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
   // getting user ID
   const {

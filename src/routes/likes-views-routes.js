@@ -164,6 +164,7 @@ router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity, inpu
 /**
  * User View A Story
  * This will update the DynamoDB Story_Views Table and process a story view happening
+ * 
  * @route POST /story:story_id/view:user_id
  * @params 
  *    {string} req.params.story_id - The unique identifier of the story being viewed.
@@ -199,6 +200,7 @@ router.post("/story/:story_id/view", rateLimiter(), verifyTokens, inputValidator
 /** 
  * Update Post View
  * This will update the DynamoDB Views Table and process a view happening
+ * 
  * @route POST /post:post_id/view:user_id
  * @params 
  *    {string} req.params.post_id - The unique identifier of the post being viewed.

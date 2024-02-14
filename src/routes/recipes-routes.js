@@ -29,7 +29,6 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * @param {string} *req.params.id - The Id of the post.
  * @returns {JSON} The recipe as a JSON object.
  */
-
 router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (req, res, next) => {
 	const postId = parseInt(req.params.post_id);
 	try {
@@ -65,6 +64,7 @@ router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (
 	  next(err);
 	}
   });
+  
 /**
  * Route handler for Update Recipes Table.
  * This will update the details in the recipes table.

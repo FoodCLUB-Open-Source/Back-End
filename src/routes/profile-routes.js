@@ -67,6 +67,7 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
         next(error); // Pass the error to the error-handling middleware
     }
 });
+
 /**
  * Retrieves profile page data based on the received user ID 
  * 
@@ -410,7 +411,6 @@ router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, asyn
         next(error); // Handle server-side error
     }
 });
-
 
 /**
  * Update user profile picture

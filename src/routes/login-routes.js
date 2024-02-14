@@ -47,8 +47,6 @@ router.get('psql_schema', async (req, res) => {
  * @returns {status} - A status indicating successful sign up
  * @throws {Error} - If there are errors Dont create user.
  */
-
-
 router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
   
   const { username, email, password, full_name } = req.body;
@@ -190,6 +188,7 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
       message: 'new code sent successfully' })
   });
 });
+
 /**
  * Allows a user to sign in to their account
  *

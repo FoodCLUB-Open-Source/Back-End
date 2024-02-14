@@ -114,7 +114,6 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
  * @returns {Object} - An object of  list of stories that have been saved sorted by created_at
  * @throws {Error} - If there is error in retrieving stories
  */
-
 router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
