@@ -109,7 +109,6 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
 /**
  * Retrieves a user's  saved stories
  * @route GET /user/:user_id
- * @param {string} req.params.user_id - The ID of the user to retrieve stories for
  * @query {string} req.query.page_number - The page number for pagination
  * @query {String} req.query.page_size - The page size for pagination
  * @returns {Object} - An object of  list of stories that have been saved sorted by created_at
