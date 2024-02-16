@@ -10,6 +10,6 @@ const requestLogging = (req, res, next) => {
   });
 
   next();
-}
+};
 
 export default requestLogging;

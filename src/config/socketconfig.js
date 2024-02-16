@@ -24,6 +24,6 @@ const initSocket = (server) => {
       console.log("User disconnected");
     });
   });
-}
+};
 
 export default initSocket;

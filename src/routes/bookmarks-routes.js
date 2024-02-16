@@ -16,26 +16,26 @@ const router = Router();
  * @throws {Error} - If there are error removing post
  */
 router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        const { post_id } = req.params; // retrieving userID and postID
-        const { payload } = req.body
-        const user_id = payload.user_id
+  try {
+    const { post_id } = req.params; // retrieving userID and postID
+    const { payload } = req.body;
+    const user_id = payload.user_id;
 
-        const query = 'DELETE FROM bookmarks WHERE user_id = $1 AND post_id = $2'; // query to remove post from bookmarks
-        const postgresQuery = await pgQuery(query, user_id, post_id);
+    const query = "DELETE FROM bookmarks WHERE user_id = $1 AND post_id = $2"; // query to remove post from bookmarks
+    const postgresQuery = await pgQuery(query, user_id, post_id);
 
-        if (postgresQuery.rowCount === 1) { // if statement to check if removal was successful
-            res.status(200).json({ message: 'Post is no longer bookmarked' }); // if true success response code is sent
-        }
-        else if (postgresQuery.rowCount === 0) {
-            res.status(400).json({message: 'This post has already been deleted'}); 
-        }
-        else {
-            res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
-        }
-    } catch (error) {
-        next(error); // server side error
+    if (postgresQuery.rowCount === 1) { // if statement to check if removal was successful
+      res.status(200).json({ message: "Post is no longer bookmarked" }); // if true success response code is sent
     }
+    else if (postgresQuery.rowCount === 0) {
+      res.status(400).json({ message: "This post has already been deleted" }); 
+    }
+    else {
+      res.status(400).json({ message: postgresQuery.error }); // else unsuccessful response code is sent along with error message
+    }
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 /**
@@ -48,22 +48,22 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
  * @throws {Error} - If there are errors bookmarking post
  */
 router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        const { post_id } = req.params; // retrieving userID and postID
-        const { payload } = req.body
-        const user_id = payload.user_id
+  try {
+    const { post_id } = req.params; // retrieving userID and postID
+    const { payload } = req.body;
+    const user_id = payload.user_id;
 
-        const query = 'INSERT INTO bookmarks (user_id, post_id, created_at) VALUES ($1, $2, NOW())'; // query to add a post to bookmarks
-        const postgresQuery = await pgQuery(query, user_id, post_id);
+    const query = "INSERT INTO bookmarks (user_id, post_id, created_at) VALUES ($1, $2, NOW())"; // query to add a post to bookmarks
+    const postgresQuery = await pgQuery(query, user_id, post_id);
 
-        if (postgresQuery.rowCount === 1) { // if statement to check if was added
-            res.status(200).json({ message: 'Post bookmarked' }); // if true success response code is sent
-        } else {
-            res.status(400).json({message: postgresQuery.error}); // else unsuccessful response code is sent along with error message
-        }
-    } catch (error) {
-        next(error); // server side error
+    if (postgresQuery.rowCount === 1) { // if statement to check if was added
+      res.status(200).json({ message: "Post bookmarked" }); // if true success response code is sent
+    } else {
+      res.status(400).json({ message: postgresQuery.error }); // else unsuccessful response code is sent along with error message
     }
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 /**
@@ -75,12 +75,12 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
 router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => {
-    try {
-        const { user_id } = req.params; // retrieving userID
-        const { page_number, page_size } = req.query; // getting page number and page size
+  try {
+    const { user_id } = req.params; // retrieving userID
+    const { page_number, page_size } = req.query; // getting page number and page size
 
-        // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
-        const bookmarkPostsQuery = `
+    // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
+    const bookmarkPostsQuery = `
         SELECT 
             p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username, pc.name as post_category,
             CASE 
@@ -104,13 +104,13 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
         LIMIT $3 
         OFFSET (($2 - 1) * $3)`; // query to get bookmarked post details
 
-        const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
-        const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows,parseInt(user_id)); // updating post objects to include further information
+    const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
+    const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows,parseInt(user_id)); // updating post objects to include further information
 
-        return res.status(200).json({ data: updatedPostsData }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
-    } catch (error) {
-        next(error); // server side error
-    }
+    return res.status(200).json({ data: updatedPostsData }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 export default router;
