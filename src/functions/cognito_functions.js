@@ -7,8 +7,13 @@ import { cognitoUserPool } from "../config/cognito.js";
 /** This function updates a cognito attribute. It is to be called whenever email or username are
  * changed in the PostgreSQL.
  * NEEDS ADDITION OF AUTHENTICATION BY TOKENS -id and access tokens needed.
-*/
-
+ * 
+ * @param {string} attributeName - Name of the user's attribute to be updated
+ * @param {string} attributeValue - New value for the updated attribute 
+ * @param {string} req.body.payload.username - Username for user with associated attribute
+ * @returns {status} - A status indicating successful update to user's attribute
+ * @throws {Error} - Returns error message for unssuccessful update
+ */
 export const changeAttribute = (attributeName, attributeValue, req) => {
     
   const { username } = req.body.payload.username;
@@ -63,8 +68,11 @@ export const changeAttribute = (attributeName, attributeValue, req) => {
 
 /** 
  * Function to parse the authorisation header for both id and access bearer tokens
+ * 
+ * @param {object} header - Authorization header to be parsed
+ * @returns {object} - Object with access_token and id_token
+ * @throws {Error} - Returns error for invalid request
  */
-
 export const parseHeader = async (header) => {
   if (!!header && header.startsWith('Bearer ')) {
     const parseResult = header.split(' ');
@@ -80,11 +88,12 @@ export const parseHeader = async (header) => {
 }
 
 /**
- * Function to parse through the header when it only has the access token.
- * @param {*} header 
- * @returns 
+ * Function to parse through the header when it only has the access token
+ * 
+ * @param {object} header - Authorization header to be parsed 
+ * @returns {object} - Object with access_token 
+ * @throws {Error} - Returns error for invalid request 
  */
-
 export const parseHeaderAccess = async (header) => {
   if (!!header && header.startsWith('Bearer ')) {
     const parseResult = header.split(' ');
