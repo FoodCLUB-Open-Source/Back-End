@@ -8,8 +8,14 @@ import pgPool from "../config/pgdb.js";
 import s3Client from "../config/s3Client.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
-/* DRY secure postgreSQl query function */
-/* Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) */
+/**  DRY secure postgreSQl query function 
+ * Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) 
+ * 
+ * @param {string} query - Query statement 
+ * @param  {...any} inputs - Values to be queried 
+ * @returns {*} - Result of query 
+ * @throws {Error} - If error performing query
+ */
 export const pgQuery = async (query, ...inputs) => {
   const pgQuery = {
     text: query,
@@ -24,12 +30,17 @@ export const pgQuery = async (query, ...inputs) => {
   }
 };
 
-/* Ensures all queries happen or none at all.
+/**  Ensures all queries happen or none at all.
     Example of how to use:
     const query = ['INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *', ...]
     const values = [[userId, post_title, post_description, newVideoName, newThumbNaileName, category_id], ...];
     const result = await makeTransaction(query, values)
-*/
+ * 
+ * @param {*} queries - Query statements to be processed
+ * @param {*} values - Values to be queried 
+ * @returns {object} - Res object from querying 
+ * @throws {Error} - Returns error if a query does not succeed
+ */
 export const makeTransactions = async (queries, values) => {
   const client = await pgPool.connect();
 
@@ -53,7 +64,12 @@ export const makeTransactions = async (queries, values) => {
   return res;
 };
 
-/*DRY upload to s3 function */
+/**DRY upload to s3 function 
+ * 
+ * @param {*} file - Original filename to be uploaded
+ * @param {*} path - File path to be uploaded
+ * @returns {string} randomName - Randomly generated name as key for upload
+ */
 export const s3Upload = async (file, path) => {
 
   const randomName = path + file.originalname + crypto.randomBytes(32).toString('hex');
@@ -74,7 +90,7 @@ export const s3Upload = async (file, path) => {
   return randomName;
 };
 
-/* Retrieves a image from s3 */
+/* Retrieves an image from s3 */
 export const s3Retrieve = async (fileName) => {
   try {
     const command = new GetObjectCommand({
