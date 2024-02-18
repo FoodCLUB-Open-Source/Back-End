@@ -31,7 +31,7 @@ router.get("/testing", async (req, res, next) => {
  * @route GET /following_stories
  * @query {string} req.query.page_number - The page number for pagination.
  * @query {string} req.query.page_size - The page size for pagination.
- * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
+ * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at. Else returns 400 and a JSON object with associated error message
  * @throws {Error} - If there is error retrieving stories
  */
 router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -111,7 +111,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
  * @route GET /user/:user_id
  * @query {string} req.query.page_number - The page number for pagination
  * @query {String} req.query.page_size - The page size for pagination
- * @returns {Object} - An object of  list of stories that have been saved sorted by created_at
+ * @returns {status} - If successful, returns 200 and a JSON object of  list of stories that have been saved sorted by created_at, else returns 400 and a JSON object with message set to 'Invalid page_number or page_size', else returns 500 and error message
  * @throws {Error} - If there is error in retrieving stories
  */
 router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -195,7 +195,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
  * Retrieves stories of a user
  * 
  * @route GET /:user_id
- * @returns {Object} - An object containing story information such as story id, video URL, thumbnail URL, view count, created at
+ * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
  * @throws {Error} - If there is error retrieving stories
  */
 router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -256,15 +256,14 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
 
 /**
  * User Posts a Story.
+ *  This route allows users to create a new story,
+ *  Including uploading a video and a thumbnail. 
+ *  The video should be attached as the first file in req.files[0], 
+ *  The thumbnail should be attached as the second file in req.files[1].
  * 
  * @route POST /stories/:user_id
- * @returns {Object} - Returns a status object indicating that the story was successfully created.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Story Posted', else returns 500 and a JSON object with message set to 'Story Post Failed'
  * @throws {Error} - If any errors occur during the creation process, including file uploads. The story won't be insert into dynamodb, then delete the uploaded filess.
- * @description 
- *       This route allows users to create a new story,
- *       Including uploading a video and a thumbnail. 
- *       The video should be attached as the first file in req.files[0], 
- *       The thumbnail should be attached as the second file in req.files[1].
  */
 router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
   try {
@@ -310,14 +309,13 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
 
 /**
  * Deletes a user's story.
+ *  This route allows the user to delete their story.
+ *  It deletes the story from the DynamoDB and removes associated files from the S3 bucket.
  * 
  * @route DELETE stories/story/story_id/user
- * @param {string} req.params.story_id - The ID of the story.
- * @returns {Object} - Returns a status indicating that the story was successfully deleted.
+ * @param {any} req.params.story_id - The ID of the story.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Story Deleted', else returns 404 and a JSON object with message set to 'Story not found' OR returns 500 and a JSON object with message set to 'Error deleting files from S3'
  * @throws {Error} - If any error occurs during the deletion process.
- * @description 
- *   This route allows the user to delete their story.
- *   It deletes the story from the DynamoDB and removes associated files from the S3 bucket.
  */
 router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
