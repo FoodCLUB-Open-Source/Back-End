@@ -8,9 +8,9 @@ import { cognitoUserPool } from "../config/cognito.js";
  * changed in the PostgreSQL.
  * NEEDS ADDITION OF AUTHENTICATION BY TOKENS -id and access tokens needed.
  * 
- * @param {string} attributeName - Name of the user's attribute to be updated
- * @param {string} attributeValue - New value for the updated attribute 
- * @param {string} req.body.payload.username - Username for user with associated attribute
+ * @param {any} attributeName - Name of the user's attribute to be updated
+ * @param {any} attributeValue - New value for the updated attribute 
+ * @param {any} req.body.payload.username - Username for user with associated attribute
  * @returns {status} - A status indicating successful update to user's attribute
  * @throws {Error} - Returns error message for unssuccessful update
  */
