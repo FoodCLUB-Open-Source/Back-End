@@ -1,8 +1,8 @@
 /**
  * Function that logs the time it takes to process requests 
  * 
- * @param {object} req - Object with information about the request
- * @param {object} res - Object with information about response
+ * @param req
+ * @param res
  */
 const requestLogging = (req, res, next) => {
   const startMillis = Date.now();
