@@ -3,7 +3,11 @@ import { Server } from "socket.io";
 
 import chatSockets from "../socket/chat.js";
 
-/* Initialises a socket server */
+/**
+ * Initializes a socket server
+ * 
+ * @param {*} server - Server to be initialized
+ */
 const initSocket = (server) => {
   const io = new Server(server, {
     cors: {
