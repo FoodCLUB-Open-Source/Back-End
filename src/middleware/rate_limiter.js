@@ -9,8 +9,8 @@ import redis from "../config/redisConfig.js";
 
     you can just use rateLimiter() to use the default values that are specified in the .env file
  * 
- * @param {*} maxRequests - Maximum number of requests 
- * @param {*} windowInMins 
+ * @param {any} maxRequests - Maximum number of requests 
+ * @param {any} windowInMins 
  * @returns {status} - Unsuccessful status if rate limit exceeded, otherwise successful if no errors
  */
 const rateLimiter = (maxRequests, windowInMins) => {
