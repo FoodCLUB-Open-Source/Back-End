@@ -13,8 +13,8 @@ import getDynamoRequestBuilder from "../config/dynamoDB.js";
    Example of how to use: 
      pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) 
  * 
- * @param {string} query - Query statement 
- * @param  {...any} inputs - Values to be queried 
+ * @param {any} query - Query statement 
+ * @param  {any} inputs - Values to be queried 
  * @returns {*} - Result of query 
  * @throws {Error} - If error performing querys
  */
@@ -39,9 +39,9 @@ export const pgQuery = async (query, ...inputs) => {
      const values = [[userId, post_title, post_description, newVideoName, newThumbNaileName, category_id], ...];
      const result = await makeTransaction(query, values)
  * 
- * @param {*} queries - Query statements to be processed
- * @param {*} values - Values to be queried 
- * @returns {object} - Res object from querying 
+ * @param {any} queries - Query statements to be processed
+ * @param {any} values - Values to be queried 
+ * @returns {object} - res object from querying 
  * @throws {Error} - Returns error if a query does not succeed
  */
 export const makeTransactions = async (queries, values) => {
@@ -70,9 +70,9 @@ export const makeTransactions = async (queries, values) => {
 /**
  * Function that does a DRY upload to s3 function 
  * 
- * @param {*} file - Original filename to be uploaded
- * @param {*} path - File path to be uploaded
- * @returns {string} randomName - Randomly generated name as key for upload
+ * @param {any} file - Original filename to be uploaded
+ * @param {any} path - File path to be uploaded
+ * @returns {any} randomName - Randomly generated name as key for upload
  */
 export const s3Upload = async (file, path) => {
 
@@ -97,8 +97,8 @@ export const s3Upload = async (file, path) => {
 /** 
  * Function that retrieves an image from s3
  * 
- * @param {*} fileName - Name of file to be retrieved
- * @returns {string} - Signed URL for associated file
+ * @param {any} fileName - Name of file to be retrieved
+ * @returns {any} - Signed URL for associated file
  * @throws {Error} - Returns error if issue generating pre-signed URL
  */
 export const s3Retrieve = async (fileName) => {
@@ -125,7 +125,7 @@ export const s3Retrieve = async (fileName) => {
 /**
  * Function that deletes an image in the s3 bucket
  * 
- * @param {string} fileNameWithPath - Name of file to be deleted from the S3 bucket
+ * @param {any} fileNameWithPath - Name of file to be deleted from the S3 bucket
  */
 export const s3Delete = async (fileNameWithPath) => {
   try {
@@ -147,7 +147,7 @@ export const s3Delete = async (fileNameWithPath) => {
  * Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT )
  * 
  * @param {Array} userPosts - Array of posts to be udpated
- * @param {string} user_id - ID of user to 
+ * @param {any} user_id - ID of user to 
  * @returns {object} post - Refined post object with total views and likes 
  */
 export async function updatePosts(userPosts, user_id) {
@@ -188,8 +188,8 @@ export async function updatePosts(userPosts, user_id) {
 /**
  * Function to check if a post is bookmarked by a user
  * 
- * @param {string} postId - ID of post to be queried
- * @param {string} userId - ID of user to be queried
+ * @param {any} postId - ID of post to be queried
+ * @param {any} userId - ID of user to be queried
  * @returns {boolean} - True if post is bookmarked, false otherwise
  */
 export const checkBookmarked = async (postId, userId) => {
@@ -206,8 +206,8 @@ export const checkBookmarked = async (postId, userId) => {
 /**
  * Checks if a user has liked a post or not, returns true or false
  * 
- * @param {string} postId - ID of post to be queried
- * @param {string} userId - ID of user to be queried
+ * @param {any} postId - ID of post to be queried
+ * @param {any} userId - ID of user to be queried
  * @returns {boolean} - True if post is liked, false otherwise
  */
 export const checkLike = async (postId, userId) => {
@@ -224,8 +224,8 @@ export const checkLike = async (postId, userId) => {
 /** 
  * Checks if a user has viewed a post or not, returns true or false 
  * 
- * @param {*} postId - ID of post to be queried
- * @param {*} userId - ID of user to be queried
+ * @param {any} postId - ID of post to be queried
+ * @param {any} userId - ID of user to be queried
  * @returns {boolean} - True if post is viewed, false otherwise
  */
 export const checkView = async (postId, userId) => {
@@ -258,7 +258,7 @@ export const checkView = async (postId, userId) => {
    await performBatchDeletion(tableName, items);
   });
  * 
- * @param {string} tableName - Name of DynamoDB table to perform batch deletion on 
+ * @param {any} tableName - Name of DynamoDB table to perform batch deletion on 
  * @param {*} items - 
  */
 export const performBatchDeletion = async (tableName, items) => {
@@ -291,7 +291,7 @@ export const performBatchDeletion = async (tableName, items) => {
 /**
  * Functions for deleting likes and views of posts
  * 
- * @param {string} post_id - ID of post to have likes and views removed 
+ * @param {any} post_id - ID of post to have likes and views removed 
  */
 export const removeLikesAndViews = async (post_id) => {
   const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
