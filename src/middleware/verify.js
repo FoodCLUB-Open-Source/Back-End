@@ -8,7 +8,7 @@ import { parseHeader, parseHeaderAccess } from "../functions/cognito_functions.j
  * Function that verifies access token
  * INTERNAL USE ONLY
  * 
- * @param {*} accessToken - Token to be verified by middleware
+ * @param {any} accessToken - Token to be verified by middleware
  * @throws {Error} - If access token is invalid or null
  */
 export const verifyAccessToken = async (accessToken) => {
@@ -34,7 +34,7 @@ export const verifyAccessToken = async (accessToken) => {
  * Function to verify Id token
  * INTERNAL USE ONLY
  * 
- * @param {*} idToken - ID token to be ferified 
+ * @param {any} idToken - ID token to be ferified 
  * @returns {object} - Object with user ID and username 
  * @throws {Error} - If ID token is null or invalid 
  */
@@ -65,9 +65,9 @@ export const verifyIdToken = async (idToken) => {
 /**
  * Middleware funciton for verification of both access and id tokens, to be used with endpoints that accept both
  * 
- * @param {*} req 
- * @param {*} res 
- * @param {*} next 
+ * @param req 
+ * @param res 
+ * @param next 
  * @returns {status} - next() if successful, otherwise 404 with error message
  */
 export const verifyTokens = async (req, res, next) => {
@@ -88,9 +88,9 @@ export const verifyTokens = async (req, res, next) => {
  * Middleware function for authenticating only the access token, for endpoints that only require the access token
  * Endpoints that only require the access token will be endpoints that do not require any user information
  * 
- * @param {*} req 
- * @param {*} res 
- * @param {*} next 
+ * @param req 
+ * @param res 
+ * @param next 
  * @returns {status} - next() if successful, otherwise 404 with error message
  */
 export const verifyAccessOnly = async (req, res, next) => {
@@ -108,9 +108,9 @@ export const verifyAccessOnly = async (req, res, next) => {
 /**
  * Middleware function for authenticating both the access token and the id token, but which does not change the request body
  * 
- * @param {*} req 
- * @param {*} res 
- * @param {*} next 
+ * @param req 
+ * @param res 
+ * @param next 
  * @returns {status} - next() if successful, otherwise 404 with error message
  */
 export const verifyUserIdentity = async (req, res, next) => {
