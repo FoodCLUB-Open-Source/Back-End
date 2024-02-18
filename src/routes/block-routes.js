@@ -10,9 +10,9 @@ const router = Router();
  * Posting Block For Specific User
  *
  * @route POST  /posts/block/:id
- * @param {string} req.params.id - The ID of the user blocking
+ * @param {any} req.params.id - The ID of the user blocking
  * @body {string} req.body.user_id - The ID of the user getting blocked
- * @returns {Object} - Returns a status of comment if posted successfully
+ * @returns {status} - Returns 200 for successful block, 400 if user is already blocked
  * @throws {Error} - If there are errors, the comment posting failed
  */
 router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
@@ -66,9 +66,9 @@ router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator,
  * Delete Block For Specific User
  *
  * @route POST  /posts/block/:id
- * @param {string} req.params.id - The ID of the user unblocking
+ * @param {any} req.params.id - The ID of the user unblocking
  * @body {string} req.body.user_id - The ID of the user getting unblocked
- * @returns {Object} - Returns a status of comment if posted successfully
+ * @returns {status} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the comment posting failed
  */
 router.delete("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
