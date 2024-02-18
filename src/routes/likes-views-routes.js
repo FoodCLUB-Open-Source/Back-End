@@ -22,9 +22,9 @@ router.get("/testing", async (req, res) => {
  * Process A Video Like
  * 
  * @route POST /like/:post_id/user/:user_id
- * @param {string} req.params.post_id - The ID of the video post being liked
- * @returns {Object} - Returns a status of video like if successful
- * @throws {Error} - If there is an error, the post liking failed
+ * @param {any} req.params.post_id - The ID of the video post being liked
+ * @returns {status} - If successful, returns 200 with a JSON object with the status set to 'Post Liked', else returns 409 and a JSON object with message set to 'Post Like Already Exists'
+ * @throws {Error} - If there is an error, the post liking failed 
  */
 router.post("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
@@ -57,9 +57,9 @@ router.post("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, 
    * Remove A Video Like 
    * 
    * @route DELETE /like/:post_id/user/:user_id
-   * @param {string} req.params.post_id - The ID of the video post being unliked
-   * @returns {Object} - Returns a status of video like removed if successful
-   * @throws {Error} - If there is an error, the post is already unliked
+   * @param {any} req.params.post_id - The ID of the video post being unliked
+   * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Post Unliked', else returns 404 and a JSON ojbect with message set to 'Post Like Not Found'
+   * @throws {Error} - If there is an error, the post is already unliked 
    */
   router.delete("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
@@ -95,9 +95,9 @@ router.post("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, 
  * Posting a like for a specific comment
  * 
  * @route POST /posts/comment/like/:id
- * @param {string} req.params.id - The ID of the comment being liked
+ * @param {any} req.params.id - The ID of the comment being liked
  * @body {string} req.params.post_id - The ID of the post with the comment
- * @returns {Object} - Returns a status of comment like if successful
+ * @returns {status} - If successful, returns a JSON ojbect with the status set to 'Comment Liked'
  * @throws {Error} - If there are errors, the comment liking failed
  */
 router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -131,9 +131,9 @@ router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens, inputValidat
    * Deleting a like on a specific comment
    * 
    * @route DELETE /like/:post_id/user/:user_id
-   * @param {string} req.params.id - The ID of the comment being unliked
+   * @param {any} req.params.id - The ID of the comment being unliked
    * @body {string} req.params.post_id - The ID of the post with the comment
-   * @returns {Object} Returns a status of comment like removed if successful
+   * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Comment Unliked'
    * @throws {Error} If there is an error, the comment unliking failed
    */
 router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
@@ -166,8 +166,9 @@ router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity, inpu
  * This will update the DynamoDB Story_Views Table and process a story view happening
  * 
  * @route POST /story:story_id/view:user_id
- * @params 
- *    {string} req.params.story_id - The unique identifier of the story being viewed.
+ * @param {any} req.params.story_id - The unique identifier of the story being viewed.
+ * @returns {status} - If successful, returns 200 with a JSON object with the status set to 'Story viewed successfully', else returns 409 with a JSON object with message set to 'Story already viewed by the user'
+ * @throws {Error} - If there is an error viewing the user story
 **/
 router.post("/story/:story_id/view", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
@@ -202,11 +203,9 @@ router.post("/story/:story_id/view", rateLimiter(), verifyTokens, inputValidator
  * This will update the DynamoDB Views Table and process a view happening
  * 
  * @route POST /post:post_id/view:user_id
- * @params 
- *    {string} req.params.post_id - The unique identifier of the post being viewed.
- * 
- * @returns {status} - A successful status indicates that the view has been processed successfully.
- * @throws {Error} - If there are errors during processing.
+ * @param {any} req.params.post_id - The unique identifier of the post being viewed.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Post viewed successfully', else returns 409 with message set to 'Post already viewed by the user.'
+ * @throws {Error} - If there are errors during processing
  */
 router.post("/post/:post_id/view", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
 	try {
