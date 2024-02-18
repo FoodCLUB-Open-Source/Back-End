@@ -4,7 +4,7 @@ import redis from "../config/redisConfig.js";
 /**
  * Function to add a new recipe to Redis
  * 
- * @param {*} id - ID of recipe to be queried
+ * @param {any} id - ID of recipe to be queried
  * @throws {Error} - If there is an error adding a recipe to Redis
  */
 export async function redisNewRecipe(id) {
@@ -52,7 +52,7 @@ export async function redisNewRecipe(id) {
 /**
  * Function to check if a recipe exists in Redis.
  * 
- * @param {*} id - ID of recipe to search for in Redis
+ * @param {any} id - ID of recipe to search for in Redis
  * @returns {object} response - Object with recipe and its associated information 
  * @throws {Error} - If there is an error searching for recipe 
  */
