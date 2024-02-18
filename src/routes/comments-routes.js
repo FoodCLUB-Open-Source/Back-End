@@ -11,11 +11,11 @@ const router = Router();
 
 /* Testing Posts Route */
 router.get("/testing", async (req, res) => {
-	try {
+  try {
 	  res.json({ "Testing": "Working Comments" });
-	} catch (err) {
+  } catch (err) {
 	  console.error(err.message);
-	}
+  }
 });
 
 /**
@@ -29,25 +29,25 @@ router.get("/testing", async (req, res) => {
  * @throws {Error} - If there are errors, the comment posting failed
  */
 router.post("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
-	try {
-		const postId = parseInt(req.params.id);
-		const { user_id, comment } = req.body;
+  try {
+    const postId = parseInt(req.params.id);
+    const { user_id, comment } = req.body;
 
-		const commentSchema = setComment(user_id, postId, comment);
+    const commentSchema = setComment(user_id, postId, comment);
 		
-		await getDynamoRequestBuilder("Comments")
-			.put(commentSchema)
-			.exec();
+    await getDynamoRequestBuilder("Comments")
+      .put(commentSchema)
+      .exec();
 		
-		await getDynamoRequestBuilder("Post_Stats")
-			.update("post_id", postId)
-			.updateAttribute("comments_count").increment()
-			.exec();
+    await getDynamoRequestBuilder("Post_Stats")
+      .update("post_id", postId)
+      .updateAttribute("comments_count").increment()
+      .exec();
 
-		res.status(200).json({ "Status": "Comment Posted" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ "Status": "Comment Posted" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -59,22 +59,22 @@ router.post("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res,
  * @throws {Error} - If there are errors, retrieving 30 most liked comments failed
  */
 router.get("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
-	try {
-		const postId = parseInt(req.params.id);
+  try {
+    const postId = parseInt(req.params.id);
 
-		//return the user details aswell
-		//maybe make it so that the user that is requesting the comments. his comments are first.
-		const results = await getDynamoRequestBuilder("Comments")
-			.query("post_id", postId)
-			.useIndex("post_id_comment_like_count_index")
-			.scanIndexDescending()
-			.limit(30)
-			.exec();
+    //return the user details aswell
+    //maybe make it so that the user that is requesting the comments. his comments are first.
+    const results = await getDynamoRequestBuilder("Comments")
+      .query("post_id", postId)
+      .useIndex("post_id_comment_like_count_index")
+      .scanIndexDescending()
+      .limit(30)
+      .exec();
 		
-		res.status(200).json({ "Testing": "Working Posts", "Results": results });
-	} catch (err) {
+    res.status(200).json({ "Testing": "Working Posts", "Results": results });
+  } catch (err) {
 	  next(err);
-	}
+  }
 });
 
 
@@ -89,20 +89,20 @@ router.get("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, 
  * @throws {Error} - If there are errors, the comment update failed
  */ 
 router.put("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
-	try {
-		const commentId = req.params.id;
-		const { comment, post_id } = req.body;
+  try {
+    const commentId = req.params.id;
+    const { comment, post_id } = req.body;
 		
-		await getDynamoRequestBuilder("Comments")
-			.update("post_id", post_id)
-			.withSortKey("comment_id", commentId)
-			.operations(update("comment").set(comment), update("updated_at").set(new Date().toISOString()))
-			.exec();
+    await getDynamoRequestBuilder("Comments")
+      .update("post_id", post_id)
+      .withSortKey("comment_id", commentId)
+      .operations(update("comment").set(comment), update("updated_at").set(new Date().toISOString()))
+      .exec();
 		
-		res.status(200).json({ Status: "Comment Updated" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ Status: "Comment Updated" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -115,25 +115,25 @@ router.put("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, 
  * @throws {Error} - If there are errors, the comment deletion failed
  */
 router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
-	try {
-		let commentId = req.params.id;
-		let { post_id } = req.body;
-		post_id = parseInt(post_id);
+  try {
+    let commentId = req.params.id;
+    let { post_id } = req.body;
+    post_id = parseInt(post_id);
 		
-		await getDynamoRequestBuilder("Comments")
-			.delete("post_id", post_id)
-			.withSortKey("comment_id", commentId)
-			.exec();
+    await getDynamoRequestBuilder("Comments")
+      .delete("post_id", post_id)
+      .withSortKey("comment_id", commentId)
+      .exec();
 		
-		await getDynamoRequestBuilder("Post_Stats")
-			.update("post_id", post_id)
-			.updateAttribute("comments_count").decrement()
-			.exec();
+    await getDynamoRequestBuilder("Post_Stats")
+      .update("post_id", post_id)
+      .updateAttribute("comments_count").decrement()
+      .exec();
 
-		res.status(200).json({ Status: "Comment Deleted" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ Status: "Comment Deleted" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /** get 20 Replies For Specific Comment
@@ -144,23 +144,23 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
  * @throws {Error} If there is an error, the retrieval of the 20 replies failed
  */
 router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
-	try {
-		const commentId = req.params.id;
+  try {
+    const commentId = req.params.id;
 
-		//return the user details aswell
-		//maybe make it so that the user that is requesting the comments. his comments are first.
+    //return the user details aswell
+    //maybe make it so that the user that is requesting the comments. his comments are first.
 
-		const results = await getDynamoRequestBuilder("Replies")
-			.query("comment_id", commentId)
-			.useIndex("comment_id-created_at-index")
-			.scanIndexDescending()
-			.limit(20)
-			.exec();
+    const results = await getDynamoRequestBuilder("Replies")
+      .query("comment_id", commentId)
+      .useIndex("comment_id-created_at-index")
+      .scanIndexDescending()
+      .limit(20)
+      .exec();
 
-		res.status(200).json({ "Testing": "Working Posts", "Results": results });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ "Testing": "Working Posts", "Results": results });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /** Posting Reply For Specific Comment
@@ -174,26 +174,26 @@ router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
  * @throws {Error} - If there is an error, the reply failed
  */
 router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
-	try {
-		let commentId = req.params.id;
-		const { user_id, post_id, reply } = req.body;
+  try {
+    let commentId = req.params.id;
+    const { user_id, post_id, reply } = req.body;
 
-		const replySchema = setReplies(user_id, commentId, reply);
+    const replySchema = setReplies(user_id, commentId, reply);
 		
-		await getDynamoRequestBuilder("Replies")
-			.put(replySchema)
-			.exec();
+    await getDynamoRequestBuilder("Replies")
+      .put(replySchema)
+      .exec();
 		
-		await getDynamoRequestBuilder("Comments")
-			.update("post_id", post_id)
-			.withSortKey("comment_id", commentId)
-			.updateAttribute("comment_reply_count").increment()
-			.exec();
+    await getDynamoRequestBuilder("Comments")
+      .update("post_id", post_id)
+      .withSortKey("comment_id", commentId)
+      .updateAttribute("comment_reply_count").increment()
+      .exec();
 
-		res.status(200).json({ "Status": "Reply Posted" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ "Status": "Reply Posted" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /** update Reply For Specific Comment
@@ -206,20 +206,20 @@ router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next
  * @throws {Error} - If there is an error, the reply update failed
  */
 router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
-	try {
-		const replyId = req.params.id;
-		const { reply, comment_id } = req.body;
+  try {
+    const replyId = req.params.id;
+    const { reply, comment_id } = req.body;
 		
-		await getDynamoRequestBuilder("Replies")
-			.update("reply_id", replyId)
-			.withSortKey("comment_id", comment_id)
-			.operations(update("reply").set(reply), update("updated_at").set(new Date().toISOString()))
-			.exec();
+    await getDynamoRequestBuilder("Replies")
+      .update("reply_id", replyId)
+      .withSortKey("comment_id", comment_id)
+      .operations(update("reply").set(reply), update("updated_at").set(new Date().toISOString()))
+      .exec();
 
-		res.status(200).json({ Status: "Reply Updated" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ Status: "Reply Updated" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 /** Delete Reply For Specific Comment
@@ -232,27 +232,27 @@ router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
  * @throws {Error} - If there is an error, the reply deletion failed
  */
 router.delete("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
-	try {
-		let replyId = req.params.id;
-		const { comment_id, post_id } = req.body;
+  try {
+    let replyId = req.params.id;
+    const { comment_id, post_id } = req.body;
 
-		console.log(comment_id, post_id, replyId);
+    console.log(comment_id, post_id, replyId);
 		
-		await getDynamoRequestBuilder("Replies")
-			.delete("reply_id", replyId)
-			.withSortKey("comment_id", comment_id)
-			.exec();
+    await getDynamoRequestBuilder("Replies")
+      .delete("reply_id", replyId)
+      .withSortKey("comment_id", comment_id)
+      .exec();
 		
-		await getDynamoRequestBuilder("Comments")
-			.update("post_id", post_id)
-			.withSortKey("comment_id", comment_id)
-			.updateAttribute("comment_reply_count").decrement()
-			.exec();
+    await getDynamoRequestBuilder("Comments")
+      .update("post_id", post_id)
+      .withSortKey("comment_id", comment_id)
+      .updateAttribute("comment_reply_count").decrement()
+      .exec();
 
-		res.status(200).json({ Status: "Reply Deleted" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ Status: "Reply Deleted" });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

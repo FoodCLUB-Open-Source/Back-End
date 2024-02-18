@@ -10,9 +10,9 @@ const redis = createClient({
 
 try {
   await redis.connect();
-  console.log('Successfully connected to Redis');
+  console.log("Successfully connected to Redis");
 } catch (err) {
-  console.error('Could not connect to Redis:', err);
+  console.error("Could not connect to Redis:", err);
 }
 
 export default redis;

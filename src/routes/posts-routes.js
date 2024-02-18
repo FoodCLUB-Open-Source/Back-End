@@ -30,7 +30,7 @@ const router = Router();
 const storage = memoryStorage();
 const upload = multer({
   storage: storage
-})
+});
 
 
 /* Testing Posts Route */
@@ -122,9 +122,9 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
     const client = await pgPool.connect();
 
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
-      const insertPostQuery = 'INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id';
+      const insertPostQuery = "INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id";
       const postValues = [user_id, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
 
@@ -132,10 +132,10 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
         post_id
       } = newPost.rows[0];
 
-      const insertRecipeQuery = 'INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())';
+      const insertRecipeQuery = "INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())";
       const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
 
-      const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
+      const updatePostQuery = "INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)";
       const postUpdateValues = [post_id, category];
 
       await Promise.all([
@@ -143,7 +143,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
         client.query(updatePostQuery, postUpdateValues)
       ]);
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       console.log("Video Posted " + post_id);
       res.status(200).json({
@@ -157,7 +157,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
         s3Delete(S3_POST_PATH + req.files[1])
       ]);
 
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       next(err);
 
     } finally {
@@ -186,12 +186,12 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
       payload
     } = req.body;
     const user_id = payload.user_id;
-    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
     if (postDetails.rows.length === 0) {
       return res.status(404).json({
-        error: 'Post not found'
+        error: "Post not found"
       });
     }
 
@@ -222,7 +222,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
     } = req.params;
 
     // Fetch post details from the database
-    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, post_id);
+    const post = await pgQuery("SELECT * FROM posts WHERE id = $1", post_id);
 
     // Ensure the post is present in the database or not
     if (post.rows.length === 0) {
@@ -238,7 +238,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
       user_id
     } = post.rows[0];
 
-    await pgQuery(`DELETE FROM posts WHERE id = $1`, post_id);
+    await pgQuery("DELETE FROM posts WHERE id = $1", post_id);
     // Delete files from S3 and remove likes/views
     await Promise.all([
       s3Delete(video_name),
@@ -271,7 +271,7 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
       payload
     } = req.body;
     // const user_id = payload.user_id;
-    const user_id = payload.user_id
+    const user_id = payload.user_id;
     // Extract category ID from URL parameters
     const {
       category_id
@@ -334,8 +334,8 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     console.log("Cache Miss");
 
 
-    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id)
-    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture)
+    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id);
+    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture);
 
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
@@ -360,8 +360,8 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
   // getting user ID
   const {
     payload
-  } = req.body
-  const user_id = payload.user_id
+  } = req.body;
+  const user_id = payload.user_id;
 
   try {
     // Get posts liked by the user
@@ -371,7 +371,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     const likedPosts = postLikeCount.map(post => post.post_id);
 
     // Convert the array to an array literal
-    const likedPostsLiteral = `{${likedPosts.join(',')}}`;
+    const likedPostsLiteral = `{${likedPosts.join(",")}}`;
 
     // Get query parameters for pagination
     const pageSize = parseInt(req.query.page_size) || 15;
@@ -449,7 +449,7 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
 
     // Update the post title and title description
     try {
-      await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
+      await pgQuery("UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3", title, description, post_id);
     } catch (error) {
       return res.status(500).json({
         message: "Post not updated"
