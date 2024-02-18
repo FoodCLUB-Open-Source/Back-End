@@ -10,7 +10,7 @@ const router = Router();
  * Removes a post that has been bookmarked by a user
  * 
  * @route DELETE /profile/:userid/bookmark/:postid
- * @param {string} req.params.post_id - The ID of the post to unbookmark
+ * @param {any} req.params.post_id - The ID of the post to unbookmark
  * @returns {status} - A status indicating successful removal of post from bookmarks
  * @throws {Error} - If there are error removing post
  */
@@ -41,7 +41,7 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
  * Bookmarks a post
  * 
  * @route POST /post/:user_id/bookmark/:post_id
- * @param {string} req.params.post_id - The ID of the post to bookmark
+ * @param {any} req.params.post_id - The ID of the post to bookmark
  * @returns {status} - A status indicating successful bookmark of post
  * @throws {Error} - If there are errors bookmarking post
  */
@@ -65,11 +65,11 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
 });
 
 /**
- * Gets posts which have been bookmarked of a user
+ * Gets posts which have been bookmarked by a user
  * 
  * @route GET /profile/:user_id/bookmark/
- * @param {string} req.params.user_id - The ID of the user
- * @returns {Array} - An array of objects containing details of the post the user has bookmarked 
+ * @param {any} req.params.user_id - The ID of the user
+ * @returns {status} - If successful, returns 200 and an array of the posts bookmarked by the user
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
 router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => {
