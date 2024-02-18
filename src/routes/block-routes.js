@@ -69,7 +69,7 @@ router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator,
  * @param {any} req.params.id - The ID of the user unblocking
  * @body {string} req.body.user_id - The ID of the user getting unblocked
  * @returns {status} - Returns a status of comment if posted successfully
- * @throws {Error} - If there are errors, the comment posting failed
+ * @throws {Error} - If there are errors, the user could not be located (404)
  */
 router.delete("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
     try {
