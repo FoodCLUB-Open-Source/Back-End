@@ -20,6 +20,12 @@ const numericVariables = [
 const nanoIdVariables = ["story_id"];
 const dateVariables = ["updated_at", "created_at"];
 
+/**
+ * Function that purifies the provided DOM
+ * 
+ * @param {*} value - DOM to be purified
+ * @returns {*} sanitized - Purified DOM 
+ */
 const sanitisedInput = (value) => {
 	let sanitized = DOMPurify.sanitize(value);
 	return sanitized.replace(/\0/g, '');
