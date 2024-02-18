@@ -22,10 +22,10 @@ router.get("/testing", async (req, res) => {
  * Posting Comment For Specific Post
  * 
  * @route POST  /posts/comments/:id
- * @param {string} req.params.id - The ID of the post with the comment
+ * @param {any} req.params.id - The ID of the post with the comment
  * @body {string} req.params.user_id - The ID of the user commenting on the post
  * @body {string} req.params.comment - The ID of the comment being posted
- * @returns {Object} - Returns a status of comment if posted successfully
+ * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Comment Posted'
  * @throws {Error} - If there are errors, the comment posting failed
  */
 router.post("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
@@ -54,8 +54,8 @@ router.post("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res,
  * Getting 30 most liked Comments For Specific Post
  * 
  * @route GET /posts/comments/:id
- * @param {string} req.params.id - The ID of the post with the 30 most liked comments
- * @returns {Object} - Returns a JSON Object of the results from the query
+ * @param {any} req.params.id - The ID of the post with the 30 most liked comments
+ * @returns {status} - If successful, returns 200 and a JSON ojbect with the results of the query
  * @throws {Error} - If there are errors, retrieving 30 most liked comments failed
  */
 router.get("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
@@ -82,10 +82,10 @@ router.get("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, 
  * Update Comment For Specific Post
  * 
  * @route PUT /posts/comments/:id
- * @param {string} req.params.id - The ID of the comment getting updated
+ * @param {any} req.params.id - The ID of the comment getting updated
  * @body {string) req.body.comment - The comment to replace the original comment
  * @body {string} req.body.post_id - The ID of the post with the comment
- * @returns {Object} - Returns a status of comment if update is successful
+ * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Comment Updated'
  * @throws {Error} - If there are errors, the comment update failed
  */ 
 router.put("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
@@ -109,9 +109,9 @@ router.put("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, 
  * Delete Comment For Specific Post 
  * 
  * @route DELETE /posts/comments/:id
- * @param {string} req.params.id - The ID of teh comment getting deleted
+ * @param {any} req.params.id - The ID of teh comment getting deleted
  * @body {string} req.body.post_id - The ID of the post with the comment
- * @returns {Object} - Returns a status of  the comment deletion if successful
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Comment Deleted'
  * @throws {Error} - If there are errors, the comment deletion failed
  */
 router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
@@ -139,8 +139,8 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
 /** get 20 Replies For Specific Comment
  * 
  * @route GET /posts/comments/replies/:id
- * @param {string} req.params.id - The ID of the comment with 20 replies
- * @returns {Object} - Returns a JSON object of the 20 replies for the comment if successful
+ * @param {any} req.params.id - The ID of the comment with 20 replies
+ * @returns {status} - If successful, returns 200 and a JSON object of the 20 replies for the comment if successful
  * @throws {Error} If there is an error, the retrieval of the 20 replies failed
  */
 router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
@@ -166,11 +166,11 @@ router.get("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 /** Posting Reply For Specific Comment
  * 
  * @route POST /posts/comments/replies/:id
- * @param {string} req.params.commentId - The comment that is getting replied to
+ * @param {any} req.params.commentId - The comment that is getting replied to
  * @body {string} req.body.user_id - The user replying to the comment
  * @body {string} req.body.post_id - The post containing the comment
  * @body {string} req.body.reply - The reply being posted
- * @returns {Object} - Returns a status of the reply if successful
+ * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Reply Posted'
  * @throws {Error} - If there is an error, the reply failed
  */
 router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
@@ -199,10 +199,10 @@ router.post("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next
 /** update Reply For Specific Comment
  * 
  * @route PUT /posts/comments/replies/:id
- * @param {string} req.params.id - The ID of the reply getting updated
+ * @param {any} req.params.id - The ID of the reply getting updated
  * @body {string} req.body.reply - The reply that is replacing the old one
  * @body {string} req.body.comment_id - The comment with the reply
- * @returns {Object} - Returns a status of the reply if update is successful
+ * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Reply Updated'
  * @throws {Error} - If there is an error, the reply update failed
  */
 router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
@@ -225,10 +225,10 @@ router.put("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next)
 /** Delete Reply For Specific Comment
  * 
  * @route DELETE /posts/comments/replies/:id
- * @param {string} req.params.id - The ID of the reply getting deleted
+ * @param {any} req.params.id - The ID of the reply getting deleted
  * @body {string} req.body.comment_id - The ID of the comment with the reply
  * @body {string} req.body.post_id - The ID of the post with the comment
- * @returns {Object} - Returns a status of whether the deletion of the reply was successful
+ * @returns {status} - If successful, returns 200 and a JSON object with the status set to 'Reply Deleted'
  * @throws {Error} - If there is an error, the reply deletion failed
  */
 router.delete("/posts/comments/replies/:id", rateLimiter(),  async (req, res, next) => {
