@@ -12,7 +12,7 @@ const router = Router();
  * @route DELETE /profile/:userid/bookmark/:postid
  * @param {any} req.params.post_id - The ID of the post to unbookmark
  * @returns {status} - A status indicating successful removal of post from bookmarks
- * @throws {Error} - If there are error removing post
+ * @throws {Error} - If there are errors removing post (400)
  */
 router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
@@ -43,7 +43,7 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
  * @route POST /post/:user_id/bookmark/:post_id
  * @param {any} req.params.post_id - The ID of the post to bookmark
  * @returns {status} - A status indicating successful bookmark of post
- * @throws {Error} - If there are errors bookmarking post
+ * @throws {Error} - If there are errors bookmarking post (400)
  */
 router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try {
