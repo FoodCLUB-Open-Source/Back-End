@@ -17,7 +17,7 @@ const numericVariables = [
 	"serving_size","preparation_time",
 
 ];
-const nanoIdVariables = ["story_id"];
+const uuidVariables = ["story_id"];
 const dateVariables = ["updated_at", "created_at"];
 
 const sanitisedInput = (value) => {
@@ -34,13 +34,14 @@ const inputValidator = [
 			.withMessage(`${id} must be a positive number`)
 			.notEmpty().withMessage(`${id} value must exist`)
 	),
-	...nanoIdVariables.map(id => 
+	...uuidVariables.map(id => 
 		check(id)
 		.optional()
-		.isLength({ min: 20, max: 22 }).withMessage((value) => `${value} must be 21 letters long`)
-    	.matches(/^[0-9A-Za-z_-]*$/).withMessage((value) => `nano id ${value} must only contain a-z, A-z,0-9,_,-`)
-		.trim() 
+		.isLength({ min: 36, max: 36 }).withMessage((value) => `${value} must be 36 characters long`)
+		.matches(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/)
+		.withMessage((value) => `${value} is not a valid UUID`)
 	),
+	
 	check("email")
 		.optional()
 		.isEmail().withMessage("Must be a valid email address")
