@@ -33,9 +33,9 @@ const rateLimiter = (maxRequests, windowInMins) => {
 
       if (timestamps.length >= requests) {
         res.set({
-          'X-RateLimit-Limit': requests, //Maximum number of requests allowed
-          'X-RateLimit-Remaining': Math.max(0, requests - timestamps.length - 1), // Requests left in Window
-          'X-RateLimit-Reset': nowWindow // Tme when teh rate limit will reset
+          "X-RateLimit-Limit": requests, //Maximum number of requests allowed
+          "X-RateLimit-Remaining": Math.max(0, requests - timestamps.length - 1), // Requests left in Window
+          "X-RateLimit-Reset": nowWindow // Tme when teh rate limit will reset
         }).status(429).send({
           message: `Rate limit exceeded limit. Try again later in ${window} minutes.`
         });

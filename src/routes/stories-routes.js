@@ -35,75 +35,75 @@ router.get("/testing", async (req, res, next) => {
  * @throws {Error} - If there is error retrieving stories
  */
 router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        const { page_number, page_size } = req.query; // getting page number and page size
-        const { payload } = req.body;
-        const userID = payload.user_id;
+  try {
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const { payload } = req.body;
+    const userID = payload.user_id;
 
-        // getting users the user follows
-        const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC'; // returns the users that are followed by the user with pagination
-        const userFollowing = await pgQuery(query, userID); // executing query
-        const userStoryMap = {}; // object to organize stories by user
+    // getting users the user follows
+    const query = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC"; // returns the users that are followed by the user with pagination
+    const userFollowing = await pgQuery(query, userID); // executing query
+    const userStoryMap = {}; // object to organize stories by user
 
-        // Use Promise.all to wait for all queries to complete
-        Promise.all(
-            userFollowing.rows.map(async (user) => {
-                try {
-                    let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+    // Use Promise.all to wait for all queries to complete
+    Promise.all(
+      userFollowing.rows.map(async (user) => {
+        try {
+          let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
                     
-                    // filtering out stories that are older than 24 hours
-                    const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
-                    stories = stories.filter( story => {
-                      const timeDiff = Date.now() - Date.parse(story.created_at);
-                      return timeDiff < ONE_DAY
-                    })
+          // filtering out stories that are older than 24 hours
+          const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
+          stories = stories.filter( story => {
+            const timeDiff = Date.now() - Date.parse(story.created_at);
+            return timeDiff < ONE_DAY;
+          });
                     
-                    if (stories.length === 0) return; // no recent stories for user
+          if (stories.length === 0) return; // no recent stories for user
                     
-                    if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
-                        // if not user details are created and stored
-                        userStoryMap[user.user_following_id] = {
-                            user_id: user.user_following_id,
-                            profile_picture: user.profile_picture,
-                            username: user.username,
-                            full_name: user.full_name, // added full name
-                            stories: [],
-                        };
-                    }
-                    stories.forEach(async (story) => { // processing all user stories
-                        // retrieving URLs and replacing them in the story object
-                        const videoURL = await s3Retrieve(story.video_url);
-                        const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-                        story.video_url = videoURL;
-                        story.thumbnail_url = thumbnailURL;
+          if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
+            // if not user details are created and stored
+            userStoryMap[user.user_following_id] = {
+              user_id: user.user_following_id,
+              profile_picture: user.profile_picture,
+              username: user.username,
+              full_name: user.full_name, // added full name
+              stories: [],
+            };
+          }
+          stories.forEach(async (story) => { // processing all user stories
+            // retrieving URLs and replacing them in the story object
+            const videoURL = await s3Retrieve(story.video_url);
+            const thumbnailURL = await s3Retrieve(story.thumbnail_url);
+            story.video_url = videoURL;
+            story.thumbnail_url = thumbnailURL;
 
-                        let storiesList = userStoryMap[user.user_following_id].stories;
-                        storiesList = [...storiesList, {
-                            story_id: story.story_id,
-                            thumbnail_url: story.thumbnail_url,
-                            video_url: story.video_url,
-                            created_at: story.created_at,
-                        }];
-                        userStoryMap[user.user_following_id].stories = storiesList;
-                        });
+            let storiesList = userStoryMap[user.user_following_id].stories;
+            storiesList = [...storiesList, {
+              story_id: story.story_id,
+              thumbnail_url: story.thumbnail_url,
+              video_url: story.video_url,
+              created_at: story.created_at,
+            }];
+            userStoryMap[user.user_following_id].stories = storiesList;
+          });
                     
-                } catch (error) {
-                    console.error(error);
-                    return res.status(400).json({ error: error });
-                }
-            })
-        ).then(() => {
-            // converting the userStoryMap object to an array
-            const userStoriesArray = Object.values(userStoryMap);
-            // sending data to client
-            return res.status(200).json({ stories: userStoriesArray});
-        }).catch((error) => {
-            console.error(error);
-            return res.status(400).json({ error: error });
-        });
-    } catch (error) {
-        next(error) // server side error
-    }
+        } catch (error) {
+          console.error(error);
+          return res.status(400).json({ error: error });
+        }
+      })
+    ).then(() => {
+      // converting the userStoryMap object to an array
+      const userStoriesArray = Object.values(userStoryMap);
+      // sending data to client
+      return res.status(200).json({ stories: userStoriesArray });
+    }).catch((error) => {
+      console.error(error);
+      return res.status(400).json({ error: error });
+    });
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 /**
@@ -119,71 +119,71 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
     const { payload } = req.body;
     const user_id = payload.user_id;
     const pageSize = parseInt(req.query.page_size) || 15;
-    const page_number = parseInt(req.query.page_number) || 1
+    const page_number = parseInt(req.query.page_number) || 1;
 
     if (isNaN(page_number) || isNaN(pageSize)) {
       return res.status(400).json({ message: "Invalid page_number or page_size" });
     }
 
     // Query to retrive user details from database
-    const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
+    const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
     const userDetails = await pgQuery(query, parseInt(user_id));
 
     if (userDetails.rows.length === 0) {
-      return res.status(404).json({message: 'User not found'});
+      return res.status(404).json({ message: "User not found" });
     }
 
     const userDetail = userDetails.rows[0];
     // Calculate the offset based on page size and page number
     const offset = (page_number - 1) * pageSize;
-    console.log("The offset number is: ", offset)
+    console.log("The offset number is: ", offset);
     try {
       const stories = await getDynamoRequestBuilder("Stories")
-      .query("user_id", parseInt(user_id))
-      .useIndex("user_id-created_at-index")
-      .scanIndexDescending()
-      .exclusiveStartKey(offset > 0 ? { created_at: stories[offset - 1].created_at } : undefined) // Use startKey for pagination
-      .limit(pageSize)
-      .exec();
+        .query("user_id", parseInt(user_id))
+        .useIndex("user_id-created_at-index")
+        .scanIndexDescending()
+        .exclusiveStartKey(offset > 0 ? { created_at: stories[offset - 1].created_at } : undefined) // Use startKey for pagination
+        .limit(pageSize)
+        .exec();
 
-    // Check if stories array is not empty before sorting
-    if (stories && stories.length > 0) {
-      console.log('First DynamoDB Item:', stories[0]);
-    }
+      // Check if stories array is not empty before sorting
+      if (stories && stories.length > 0) {
+        console.log("First DynamoDB Item:", stories[0]);
+      }
 
-    // Sort the stories according to created_at so latest stories show first
-    const savedStories = stories.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      // Sort the stories according to created_at so latest stories show first
+      const savedStories = stories.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    // Use map to concurrently retrieve S3 URLs for video and thumbnail
-    const s3Promises = savedStories.map(async (story) => {
-      story.video_url = await s3Retrieve(story.video_url);
-      story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
-      return {
-        story_id: story.story_id,
-        video_url: story.video_url,
-        thumbnail_url: story.thumbnail_url,
-        created_at: story.created_at,
-        view_count: story.view_count,
-      };
-    });
+      // Use map to concurrently retrieve S3 URLs for video and thumbnail
+      const s3Promises = savedStories.map(async (story) => {
+        story.video_url = await s3Retrieve(story.video_url);
+        story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+        return {
+          story_id: story.story_id,
+          video_url: story.video_url,
+          thumbnail_url: story.thumbnail_url,
+          created_at: story.created_at,
+          view_count: story.view_count,
+        };
+      });
 
-    // Wait for all promises to resolve
-    const updatedStories = await Promise.all(s3Promises);
+      // Wait for all promises to resolve
+      const updatedStories = await Promise.all(s3Promises);
 
-    const user_details = {
-      user_id: user_id,
-      full_name: userDetail.full_name,
-      user_name: userDetail.username,
-      profile_picture: userDetail.profile_picture,
-      saved_stories: [...updatedStories]
+      const user_details = {
+        user_id: user_id,
+        full_name: userDetail.full_name,
+        user_name: userDetail.username,
+        profile_picture: userDetail.profile_picture,
+        saved_stories: [...updatedStories]
       // Include other user details as needed
-    };
+      };
     
 
-    res.status(200).json({ stories: user_details});
+      res.status(200).json({ stories: user_details });
     } catch (err){
 
-      return res.status(500).json({message: err});
+      return res.status(500).json({ message: err });
     }
   } catch (err) {
     console.log(err);
@@ -205,14 +205,14 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     const user_id = payload.user_id;
 
     // Query to retrive user details from database
-    const query = 'SELECT full_name, username, profile_picture FROM users WHERE id=$1'
-    const userDetails = await pgQuery(query, parseInt(user_id)) 
+    const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
+    const userDetails = await pgQuery(query, parseInt(user_id)); 
 
     if (userDetails.rows.length === 0) {
-      return res.status(404).json({message: 'User not found'});
+      return res.status(404).json({ message: "User not found" });
     }
 
-    const userDetail = userDetails.rows[0]
+    const userDetail = userDetails.rows[0];
     //retrive all storeis realted to the user
     const userStories = await getDynamoRequestBuilder("Stories")
       .query("user_id", user_id)
@@ -359,7 +359,7 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
 
   } catch (err) {
     // Handle errors and pass them to the next error handler
-      next(err);
+    next(err);
   }
 });
 

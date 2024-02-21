@@ -32,10 +32,10 @@ router.get("/testing", async (req, res) => {
   }
 });
 
-router.get('psql_schema', async (req, res) => {
-  const result = await pgQuery("SELECT table_schema, table_name FROM information_schema.tables")
-  console.log(result)
-})
+router.get("psql_schema", async (req, res) => {
+  const result = await pgQuery("SELECT table_schema, table_name FROM information_schema.tables");
+  console.log(result);
+});
 
 /**
  * Sign up a user
@@ -47,7 +47,9 @@ router.get('psql_schema', async (req, res) => {
  * @returns {status} - A status indicating successful sign up returns 201, unsuccessful returns 400 for incomplete information or user associated with pre-existing email
  * @throws {Error} - If there are errors Dont create user (500)
  */
-router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
+
+
+router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
   
   const { username, email, password, full_name } = req.body;
   
@@ -62,37 +64,37 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
 
   // Checks if email already exists in database
   try {
-    const checkEmail = await pgQuery('SELECT id from users WHERE email=$1', email); // query to check if duplicate email does exist in PG
+    const checkEmail = await pgQuery("SELECT id from users WHERE email=$1", email); // query to check if duplicate email does exist in PG
     if (checkEmail.rows.length > 0) {
-      return res.status(400).json({message: "User with email already exists"})
+      return res.status(400).json({ message: "User with email already exists" });
     }
   } catch (error) {
-    return res.status(500).json({message: error});
+    return res.status(500).json({ message: error });
   }
 
   let user_id;
 
   try {
     const verified = false;
-    const insertQuery = await pgQuery(`INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    username, email, passwordHashed, full_name, verified);
+    const insertQuery = await pgQuery("INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+      username, email, passwordHashed, full_name, verified);
     user_id = insertQuery.rows[0].id; 
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
 
-  attributeArray.push(new CognitoUserAttribute({ Name: "custom:id", Value: user_id.toString()}))
+  attributeArray.push(new CognitoUserAttribute({ Name: "custom:id", Value: user_id.toString() }));
 
   cognitoUserPool.signUp(username, password, attributeArray, null, async (err, result) => {
     if (err) {
-      await pgQuery(`DELETE FROM users WHERE username = $1`, username)
-      return res.status(400).json({message: err.message}); 
+      await pgQuery("DELETE FROM users WHERE username = $1", username);
+      return res.status(400).json({ message: err.message }); 
     }
 
     return res.status(201).json({
       user_id: user_id,
       username: username,
-      verification_status: 'not verified',
+      verification_status: "not verified",
       email: email,
       full_name: full_name,
       session: null
@@ -110,7 +112,7 @@ router.post('/signup', inputValidator, rateLimiter(), async (req, res) => {
  * @returns {status} - A successful status indicates code verfified, returns 200 with JSON object
  * @throws {Error} - If there are errors dont verify code, returns 400
  */
-router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) => {
+router.post("/confirm_verification", inputValidator, rateLimiter(), (req, res) => {
 
   const { username, password, verification_code } = req.body;
 
@@ -122,13 +124,13 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
   const cognitoUser = new CognitoUser(userData);
   cognitoUser.confirmRegistration(verification_code, true, async (err, result) => {
     if (err) {
-      return res.status(400).json({ message: err.message })
+      return res.status(400).json({ message: err.message });
     }
     try {
-      const verified = true
-      await pgQuery(`UPDATE users SET verified = $1 WHERE username = $2`, verified, username)
+      const verified = true;
+      await pgQuery("UPDATE users SET verified = $1 WHERE username = $2", verified, username);
     } catch (error) {
-      res.status(400).json({ message: error.message })
+      res.status(400).json({ message: error.message });
     }
 
     const authenticationDetails = new AuthenticationDetails({
@@ -138,15 +140,15 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
     
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: async (result) => {
-        const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
-        const signInUserSession = cognitoUser.getSignInUserSession()
-        const idToken =  signInUserSession.getIdToken().getJwtToken()
-        const accessToken = signInUserSession.getAccessToken().getJwtToken()
-        const refreshToken = signInUserSession.getRefreshToken().getToken()
+        const user = await pgQuery("SELECT id, username, profile_picture FROM users WHERE username = $1", username);
+        const signInUserSession = cognitoUser.getSignInUserSession();
+        const idToken =  signInUserSession.getIdToken().getJwtToken();
+        const accessToken = signInUserSession.getAccessToken().getJwtToken();
+        const refreshToken = signInUserSession.getRefreshToken().getToken();
 
         res.status(200).json({ 
-          header: 'user logged in',
-          message: 'user email verified successfully',
+          header: "user logged in",
+          message: "user email verified successfully",
           user: user.rows[0],
           access_token: accessToken,
           id_token: idToken,
@@ -154,7 +156,7 @@ router.post('/confirm_verification', inputValidator, rateLimiter(), (req, res) =
         });
       },
       onFailure: (err) => {
-        return res.status(400).json({message: err.message})      
+        return res.status(400).json({ message: err.message });      
       }
     }); 
   });
@@ -181,11 +183,11 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
   
   cognitoUser.resendConfirmationCode((err, result) => {
     if (err) {
-      return res.status(400).json({ message: err.message })
+      return res.status(400).json({ message: err.message });
     }
     res.status(200).json({ 
-      header: 'User email is not confirmed',
-      message: 'new code sent successfully' })
+      header: "User email is not confirmed",
+      message: "new code sent successfully" });
   });
 });
 
@@ -216,14 +218,14 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
   
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
-      const user = await pgQuery('SELECT id, username, profile_picture FROM users WHERE username = $1', username);
+      const user = await pgQuery("SELECT id, username, profile_picture FROM users WHERE username = $1", username);
       // signInUserSession is an instance of CognitoUserSession
       // these return object instances, not just strings of the tokens.
-      const signInUserSession = cognitoUser.getSignInUserSession()
+      const signInUserSession = cognitoUser.getSignInUserSession();
 
-      const idToken =  signInUserSession.getIdToken().getJwtToken()
-      const accessToken = signInUserSession.getAccessToken().getJwtToken()
-      const refreshToken = signInUserSession.getRefreshToken().getToken()
+      const idToken =  signInUserSession.getIdToken().getJwtToken();
+      const accessToken = signInUserSession.getAccessToken().getJwtToken();
+      const refreshToken = signInUserSession.getRefreshToken().getToken();
 
       // user id is in idToken.payload['custom:id']       
       res.status(200).json({
@@ -237,24 +239,24 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
       if (err.message == "User is not confirmed.") {
         cognitoUser.resendConfirmationCode((err, result) => {
           if (err) {
-            return res.status(400).json({ message: err.message })
+            return res.status(400).json({ message: err.message });
           }
           res.status(400).json({ 
-            message: 'User is not verified',
-            description: 'new verification code email sent'
-          })
+            message: "User is not verified",
+            description: "new verification code email sent"
+          });
         });
       } else if (err.code == "UserNotFoundException") {
         res.status(400).json({
-          header: 'user not found',
-          message: 'User does not exist'
+          header: "user not found",
+          message: "User does not exist"
         });
       } else {
         res.status(400).json({
-          header: 'sign in error',
+          header: "sign in error",
           message: err.message
         });
-      };
+      }
     }
   });  
 });
@@ -269,7 +271,7 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
  */
 ///@dev this endpoint will need the verify endpoint, to only allow a signed in user to make a sign out request.
 router.post("/signout", rateLimiter(), (req, res) => {
-  const { username } = req.body
+  const { username } = req.body;
 
   const userData = {
     Username: username,
@@ -314,11 +316,11 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
     Pool: cognitoUserPool
   };
   
-  const authorisation = req.header['Authorisation']
+  const authorisation = req.header["Authorisation"];
   try {
-    const { access_token, id_token } = parseHeader(authorisation)
-    const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
-    const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
+    const { access_token, id_token } = parseHeader(authorisation);
+    const cognitoAccessToken = new CognitoAccessToken({ AccessToken: access_token });
+    const cognitoIdToken = new CognitoIdToken({ IdToken: id_token });
 
     /* Below sets the session for the user using tokens: effectively 'signing the user in' for this action which requires the user to be 
     authenticated. For this, the id token and the access token are required in the request header.
@@ -331,11 +333,11 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
       ClockDrift: null,
     };
 
-    const cognitoUserSession = new CognitoUserSession(sessionData)
+    const cognitoUserSession = new CognitoUserSession(sessionData);
 
     const cognitoUser = new CognitoUser(userData);
 
-    cognitoUser.setSignInUserSession(cognitoUserSession) 
+    cognitoUser.setSignInUserSession(cognitoUserSession); 
 
     cognitoUser.changePassword(old_password, new_password, (err, result) => {
       if (err) {
@@ -347,7 +349,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
     });
     
   } catch (error) {
-    res.status(400).json({ message: error.message })
+    res.status(400).json({ message: error.message });
   }
 
 });
@@ -361,24 +363,24 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
  * @throws {Error} - If there are errors dont send a code, returns 400 with associated error message
  */
 router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),emailOrUsername(),async (req, res) => {
-    const { username } = req.body;
+  const { username } = req.body;
 
-    const userData = {
-      Username: username,
-      Pool: cognitoUserPool,
-    };
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
 
-    const cognitoUser = new CognitoUser(userData);
+  const cognitoUser = new CognitoUser(userData);
 
-    cognitoUser.forgotPassword({
-      onSuccess: (data) => {
-        res.status(200).json({ message: "Verification code sent" });
-      },
-      onFailure: (err) => {
-        res.status(400).json({ message: err.message });
-      },
-    });
-  }
+  cognitoUser.forgotPassword({
+    onSuccess: (data) => {
+      res.status(200).json({ message: "Verification code sent" });
+    },
+    onFailure: (err) => {
+      res.status(400).json({ message: err.message });
+    },
+  });
+}
 );
 
 /**
@@ -392,24 +394,24 @@ router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),em
  * @throws {Error} - If there are errors dont chagne the password, returns 400 with associated error message
  */
 router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(req, res) => {
-    const { username, verification_code, new_password } = req.body;
+  const { username, verification_code, new_password } = req.body;
 
-    const userData = {
-      Username: username,
-      Pool: cognitoUserPool,
-    };
+  const userData = {
+    Username: username,
+    Pool: cognitoUserPool,
+  };
 
-    const cognitoUser = new CognitoUser(userData);
+  const cognitoUser = new CognitoUser(userData);
 
-    cognitoUser.confirmPassword(verification_code, new_password, {
-      onSuccess() {
-        res.status(201).json({ message: "password reset successfully" });
-      },
-      onFailure(err) {
-        res.status(400).json({ message: err });
-      },
-    });
-  }
+  cognitoUser.confirmPassword(verification_code, new_password, {
+    onSuccess() {
+      res.status(201).json({ message: "password reset successfully" });
+    },
+    onFailure(err) {
+      res.status(400).json({ message: err });
+    },
+  });
+}
 );
 
 /**
@@ -429,11 +431,11 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
   };
   
   // Get the authorisation header and tokens
-  const authorisation = req.header['Authorisation']
+  const authorisation = req.header["Authorisation"];
   try {
-    const { access_token, id_token } = parseHeader(authorisation)
-    const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
-    const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
+    const { access_token, id_token } = parseHeader(authorisation);
+    const cognitoAccessToken = new CognitoAccessToken({ AccessToken: access_token });
+    const cognitoIdToken = new CognitoIdToken({ IdToken: id_token });
     
     const sessionData = {
       IdToken: cognitoIdToken,
@@ -442,22 +444,22 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
       ClockDrift: null,
     };
   
-    const cognitoUserSession = new CognitoUserSession(sessionData)
+    const cognitoUserSession = new CognitoUserSession(sessionData);
   
     const cognitoUser = new CognitoUser(userData);
   
-    cognitoUser.setSignInUserSession(cognitoUserSession) 
+    cognitoUser.setSignInUserSession(cognitoUserSession); 
   
     cognitoUser.globalSignOut({
       onSuccess: (result) => { 
-        res.status(200).json('User signed out globally')
+        res.status(200).json("User signed out globally");
       },
       onFailure: (err) => {
-        res.status(400).json(err.message)
+        res.status(400).json(err.message);
       }
     });
   } catch (err) {
-    return res.status(400).json(err.message)
+    return res.status(400).json(err.message);
   }
 });
 
@@ -472,13 +474,13 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
  * @throws {Error} - If the refresh token is not valid, or there is another internal error, returns 400 with associated error message
  */
 
-router.post('/refresh_session', rateLimiter(10, 1), async (req, res) => {
+router.post("/refresh_session", rateLimiter(10, 1), async (req, res) => {
 
-  const { username, refresh_token } = req.body
+  const { username, refresh_token } = req.body;
 
-  if (!!refresh_token) {
+  if (refresh_token) {
     // first check if refresh token is valid: verify the token
-    const cognitoRefreshToken  = new CognitoRefreshToken({RefreshToken: refresh_token})
+    const cognitoRefreshToken  = new CognitoRefreshToken({ RefreshToken: refresh_token });
     try {
 
       const userData = {
@@ -491,33 +493,33 @@ router.post('/refresh_session', rateLimiter(10, 1), async (req, res) => {
       cognitoUser.refreshSession(cognitoRefreshToken, (err, result) => {
         if (err) {
           return res.status(400).json(err.message);
-        };
+        }
         // if user_id not in payload, we can just use a lookup in psql with username.
 
         // if successful, the user's new tokens are returned as a string
 
         return res.status(200).json({
-          header: 'Session refresh successful',
-          message: 'User signed in',
+          header: "Session refresh successful",
+          message: "User signed in",
           access_token: result.getAccessToken().getJwtToken(),
           id_token: result.getIdToken().getJwtToken(),
           refresh_token: result.getRefreshToken().getToken()
         });
-      })
+      });
     } catch (err) {
       res.status(400).json({
         error: err.message,
-        message: 'Refresh token invalid. Please re-authenticate.'
+        message: "Refresh token invalid. Please re-authenticate."
       });
-    };
+    }
   } else {
-    res.status(400).json({message: 'Refresh token not provided'});
-  };
+    res.status(400).json({ message: "Refresh token not provided" });
+  }
 });
 
 
-router.get('/test_tokens', verifyTokens, (req, res) => {
-  console.log(req.body)
-  res.status(200).json(req.body)
-})
+router.get("/test_tokens", verifyTokens, (req, res) => {
+  console.log(req.body);
+  res.status(200).json(req.body);
+});
 export default router;

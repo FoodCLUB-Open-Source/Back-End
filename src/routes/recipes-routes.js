@@ -5,19 +5,19 @@ import inputValidator from "../middleware/input_validator.js";
 
 import redis from"../config/redisConfig.js";
 import { pgQuery } from "../functions/general_functions.js";
-import {redisNewRecipe,redisRecipeExists} from "../functions/redis_functions.js"
+import { redisNewRecipe,redisRecipeExists } from "../functions/redis_functions.js";
 import { verifyAccessOnly, verifyUserIdentity } from "../middleware/verify.js";
 
 const router = express.Router();
 
 /* Testing Posts Route */
 router.get("/testing", rateLimiter(), async (req, res) => {
-	try {
-	res.status(200).json({ "Testing": "Working Reipes" });
+  try {
+    res.status(200).json({ "Testing": "Working Reipes" });
   
-	} catch (err) {
-	  console.error(err.message)
-	};
+  } catch (err) {
+	  console.error(err.message);
+  }
 });
 
 /**
@@ -30,41 +30,40 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * @returns {status} - If successful, returns 200 and a JSON object with the specific recipe, else returns 404 and a JSON object with error set to 'Recipe not found'
  */
 router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (req, res, next) => {
-	const postId = parseInt(req.params.post_id);
-	try {
+  const postId = parseInt(req.params.post_id);
+  try {
 	  const REDIS_KEY = `RECIPE|${postId}`;
 	  let redisRecipe = await redis.HGETALL(REDIS_KEY);
 	  const exists = Object.keys(redisRecipe).length;
 	  if (exists) {
 		  redisRecipeExists(postId).then((responce)=>{
-			  return res.status(200).json({recipe:responce});
-		  })
+			  return res.status(200).json({ recipe:responce });
+		  });
 	  }
 	  else {
-		try {
+      try {
 		  const specificRecipe = await pgQuery(
-			`SELECT * FROM recipes WHERE id=$1`,
-			postId
-		  )
+          "SELECT * FROM recipes WHERE id=$1",
+          postId
+		  );
 		  if (specificRecipe.rows.length === 0) {
-			return res.status(404).json({ error: "Recipe not found" });
+          return res.status(404).json({ error: "Recipe not found" });
 		  }
 		  //add new recipe to redis
 		  await redisNewRecipe(postId).then(()=>{
-			  console.log("New Recipe on Redis created")
-		  })
+			  console.log("New Recipe on Redis created");
+		  });
 		  return res.status(200).json({ recipe: specificRecipe.rows[0] });
-		} catch (err) {
+      } catch (err) {
 		  console.error(`Error fetching recipe for post ${postId}:`, err);
 		  return next(err);
-		}
+      }
 	  }
-	} catch (err) {
+  } catch (err) {
 	  console.error(`Error handling request for recipe post ${postId}:`, err);
 	  next(err);
-	}
-  });
-  
+  }
+});
 /**
  * Route handler for Update Recipes Table.
  * This will update the details in the recipes table.
@@ -80,29 +79,29 @@ router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (
  * @returns {status} - If successful, returns 200 and a JSON object with message set to 'Recipe updated', else returns 404 and a JSON object with message set to 'Recipe not found'
  */
 router.put("/:post_id", inputValidator, verifyUserIdentity, rateLimiter(), async (req, res, next) => {
-	try {
-		const { post_id } = req.params;
+  try {
+    const { post_id } = req.params;
 
-		const {
-			recipe_description,
-			recipe_ingredients,
-			recipe_equipment,
-			recipe_steps,
-			preparation_time,
-			serving_size,
-		} = req.body;
+    const {
+      recipe_description,
+      recipe_ingredients,
+      recipe_equipment,
+      recipe_steps,
+      preparation_time,
+      serving_size,
+    } = req.body;
 
-		// Check if the recipe with the specified post_id exists
-		const checkQuery = `SELECT * FROM recipes WHERE post_id = $1`;
-		const checkValues = [post_id];
-		const existingRecipe = await pgQuery(checkQuery, ...checkValues);
+    // Check if the recipe with the specified post_id exists
+    const checkQuery = "SELECT * FROM recipes WHERE post_id = $1";
+    const checkValues = [post_id];
+    const existingRecipe = await pgQuery(checkQuery, ...checkValues);
 
-		if (!existingRecipe.rows.length) {
-			// If the recipe does not exist, return a "404 Not Found" response
-			return res.status(404).json({ message: "Recipe not found" });
-		}
+    if (!existingRecipe.rows.length) {
+      // If the recipe does not exist, return a "404 Not Found" response
+      return res.status(404).json({ message: "Recipe not found" });
+    }
 
-		const query = `
+    const query = `
 		UPDATE recipes 
 		SET 
 		  recipe_description = $1, 
@@ -114,22 +113,22 @@ router.put("/:post_id", inputValidator, verifyUserIdentity, rateLimiter(), async
 		  updated_at = NOW()
 		WHERE post_id = $7`;
 
-		const values = [
-			recipe_description,
-			recipe_ingredients,
-			recipe_equipment,
-			recipe_steps,
-			preparation_time,
-			serving_size,
+    const values = [
+      recipe_description,
+      recipe_ingredients,
+      recipe_equipment,
+      recipe_steps,
+      preparation_time,
+      serving_size,
 		    post_id,
-		];
+    ];
 
-		await pgQuery(query, ...values);
+    await pgQuery(query, ...values);
 
-		res.status(200).json({ message: "Recipe updated" });
-	} catch (err) {
-		next(err);
-	}
+    res.status(200).json({ message: "Recipe updated" });
+  } catch (err) {
+    next(err);
+  }
 });
   
 export default router;

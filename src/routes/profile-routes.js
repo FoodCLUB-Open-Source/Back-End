@@ -9,7 +9,7 @@ import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import { verifyTokens } from "../middleware/verify.js";
 
 const storage = memoryStorage();
-const upload = multer({ storage: storage })
+const upload = multer({ storage: storage });
 const router = Router();
 
 /**
@@ -44,29 +44,29 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
+  try {
 
-        const { payload } = req.body;
-        const user_id = payload.user_id;
+    const { payload } = req.body;
+    const user_id = payload.user_id;
 
-        const query = `
+    const query = `
             SELECT id, username, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
 
-        const userDetails = await pgQuery(query, user_id);
-        if (userDetails.rows.length < 1) {
-            return res.json({ messege: "User not found" })
-        }
-        try {
-            userDetails.rows[0].profile_picture = (userDetails.rows[0].profile_picture !== null) ? await s3Retrieve(userDetails.rows[0].profile_picture) : null;
-            return res.status(200).json({ data: userDetails.rows[0] })
-        }
-        catch (err) {
-            console.error(err)
-        }
-
-    } catch (error) {
-        next(error); // Pass the error to the error-handling middleware
+    const userDetails = await pgQuery(query, user_id);
+    if (userDetails.rows.length < 1) {
+      return res.json({ messege: "User not found" });
     }
+    try {
+      userDetails.rows[0].profile_picture = (userDetails.rows[0].profile_picture !== null) ? await s3Retrieve(userDetails.rows[0].profile_picture) : null;
+      return res.status(200).json({ data: userDetails.rows[0] });
+    }
+    catch (err) {
+      console.error(err);
+    }
+
+  } catch (error) {
+    next(error); // Pass the error to the error-handling middleware
+  }
 });
 
 /**
@@ -79,55 +79,55 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
 router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
-    try {
-        // getting userID and converting to integer
-        const { page_number, page_size } = req.query; // getting page number and page size
-        const { payload } = req.body;
-        const userID = payload.user_id;
+  try {
+    // getting userID and converting to integer
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const { payload } = req.body;
+    const userID = payload.user_id;
 
-        // QUERIES
-        const userNameQuery = 'SELECT username, profile_picture FROM users WHERE id = $1'; // username and profile picture query
-        const userFollowersQuery = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1'; // user followers query
-        const userFollowingQuery = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1'; // user following query
-        const userPostsQuery = 'SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)'; // user posts query with pagination
-        const topCreatorsQuery = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT 8'; // top creators query, returns 8 random users that the user does not follow
+    // QUERIES
+    const userNameQuery = "SELECT username, profile_picture FROM users WHERE id = $1"; // username and profile picture query
+    const userFollowersQuery = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1"; // user followers query
+    const userFollowingQuery = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1"; // user following query
+    const userPostsQuery = "SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // user posts query with pagination
+    const topCreatorsQuery = "SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT 8"; // top creators query, returns 8 random users that the user does not follow
 
-        // EXECUTING QUERIES
-        const [userNameProfile, userFollowers, userFollowing, userLikes, userPosts, topCreators] = await Promise.all([
-            pgQuery(userNameQuery, userID),
-            pgQuery(userFollowersQuery, userID),
-            pgQuery(userFollowingQuery, userID),
-            getDynamoRequestBuilder("Likes").query("user_id", parseInt(userID)).useIndex("user_id-created_at-index").exec(), // user likes query
-            pgQuery(userPostsQuery, userID, page_number, page_size),
-            pgQuery(topCreatorsQuery, userID)
-        ]);
+    // EXECUTING QUERIES
+    const [userNameProfile, userFollowers, userFollowing, userLikes, userPosts, topCreators] = await Promise.all([
+      pgQuery(userNameQuery, userID),
+      pgQuery(userFollowersQuery, userID),
+      pgQuery(userFollowingQuery, userID),
+      getDynamoRequestBuilder("Likes").query("user_id", parseInt(userID)).useIndex("user_id-created_at-index").exec(), // user likes query
+      pgQuery(userPostsQuery, userID, page_number, page_size),
+      pgQuery(topCreatorsQuery, userID)
+    ]);
 
-        // SETTING VALUES
-        const userFollowersCount = userFollowers.rowCount; // total user follower count
-        const userFollowingCount = userFollowing.rowCount; // total user following count
-        const userLikesCount = userLikes.length; // total user likes count
-        const updatedPostsData = await updatePosts(userPosts.rows, userID); // updating post objects to include further information
+    // SETTING VALUES
+    const userFollowersCount = userFollowers.rowCount; // total user follower count
+    const userFollowingCount = userFollowing.rowCount; // total user following count
+    const userLikesCount = userLikes.length; // total user likes count
+    const updatedPostsData = await updatePosts(userPosts.rows, userID); // updating post objects to include further information
 
-        // Check if profile picture exists before retrieving from S3
-        const profilePicture = userNameProfile.rows[0].profile_picture;
-        const profilePictureUrl = profilePicture ? await s3Retrieve(profilePicture) : null;
+    // Check if profile picture exists before retrieving from S3
+    const profilePicture = userNameProfile.rows[0].profile_picture;
+    const profilePictureUrl = profilePicture ? await s3Retrieve(profilePicture) : null;
 
-        // storing data as object
-        const userDataObject = {
-            username: userNameProfile.rows[0].username,
-            profile_picture: profilePictureUrl,
-            total_user_likes: userLikesCount,
-            total_user_followers: userFollowersCount,
-            total_user_following: userFollowingCount,
-            user_posts: updatedPostsData,
-            top_creators: topCreators.rows
-        }
+    // storing data as object
+    const userDataObject = {
+      username: userNameProfile.rows[0].username,
+      profile_picture: profilePictureUrl,
+      total_user_likes: userLikesCount,
+      total_user_followers: userFollowersCount,
+      total_user_following: userFollowingCount,
+      user_posts: updatedPostsData,
+      top_creators: topCreators.rows
+    };
 
-        return res.status(200).json({ data: userDataObject }); // sending data to client
+    return res.status(200).json({ data: userDataObject }); // sending data to client
 
-    } catch (error) {
-        next(error); // server side error
-    }
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 /**
@@ -140,15 +140,15 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        const { page_number, page_size } = req.query; // getting page number and page size
-        const { payload } = req.body;
-        const userID = payload.user_id;
+  try {
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const { payload } = req.body;
+    const userID = payload.user_id;
 
-        // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
+    // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
 
-        // queries for id of users, usernames, profile pictures, and whether they follow them back that the given user is following
-        const query = `
+    // queries for id of users, usernames, profile pictures, and whether they follow them back that the given user is following
+    const query = `
         SELECT f1.user_following_id, u.username, u.profile_picture,
                CASE WHEN f2.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS followsBack
         FROM following f1
@@ -156,23 +156,23 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
         JOIN users u ON f1.user_following_id = u.id
         WHERE f1.user_id = $1
         ORDER BY f1.created_at ASC 
-        LIMIT $3 OFFSET (($2 - 1) * $3)`
+        LIMIT $3 OFFSET (($2 - 1) * $3)`;
 
-        const userFollowing = await pgQuery(query, userID, page_number, page_size);
+    const userFollowing = await pgQuery(query, userID, page_number, page_size);
 
-        //maps all profile picture to retrieve a http link for the profile pic
-        userFollowing.rows = await Promise.all(
-            userFollowing.rows.map(async (row) => {
-                if (row.profile_picture) {           // Check if profile picture exists
-                    row.profile_picture = await s3Retrieve(row.profile_picture);
-                }
-                return row;
-            })
-        );
-        return res.status(200).json({ data: userFollowing.rows }); // sends details to client
-    } catch (error) {
-        next(error) // server side error
-    }
+    //maps all profile picture to retrieve a http link for the profile pic
+    userFollowing.rows = await Promise.all(
+      userFollowing.rows.map(async (row) => {
+        if (row.profile_picture) {           // Check if profile picture exists
+          row.profile_picture = await s3Retrieve(row.profile_picture);
+        }
+        return row;
+      })
+    );
+    return res.status(200).json({ data: userFollowing.rows }); // sends details to client
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 /**
@@ -185,29 +185,29 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        const { page_number, page_size } = req.query; // getting page number and page size
-        const { payload } = req.body;
-        const userID = payload.user_id; // getting userID
+  try {
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const { payload } = req.body;
+    const userID = payload.user_id; // getting userID
 
-        const query = 'SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that follow the user with pagination
-        const userFollowers = await pgQuery(query, userID, page_number, page_size);
+    const query = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)"; // returns the users that follow the user with pagination
+    const userFollowers = await pgQuery(query, userID, page_number, page_size);
 
 
-        //maps all profile picture to retrieve a http link for the profile pic
-        userFollowers.rows = await Promise.all(
-            userFollowers.rows.map(async (row) => {
-                if (row.profile_picture) {           // Check if profile picture exists
-                    row.profile_picture = await s3Retrieve(row.profile_picture);
-                }
-                return row;
-            })
-        );
+    //maps all profile picture to retrieve a http link for the profile pic
+    userFollowers.rows = await Promise.all(
+      userFollowers.rows.map(async (row) => {
+        if (row.profile_picture) {           // Check if profile picture exists
+          row.profile_picture = await s3Retrieve(row.profile_picture);
+        }
+        return row;
+      })
+    );
 
-        return res.status(200).json({ data: userFollowers.rows }); // sends details to client
-    } catch (error) {
-        next(error) // server side error
-    }
+    return res.status(200).json({ data: userFollowers.rows }); // sends details to client
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 /**
@@ -219,60 +219,60 @@ router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req,
  * @throws {Error} - This must not unfollow the user
  */
 router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        // Extract user IDs from request parameters
-        const { user_following_id } = req.params;
-        const { payload } = req.body;
-        const user_id = payload.user_id;
+  try {
+    // Extract user IDs from request parameters
+    const { user_following_id } = req.params;
+    const { payload } = req.body;
+    const user_id = payload.user_id;
         
-        // Wrap each query in a function that returns a promise
-        const verifyUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
-        const verifyFollowingUserExistenceQuery = () => pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
-        const checkFollowQuery = () => pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
+    // Wrap each query in a function that returns a promise
+    const verifyUserExistenceQuery = () => pgQuery("SELECT * FROM users WHERE id = $1", user_id);
+    const verifyFollowingUserExistenceQuery = () => pgQuery("SELECT * FROM users WHERE id = $1", user_following_id);
+    const checkFollowQuery = () => pgQuery("SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2", user_id, user_following_id);
 
-        // Use Promise.all() to run all queries concurrently
-        const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
-            verifyUserExistenceQuery(),
-            verifyFollowingUserExistenceQuery(),
-            checkFollowQuery()
-        ]);
+    // Use Promise.all() to run all queries concurrently
+    const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
+      verifyUserExistenceQuery(),
+      verifyFollowingUserExistenceQuery(),
+      checkFollowQuery()
+    ]);
 
-        // Verify the existence of the user based on their ID
-        if (verifyUserExistence.rows.length === 0) {
-            return res.status(400).json({ "error": "User not found" });
-        }
-
-        // Verify the existence of the user being followed based on their ID
-        if (verifyFollowingUserExistence.rows.length === 0) {
-            return res.status(400).json({ "error": "Following user not found" });
-        }
-
-        // Check if the user follows the target user
-        if (checkFollow.rows.length === 0) {
-            return res.status(400).json({ "error": "Not following user" });
-        }
-
-        // Delete the following relationship from the database
-        const query = [
-            `DELETE FROM following WHERE user_id = $1 AND user_following_id = $2`
-        ];
-        const values = [[user_id, user_following_id]];
-
-        // helper function of database transaction
-        const result = await makeTransactions(query, values);
-
-        if (result.length === 0) {
-            return res.status(400).json({ "error": "Follow not deleted" });
-        }
-
-        // Respond with success message
-        return res.status(200).json({ "success": "user unfollowed" });
-
+    // Verify the existence of the user based on their ID
+    if (verifyUserExistence.rows.length === 0) {
+      return res.status(400).json({ "error": "User not found" });
     }
-    catch (err) {
-        // Handle errors
-        next(err);
+
+    // Verify the existence of the user being followed based on their ID
+    if (verifyFollowingUserExistence.rows.length === 0) {
+      return res.status(400).json({ "error": "Following user not found" });
     }
+
+    // Check if the user follows the target user
+    if (checkFollow.rows.length === 0) {
+      return res.status(400).json({ "error": "Not following user" });
+    }
+
+    // Delete the following relationship from the database
+    const query = [
+      "DELETE FROM following WHERE user_id = $1 AND user_following_id = $2"
+    ];
+    const values = [[user_id, user_following_id]];
+
+    // helper function of database transaction
+    const result = await makeTransactions(query, values);
+
+    if (result.length === 0) {
+      return res.status(400).json({ "error": "Follow not deleted" });
+    }
+
+    // Respond with success message
+    return res.status(200).json({ "success": "user unfollowed" });
+
+  }
+  catch (err) {
+    // Handle errors
+    next(err);
+  }
 });
 
 /**
@@ -284,57 +284,57 @@ router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), veri
  * @throws {Error} - This must not follow the user
  * */
 router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        // Extract user IDs from request parameter
-        const { user_following_id } = req.params;
-        const { payload } = req.body;
-        const user_id = payload.user_id;
+  try {
+    // Extract user IDs from request parameter
+    const { user_following_id } = req.params;
+    const { payload } = req.body;
+    const user_id = payload.user_id;
         
-        const verifyUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_id);
-        const verifyFollowingUserExistenceQuery = pgQuery(`SELECT * FROM users WHERE id = $1`, user_following_id);
-        const checkFollowQuery = pgQuery(`SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2`, user_id, user_following_id);
+    const verifyUserExistenceQuery = pgQuery("SELECT * FROM users WHERE id = $1", user_id);
+    const verifyFollowingUserExistenceQuery = pgQuery("SELECT * FROM users WHERE id = $1", user_following_id);
+    const checkFollowQuery = pgQuery("SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2", user_id, user_following_id);
 
-        const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
-            verifyUserExistenceQuery,
-            verifyFollowingUserExistenceQuery,
-            checkFollowQuery
-        ]);
+    const [verifyUserExistence, verifyFollowingUserExistence, checkFollow] = await Promise.all([
+      verifyUserExistenceQuery,
+      verifyFollowingUserExistenceQuery,
+      checkFollowQuery
+    ]);
 
-        // Verify the existence of the user based on their ID
-        if (verifyUserExistence.rows.length === 0) {
-            return res.status(400).json({ "error": "User not found" });
-        }
-
-        // Verify the existence of the user being followed based on their ID
-        if (verifyFollowingUserExistence.rows.length === 0) {
-            return res.status(400).json({ "error": "Following user not found" });
-        }
-
-        // Check if the user is already following the target user     
-        if (checkFollow.rows.length !== 0) {
-            return res.status(400).json({ "error": "Already following user" });
-        }
-
-        // Insert a new following relationship into the database
-        const query = [
-            `INSERT INTO following (user_id, user_following_id, created_at) VALUES ($1, $2, NOW()) RETURNING *`
-        ];
-        const values = [[user_id, user_following_id]];
-
-        //helper function of database transactions
-        const result = await makeTransactions(query, values);
-
-        if (result.length === 0) {
-            return res.status(400).json({ "error": "Follow not created" });
-        }
-
-        // Respond with success message
-        return res.status(200).json({ "success": "Follow created" });
-
-    } catch (err) {
-        // Handle errors
-        next(err);
+    // Verify the existence of the user based on their ID
+    if (verifyUserExistence.rows.length === 0) {
+      return res.status(400).json({ "error": "User not found" });
     }
+
+    // Verify the existence of the user being followed based on their ID
+    if (verifyFollowingUserExistence.rows.length === 0) {
+      return res.status(400).json({ "error": "Following user not found" });
+    }
+
+    // Check if the user is already following the target user     
+    if (checkFollow.rows.length !== 0) {
+      return res.status(400).json({ "error": "Already following user" });
+    }
+
+    // Insert a new following relationship into the database
+    const query = [
+      "INSERT INTO following (user_id, user_following_id, created_at) VALUES ($1, $2, NOW()) RETURNING *"
+    ];
+    const values = [[user_id, user_following_id]];
+
+    //helper function of database transactions
+    const result = await makeTransactions(query, values);
+
+    if (result.length === 0) {
+      return res.status(400).json({ "error": "Follow not created" });
+    }
+
+    // Respond with success message
+    return res.status(200).json({ "success": "Follow created" });
+
+  } catch (err) {
+    // Handle errors
+    next(err);
+  }
 });
 
 /**
@@ -347,32 +347,32 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
-    try {
+  try {
 
-        const { page_number, page_size } = req.query; // getting page number and page size
-        const { payload } = req.body;
-        const userID = payload.user_id;
-
-
-        const query = 'SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT $3 OFFSET (($2 - 1) * $3)'; // top creators query, returns random users that the user does not follow
-        const userFollowers = await pgQuery(query, userID, page_number, page_size);
-
-        //return s3 link if the profile picture exists.
-        userFollowers.rows = await Promise.all(
-            userFollowers.rows.map(async (follower) => {
-                if (follower.profile_picture !== null) {
-                    follower.profile_picture = await s3Retrieve(follower.profile_picture);
-                }
-
-                return follower;
-            })
-        );
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const { payload } = req.body;
+    const userID = payload.user_id;
 
 
-        return res.status(200).json({ data: userFollowers.rows }); // sends details to client
-    } catch (error) {
-        next(error) // server side error
-    }
+    const query = "SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT $3 OFFSET (($2 - 1) * $3)"; // top creators query, returns random users that the user does not follow
+    const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+    //return s3 link if the profile picture exists.
+    userFollowers.rows = await Promise.all(
+      userFollowers.rows.map(async (follower) => {
+        if (follower.profile_picture !== null) {
+          follower.profile_picture = await s3Retrieve(follower.profile_picture);
+        }
+
+        return follower;
+      })
+    );
+
+
+    return res.status(200).json({ data: userFollowers.rows }); // sends details to client
+  } catch (error) {
+    next(error); // server side error
+  }
 });
 
 
@@ -394,29 +394,29 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
 router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
-    try {
-        // Getting user ID
-        const { payload } = req.body;
-        const user_id = payload.user_id;
+  try {
+    // Getting user ID
+    const { payload } = req.body;
+    const user_id = payload.user_id;
 
-        // Getting user details
-        const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
+    // Getting user details
+    const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
 
-        // Query to update user details
-        const query = `
+    // Query to update user details
+    const query = `
         UPDATE users
         SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences = $5, country = $6, shipping_address= $7, full_name= $8, 
         updated_at = NOW()
         WHERE id = $9`;
 
-        // Execute the query
-        await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
+    // Execute the query
+    await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
 
-        res.status(200).json({ "Status": "Profile Details Updated" });
+    res.status(200).json({ "Status": "Profile Details Updated" });
 
-    } catch (error) {
-        next(error); // Handle server-side error
-    }
+  } catch (error) {
+    next(error); // Handle server-side error
+  }
 });
 
 /**
@@ -427,36 +427,36 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
 router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
-    try {
-        // Getting user ID
-        const { payload } = req.body;
-        const user_id = payload.user_id;
+  try {
+    // Getting user ID
+    const { payload } = req.body;
+    const user_id = payload.user_id;
 
-        const S3_PROFILE_PICTURE_PATH = 'profile_pictures/active/';
+    const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
 
-        // Get the existing profile picture
-        const existingProfilePictureQuery = "SELECT profile_picture FROM users WHERE id = $1";
-        const existingProfilePicture = await pgQuery(existingProfilePictureQuery, user_id);
+    // Get the existing profile picture
+    const existingProfilePictureQuery = "SELECT profile_picture FROM users WHERE id = $1";
+    const existingProfilePicture = await pgQuery(existingProfilePictureQuery, user_id);
 
-        const query = `
+    const query = `
         UPDATE users
         SET profile_picture = $1, updated_at = NOW()
         WHERE id = $2`;
-        console.log(req.files[0]);
-        //here check if the existing profile picture is the not null then delete the existing profile picture
-        if (existingProfilePicture.rows[0].profile_picture !== "") {
-            await s3Delete(existingProfilePicture.rows[0].profile_picture);
-        }
-        const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
-        // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
-        const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`)
-        console.log("new profile picture" + newProfilePictureName);
-        await pgQuery(query, profilePictureURL, user_id);
-        res.status(200).json({ "Status": "Profile Picture Updated" });
-
-    } catch (error) {
-        next(error); // Handle server-side error
+    console.log(req.files[0]);
+    //here check if the existing profile picture is the not null then delete the existing profile picture
+    if (existingProfilePicture.rows[0].profile_picture !== "") {
+      await s3Delete(existingProfilePicture.rows[0].profile_picture);
     }
+    const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
+    // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
+    const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`);
+    console.log("new profile picture" + newProfilePictureName);
+    await pgQuery(query, profilePictureURL, user_id);
+    res.status(200).json({ "Status": "Profile Picture Updated" });
+
+  } catch (error) {
+    next(error); // Handle server-side error
+  }
 });
 
 

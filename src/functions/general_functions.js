@@ -27,7 +27,7 @@ export const pgQuery = async (query, ...inputs) => {
   try {
     return await pgPool.query(pgQuery);
   } catch (err) {
-    console.error('Error executing postgreSQL query:', err);
+    console.error("Error executing postgreSQL query:", err);
     return { error: `There has been an error performing this query: ${err}` };
   }
 };
@@ -50,15 +50,15 @@ export const makeTransactions = async (queries, values) => {
   let res = null;
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     for (let i = 0; i < queries.length; i++) {
       res = await client.query(queries[i], values[i]);
     }
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw err;
   } finally {
     client.release();
@@ -76,7 +76,7 @@ export const makeTransactions = async (queries, values) => {
  */
 export const s3Upload = async (file, path) => {
 
-  const randomName = path + file.originalname + crypto.randomBytes(32).toString('hex');
+  const randomName = path + file.originalname + crypto.randomBytes(32).toString("hex");
 
   /* Resize the image to the what is specified (DOESNT WORK WITH VIDEOS) */
   //const buffer = await sharp(file.buffer).resize({height: 1920, width: 1080, fit: "contain"}).toBuffer()
@@ -200,7 +200,7 @@ export const checkBookmarked = async (postId, userId) => {
   `, postId, userId);
 
   return bookmarks.rows.length > 0;
-}
+};
 
 
 /**
@@ -219,7 +219,7 @@ export const checkLike = async (postId, userId) => {
 
   //if length is 1, means user has liked post hence liked is set to true
   return isLiked.length === 1 ? true : false;
-}
+};
 
 /** 
  * Checks if a user has viewed a post or not, returns true or false 
@@ -237,7 +237,7 @@ export const checkView = async (postId, userId) => {
 
   //if length is 1, means user has viewed post hence viewed is set to true
   return isViewed.length === 1 ? true : false;
-}
+};
 
 /** 
 * Function to perform batch deletion for a specific DynamoDB table delete the multiple items
@@ -269,7 +269,7 @@ export const performBatchDeletion = async (tableName, items) => {
     const keys = Object.keys(item);
 
     if (keys.length !== 2) {
-      throw new Error('Item does not have exactly 2 keys.');
+      throw new Error("Item does not have exactly 2 keys.");
     }
 
     const pk = keys[0];
@@ -286,7 +286,7 @@ export const performBatchDeletion = async (tableName, items) => {
   } catch (error) {
     console.error(`Error deleting ${tableName}:`, error);
   }
-}
+};
 
 /**
  * Functions for deleting likes and views of posts
@@ -318,7 +318,7 @@ export const removeLikesAndViews = async (post_id) => {
   // Perform batch deletions
   deleteRequests.forEach(async (deleteRequest) => {
     const { tableName, items } = deleteRequest;
-    await performBatchDeletion(tableName, items)
+    await performBatchDeletion(tableName, items);
   });
 
-}
+};
