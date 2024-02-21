@@ -571,5 +571,3 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
 });
 
 export default router;
-
-// console.log(await pgQuery("SELECT * FROM Ingredients"))
