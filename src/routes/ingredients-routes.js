@@ -11,7 +11,7 @@ const router = Router();
  * 
  * @route GET /search_ingredient/:ingredient
  * @param {any} req.params.ingredient - The name of the ingredient 
- * @returns {Object} - Returns a JSON object containing the ingredient information
+ * @returns {object} - If successful, returns a JSON object containing the ingredient information, else returns 500 and a JSON object with error message set to 'Internal Server Error'
  * @throws {Error} - If there are errors, the search failed (500)
  */
 

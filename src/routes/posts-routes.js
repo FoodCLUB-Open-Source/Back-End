@@ -262,7 +262,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @param {any} req.params.category_id - ID of the category that is needed
  * @query {number} req.query.page_size - Number of posts to fetch per page (optional, default: 15)
  * @query {number} req.query.page_number - Page number to fetch (optional, default: 1)
- * @returns {Object} - If successful, returns 200 and a JSON object with an array of posts for the specified category
+ * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
