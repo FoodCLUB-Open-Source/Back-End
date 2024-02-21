@@ -146,7 +146,7 @@ export const s3Delete = async (fileNameWithPath) => {
 /**
  * Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT )
  * 
- * @param {Array} userPosts - Array of posts to be udpated
+ * @param {Array<object>} userPosts - Array of posts to be udpated
  * @param {any} user_id - ID of user to 
  * @returns {object} post - Refined post object with total views and likes 
  */
