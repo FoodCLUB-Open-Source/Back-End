@@ -16,7 +16,8 @@ import {
   pgQuery,
   s3Delete,
   s3Retrieve,
-  s3Upload
+  s3Upload,
+  stringToUUID
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
@@ -93,7 +94,6 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * @returns {Object} - Returns a status of video posted if successful
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
  */
-
 router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
   try {
     const {
@@ -147,12 +147,20 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
       const postUpdateValues = [post_id, category];
 
       try {
+        //loop through all ingridients
         for (let i = 0; i < recipe_ingredients.length; i++) {
           const currentIngridients = recipe_ingredients[i]
-          console.log(currentIngridients)
-          const insertIngridientQuery = " INSERT INTO Ingredients (id,item_name, image_url, hints)VALUES ($1,$2,$3,$4)"
-          const ingridientValues = [currentIngridients.id, currentIngridients.item_name, currentIngridients.image_url, currentIngridients.hints]
-          client.query(insertIngridientQuery, ingridientValues)
+          //get current ingridient id and change id to UUID
+          const currentIngridientsUUID = await stringToUUID(currentIngridients.id)
+
+          //checkto see if current ingridients exisits in db.
+          const exists = await pgQuery("SELECT * FROM Ingredients WHERE id=$1", currentIngridientsUUID)
+          //add to db if the ingridients doesnt exists
+          if (exists.rows.length < 1) {
+            const insertIngridientQuery = " INSERT INTO Ingredients (id,item_name, image_url, hints)VALUES ($1,$2,$3,$4)"
+            const ingridientValues = [currentIngridientsUUID, currentIngridients.item_name, currentIngridients.image_url, currentIngridients.hints]
+            client.query(insertIngridientQuery, ingridientValues)
+          }
         }
       } catch (err) {
         return res.status(400).json({
@@ -563,3 +571,5 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
 });
 
 export default router;
+
+// console.log(await pgQuery("SELECT * FROM Ingredients"))

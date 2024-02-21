@@ -1,12 +1,22 @@
 /* File for useful functions to encourage DRY code */
 import crypto from "crypto";
 
-import { DeleteObjectCommand, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  GetObjectCommand
+} from "@aws-sdk/client-s3";
+import {
+  getSignedUrl
+} from "@aws-sdk/s3-request-presigner";
 
 import pgPool from "../config/pgdb.js";
 import s3Client from "../config/s3Client.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
+import {
+  error
+} from "console";
+
 
 /* DRY secure postgreSQl query function */
 /* Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) */
@@ -20,7 +30,9 @@ export const pgQuery = async (query, ...inputs) => {
     return await pgPool.query(pgQuery);
   } catch (err) {
     console.error('Error executing postgreSQL query:', err);
-    return { error: `There has been an error performing this query: ${err}` };
+    return {
+      error: `There has been an error performing this query: ${err}`
+    };
   }
 };
 
@@ -235,14 +247,19 @@ export const removeLikesAndViews = async (post_id) => {
   const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
   // Prepare the list of items to delete from the 'Likes' table
-  const likesToDelete = Likes.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+  const likesToDelete = Likes.map((item) => ({
+    post_id: item.post_id,
+    user_id: item.user_id
+  }));
 
   // Prepare the list of items to delete from the 'Views' table
-  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+  const viewsToDelete = Views.map((item) => ({
+    post_id: item.post_id,
+    user_id: item.user_id
+  }));
 
   // Create an array of delete requests for 'Likes' and 'Views' tables
-  const deleteRequests = [
-    {
+  const deleteRequests = [{
       tableName: "Likes",
       items: likesToDelete,
     },
@@ -254,8 +271,30 @@ export const removeLikesAndViews = async (post_id) => {
 
   // Perform batch deletions
   deleteRequests.forEach(async (deleteRequest) => {
-    const { tableName, items } = deleteRequest;
+    const {
+      tableName,
+      items
+    } = deleteRequest;
     await performBatchDeletion(tableName, items)
   });
 
+}
+
+
+
+export async function stringToUUID(inputString) {
+  try {
+    // Hash the input string using MD5
+    const hash = await crypto.createHash('md5').update(inputString).digest('hex');
+
+    // Convert the hash to UUID format (8-4-4-4-12)
+    const uuid = `${hash.substr(0, 8)}-${hash.substr(8, 4)}-${hash.substr(12, 4)}-${hash.substr(16, 4)}-${hash.substr(20)}`;
+
+    return uuid;
+
+  } catch (err) {
+    return {
+      error: `There has been an error performing this query`
+    };
+  }
 }
