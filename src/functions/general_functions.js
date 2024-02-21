@@ -55,6 +55,10 @@ export const makeTransactions = async (queries, values) => {
 
 /*DRY upload to s3 function */
 export const s3Upload = async (file, path) => {
+  // Hanldes  if file is not present
+  if (!file) {
+    throw new Error('File is undefined')
+  }
 
   const randomName = path + file.originalname + crypto.randomBytes(32).toString('hex');
 
