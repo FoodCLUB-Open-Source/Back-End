@@ -15,7 +15,7 @@ import getDynamoRequestBuilder from "../config/dynamoDB.js";
  * 
  * @param {any} query - Query statement 
  * @param  {any} inputs - Values to be queried 
- * @returns {*} - Result of query 
+ * @returns {any} - Result of query 
  * @throws {Error} - If error performing querys
  */
 export const pgQuery = async (query, ...inputs) => {
@@ -259,7 +259,7 @@ export const checkView = async (postId, userId) => {
   });
  * 
  * @param {any} tableName - Name of DynamoDB table to perform batch deletion on 
- * @param {*} items - 
+ * @param {any} items - 
  */
 export const performBatchDeletion = async (tableName, items) => {
   const requestBuilder = getDynamoRequestBuilder(tableName);

@@ -6,7 +6,7 @@ import chatSockets from "../socket/chat.js";
 /**
  * Initializes a socket server
  * 
- * @param {*} server - Server to be initialized
+ * @param {any} server - Server to be initialized
  */
 const initSocket = (server) => {
   const io = new Server(server, {
