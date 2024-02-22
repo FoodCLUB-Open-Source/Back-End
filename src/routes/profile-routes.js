@@ -422,7 +422,7 @@ router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, asyn
  * @returns {Status} - Updated user profile picture status
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
+router.put("/profile_picture", rateLimiter(), verifyTokens,upload.any(), inputValidator, async (req, res, next) => {
     try {
         // Getting user ID
         const { payload } = req.body;
@@ -438,6 +438,9 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
         UPDATE users
         SET profile_picture = $1, updated_at = NOW()
         WHERE id = $2`;
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No files uploaded' });
+        }
         console.log(req.files[0]);
         //here check if the existing profile picture is the not null then delete the existing profile picture
         if (existingProfilePicture.rows[0].profile_picture !== "") {
@@ -445,7 +448,7 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
         }
         const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
         // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
-        const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`)
+        const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}${req.files[0]}`)
         console.log("new profile picture" + newProfilePictureName);
         await pgQuery(query, profilePictureURL, user_id);
         res.status(200).json({ "Status": "Profile Picture Updated" });
