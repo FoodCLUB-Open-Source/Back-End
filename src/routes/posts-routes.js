@@ -57,8 +57,9 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  * and post title parameters are supported.
  *
  * @route GET /
- * @param {string} req.query.username - Username of the profile to search for
- * @param {string} req.query.title - Title of the post to search for
+ * @param {any} req.query.username - Username of the profile to search for
+ * @param {any} req.query.title - Title of the post to search for
+ * @returns {status} - If successful, returns 200 and a JSON object with the posts, else returns 400 and a JSON object with the message set to 'Unknown error occurred.'
  */
 router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
@@ -84,8 +85,8 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * 
  * @route POST /
  * @body {string} req.body - This contains all of the information needed for creating a post.
- * @returns {Object} - Returns a status of video posted if successful
- * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Video Posted'
+ * @throws {Error} - If there are errors, the post must not be posted and any posted information needs to be rolled back.
  */
 router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(), async (req, res, next) => {
   try {
@@ -172,8 +173,9 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
  * Retrieves post details of a specific post based off post ID
  * 
  * @route GET /posts/:post_id/user_id
- * @param {string} req.params.post_id - The ID of the post to retrieve details for
- * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
+ * @param {any} req.params.post_id - The ID of the post to retrieve details for
+ * @returns {status} - If successful, returns 200 and a JSON object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count.
+ *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -210,10 +212,9 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
  * 
  * @route POST /:post_id
  * @body {string} req.params.post_id - Id of the post that is neeeded
- * @returns {status} - A successful status indicates that posts have been deleted
+ * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Post Deleted', else returns 404 with a JSON object with error set to 'Post not found.'
  * @throws {Error} - If there are errors dont delete any post.
  */
-
 router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
@@ -258,13 +259,12 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * Get a list of posts for a particular category
  * 
  * @route GET /category/:category_id/:user_id
- * @param {string} req.params.category_id - ID of the category that is needed
+ * @param {any} req.params.category_id - ID of the category that is needed
  * @query {number} req.query.page_size - Number of posts to fetch per page (optional, default: 15)
  * @query {number} req.query.page_number - Page number to fetch (optional, default: 1)
- * @returns {Object} - Returns an array of posts for the specified category
+ * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-
 router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const {
@@ -352,10 +352,9 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
  * Get Posts For The Home Page
  * For now random posts later implement the Algorithm
  * @route GET /posts/homepage/user
- * @returns {posts} - Array of objects of post information
+ * @returns {status} - If successful, returns 200 and a JSON object with an array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-
 router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
   // getting user ID
   const {
@@ -431,10 +430,10 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
  * Update Post Title and Title Description
  * 
  * @route PUT /posts/:post_id
- * @param {string} req.params.post_id - The ID of the post to update
+ * @param {any} req.params.post_id - The ID of the post to update
  * @body {string} req.body.title - The updated title
  * @body {string} req.body.description - The updated title description
- * @returns {Object} - Returns a status indicating the update was successful
+ * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Post Title and Title Description Updated', else returns 500 and a JSON object with message set to 'Post not updated'
  * @throws {Error} - If there are errors during the update
  */
 router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async (req, res, next) => {
@@ -464,6 +463,14 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
   }
 });
 
+/**
+ * Retrieves user posts based on search text 
+ * 
+ * @route GET posts/search/user-posts
+ * @param {any} req.body.search_text - Text to search for in user posts
+ * @returns {status} If successful, returns 200 and a JSON object of the users and posts matching the search criteria, else returns 500 and a JSON object with response set to 'Internal server error'
+ * @throws {Error} If there are errors, no posts are retrieved
+ */
 router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res) => {
   try {
     // Extract search text from request body

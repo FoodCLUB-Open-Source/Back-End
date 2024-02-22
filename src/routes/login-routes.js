@@ -44,8 +44,8 @@ router.get("psql_schema", async (req, res) => {
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.email - Users email
  * @body {string} req.body.password - Users password
- * @returns {status} - A status indicating successful sign up
- * @throws {Error} - If there are errors Dont create user.
+ * @returns {status} - A status indicating successful sign up returns 201, unsuccessful returns 400 for incomplete information or user associated with pre-existing email
+ * @throws {Error} - If there are errors Dont create user (500)
  */
 
 
@@ -109,8 +109,8 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code from users email
  * @body {string} req.body.password - password, for logging in user after confirmation
- * @returns {status} - A successful status indicates code verfified
- * @throws {Error} - If there are errors dont verify code
+ * @returns {status} - A successful status indicates code verfified, returns 200 with JSON object
+ * @throws {Error} - If there are errors dont verify code, returns 400
  */
 router.post("/confirm_verification", inputValidator, rateLimiter(), (req, res) => {
 
@@ -168,8 +168,8 @@ router.post("/confirm_verification", inputValidator, rateLimiter(), (req, res) =
  *
  * @route POST /login/resend_verification_code
  * @body {string} req.body.username - Users Username
- * @returns {status} - A successful status indicates code resent
- * @throws {Error} - If there are errors dont send another verififcation code
+ * @returns {status} - A successful status indicates code resent, returns 200 and a JSON object
+ * @throws {Error} - If there are errors dont send another verififcation code, returns 400
  */
 router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) => {
   const { username } = req.body;
@@ -190,6 +190,7 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
       message: "new code sent successfully" });
   });
 });
+
 /**
  * Allows a user to sign in to their account
  *
@@ -197,8 +198,8 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.email - the user's email address. Either usename or email can be used.
  * @body {string} req.body.password - Users password
- * @returns {status} - A successful status indicates successful sign in
- * @throws {Error} - If there are errors dont sign user in
+ * @returns {status} - A successful status indicates successful sign in, returns 200 and a JSON object
+ * @throws {Error} - If there are errors dont sign user in, returns 400 and a JSON with associated error message
  */
 router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) => {
   const { username, password } = req.body;
@@ -265,10 +266,9 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
  *
  * @route POST /login/signout
  * @body {string} req.body.username - the username of the user.
- * @returns {status} - A successful status means sign out successful
- * @throws {Error} - If there are errors dont sign a user out
+ * @returns {status} - A successful status means sign out successful, returns 200 and a JSON object with a success message
+ * @throws {Error} - If there are errors dont sign a user out, returns 404 and a JSON object with a message saying user could not be signed out
  */
-
 ///@dev this endpoint will need the verify endpoint, to only allow a signed in user to make a sign out request.
 router.post("/signout", rateLimiter(), (req, res) => {
   const { username } = req.body;
@@ -305,8 +305,8 @@ router.post("/signout", rateLimiter(), (req, res) => {
  * @header {CognitoIdToken} - the user's id token
  * @body {string} req.body.old_password - Users old password
  * @body {string} req.body.new_password - Users new password
- * @returns {status} - A successful status indicates password successfully changed
- * @throws {Error} - If there are errors dont change the users passwords
+ * @returns {status} - A successful status indicates password successfully changed, returns 201 and a JSON object with a success message
+ * @throws {Error} - If there are errors dont change the users passwords, returns 400 with an error message
  */
 router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
   const { username, old_password, new_password } = req.body;
@@ -359,8 +359,8 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
  *
  * @route POST /login/forgot_password/verification_code
  * @body {string} req.body.username - Users Username
- * @returns {status} - A successful status indicates code is sent
- * @throws {Error} - If there are errors dont send a code
+ * @returns {status} - A successful status indicates code is sent, returns 200 and a JSON object with a message indicating verification code sent 
+ * @throws {Error} - If there are errors dont send a code, returns 400 with associated error message
  */
 router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),emailOrUsername(),async (req, res) => {
   const { username } = req.body;
@@ -390,8 +390,8 @@ router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),em
  * @body {string} req.body.username - Users Username
  * @body {string} req.body.verification_code - Verification code that was sent
  * @body {string} req.body.newPassword - Users new password
- * @returns {status} - A successful status indicates new password has been set
- * @throws {Error} - If there are errors dont chagne the password
+ * @returns {status} - A successful status indicates new password has been set, returns 201 and a JSON object with successful password reset message
+ * @throws {Error} - If there are errors dont chagne the password, returns 400 with associated error message
  */
 router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(req, res) => {
   const { username, verification_code, new_password } = req.body;
@@ -419,8 +419,8 @@ router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(r
  *
  * @route POST /login/global_signout
  * @body req.body.username - the user's username
- * @returns {status} - A successful status indicates user is signed out on all devices he is logged in on
- * @throws {Error} - If there are errors dont sign user out on any device
+ * @returns {status} - A successful status indicates user is signed out on all devices he is logged in on, returns 200 with global sign-out message
+ * @throws {Error} - If there are errors dont sign user out on any device, returns 400 with associated error message
  */
 router.post("/global_signout", rateLimiter(), async (req, res) => {
   const { username } = req.body;
@@ -469,10 +469,9 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
  * @route POST /login/refresh_token
  * @header req.header['Refresh-Token'] - the refresh token as a string
  * @body req.body.username - the username of the user making the request
- * @returns {status} -  a successful status indicates that the refresh token has been successfully
- * used to refresh the user's session and generate new tokens.
- * The tokens (access, refresh and id) are returned as CognitoUserSession() object.
- * @throws {Error} - If the refresh token is not valid, or there is another internal error.
+ * @returns {status} -  a successful status indicates that the refresh token has been successfully used to refresh the user's session and generate new tokens.
+ *  The tokens (access, refresh and id) are returned as CognitoUserSession() object. Returns 200 and a JSON object with token data, header, and message
+ * @throws {Error} - If the refresh token is not valid, or there is another internal error, returns 400 with associated error message
  */
 
 router.post("/refresh_session", rateLimiter(10, 1), async (req, res) => {

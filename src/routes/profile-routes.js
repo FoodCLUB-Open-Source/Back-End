@@ -20,7 +20,8 @@ const router = Router();
  * Currently, only the username parameter is supported.
  *
  * @route GET /
- * @param {string} req.query.username - Username of the profile to search for
+ * @param {any} req.query.username - Username of the profile to search for
+ * @returns {status} - If successful, returns 200 and a JSON object with the user profiles, else returns 400 and a JSON object with message set to 'Unknown error occurred.'
  */
 router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
@@ -39,7 +40,7 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * Retrieves user details
  * 
  * @route GET /:userid/details
- * @returns {Object} - An object containing details of the user such as id, username and profile picture
+ * @returns {status} - If successful, returns 200 and a JSON object containing details of the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -67,13 +68,14 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
     next(error); // Pass the error to the error-handling middleware
   }
 });
+
 /**
  * Retrieves profile page data based on the received user ID 
  * 
  * @route GET /
  * @query {string} req.query.page_number - The page number for pagination. In this API pagination is only implemented for user posts
  * @query {string} req.query.page_size - The page size for pagination. In this API pagination is only implemented for user posts
- * @returns {Object} - An object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
+ * @returns {status} - If successful, returns 200 and a JSON object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
 router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
@@ -134,7 +136,7 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
  * @route GET /:user_id/following
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
- * @returns {Object} - An object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
+ * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -179,7 +181,7 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
  * @route GET /:userid/followers
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
- * @returns {Object} - An object containing details of the users that follow the user such as id, username and profile picture
+ * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
@@ -212,8 +214,8 @@ router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req,
  * Unfollows a user
  * 
  * @route GET /:userid
- * @param {string} req.params.user_following_id - The ID of the user that is getting unfollowed
- * @returns {Object} - With a successful message
+ * @param {any} req.params.user_following_id - The ID of the user that is getting unfollowed
+ * @returns {status} - If successful, returns 200 and a JSON object With success set to 'user unfollowed', else returns 400 and a JSON object with error set to appropriate message
  * @throws {Error} - This must not unfollow the user
  */
 router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -277,8 +279,8 @@ router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), veri
  * Follows A User
  * 
  * @route POST /follow/user/:user_id/following/:user_following_id
- * @param {string} req.params.user_following_id - The ID of the user that is getting followed
- * @returns {Object} - With a successful message
+ * @param {any} req.params.user_following_id - The ID of the user that is getting followed
+ * @returns {status} - If successful, returns 200 and a JSON object with success set to 'Follow created', else returns 400 and a JSON object with error set to appropriate message
  * @throws {Error} - This must not follow the user
  * */
 router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -341,7 +343,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
  * @route GET /:user_id/topcreators
  * @query {string} req.query.page_number - The pageNumber for pagination
  * @query {string} req.query.page_size - The pageSize for pagination
- * @returns {Array} - An array of objects containing details of the users to follow
+ * @returns {status} - If successful, returns 200 and a JSON object with an array of objects containing details of the users to follow
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
 router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
@@ -388,7 +390,7 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
  *    {string} req.body.country - The country of the user
  *    {string} req.body.shipping_address - The shipping address of the user
  *    {string} req.body.full_name - The full name of the user
- * @returns {Status} - Updated user profile status
+ * @returns {Status} - If successful, returns 200 and a JSON object with Status set to 'Profile Details updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
 router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
@@ -417,12 +419,11 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
   }
 });
 
-
 /**
  * Update user profile picture
  *
  * @route PUT /profile_picture
- * @returns {Status} - Updated user profile picture status
+ * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Profile Picture Updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
 router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {

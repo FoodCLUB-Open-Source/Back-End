@@ -26,10 +26,9 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * The cached recipe expires after 1 hour.
  *
  * @route GET /:id
- * @param {string} *req.params.id - The Id of the post.
- * @returns {JSON} The recipe as a JSON object.
+ * @param {any} *req.params.id - The Id of the post.
+ * @returns {status} - If successful, returns 200 and a JSON object with the specific recipe, else returns 404 and a JSON object with error set to 'Recipe not found'
  */
-
 router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (req, res, next) => {
   const postId = parseInt(req.params.post_id);
   try {
@@ -69,7 +68,7 @@ router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (
  * Route handler for Update Recipes Table.
  * This will update the details in the recipes table.
  * @route PUT /:post_id
- * @param {string} *req.params.post_id - The Id of the post
+ * @param {any} *req.params.post_id - The Id of the post
  * @body 
  * 		 recipe_description = String,
 		 recipe_ingredients = Array[Tuple[string]],
@@ -77,7 +76,7 @@ router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (
 		 recipe_steps       = Array[string],
 		 preparation_time   = INTEGER,
 		 serving_size       = INTEGER,
- * @returns {message} Recipe updated.
+ * @returns {status} - If successful, returns 200 and a JSON object with message set to 'Recipe updated', else returns 404 and a JSON object with message set to 'Recipe not found'
  */
 router.put("/:post_id", inputValidator, verifyUserIdentity, rateLimiter(), async (req, res, next) => {
   try {

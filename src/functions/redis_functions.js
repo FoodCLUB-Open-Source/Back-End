@@ -1,6 +1,12 @@
 import { pgQuery } from "./general_functions.js";
 import redis from "../config/redisConfig.js";
 
+/**
+ * Function to add a new recipe to Redis
+ * 
+ * @param {any} id - ID of recipe to be queried
+ * @throws {Error} - If there is an error adding a recipe to Redis
+ */
 export async function redisNewRecipe(id) {
   const hashKey = `RECIPE|${id}`;
   try {
@@ -11,7 +17,7 @@ export async function redisNewRecipe(id) {
     );
 
     // Check if the recipe data exists
-    //we set the field values by getting the keys of each elements in recipe database. We store its value in a strigified balues(REDIS requirememt)
+    // we set the field values by getting the keys of each elements in recipe database. We store its value in a strigified balues(REDIS requirememt)
     const recipeData = queryResult.rows[0];
 
     if (recipeData) {
@@ -43,9 +49,13 @@ export async function redisNewRecipe(id) {
   }
 }
 
-
-
-// Function to check if a recipe exists in Redis.
+/**
+ * Function to check if a recipe exists in Redis.
+ * 
+ * @param {any} id - ID of recipe to search for in Redis
+ * @returns {object} response - Object with recipe and its associated information 
+ * @throws {Error} - If there is an error searching for recipe 
+ */
 export async function redisRecipeExists(id) {
   const hashKey = `RECIPE|${id}`;
   

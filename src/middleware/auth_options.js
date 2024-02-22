@@ -1,6 +1,11 @@
 /* This file contains basic authentication-related middleware related to sign-in */
 import { pgQuery } from "../functions/general_functions.js";
 
+/**
+ * Function that checks for email or username, then queries DB 
+ * 
+ * @returns {status} - A successful status with the user's username or an unsuccessful status if no user with the given email exists
+ */
 const emailOrUsername = () => {
   return async (req, res, next) => {
 

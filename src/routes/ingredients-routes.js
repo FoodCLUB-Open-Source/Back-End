@@ -10,9 +10,9 @@ const router = Router();
  * Getting Ingredients for Specific Item
  * 
  * @route GET /search_ingredient/:ingredient
- * @param {string} req.params.ingredient - the string name of the ingredient
- * @returns {Object} An object containing the ingredient information
- * @throws {Error} - If there are errors, the search failed
+ * @param {any} req.params.ingredient - The name of the ingredient 
+ * @returns {object} - If successful, returns a JSON object containing the ingredient information, else returns 500 and a JSON object with error message set to 'Internal Server Error'
+ * @throws {Error} - If there are errors, the search failed (500)
  */
 
 router.get("/search_ingredient/:ingredient", rateLimiter(), inputValidator, async (req, res, next) => {
