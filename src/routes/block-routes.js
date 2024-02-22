@@ -8,6 +8,7 @@ const router = Router();
 
 /**
  * Posting Block For Specific User
+ * This endpoint needs a request header called 'Authorisation' with the access token 
  *
  * @route POST  /posts/block/:id
  * @param {any} req.params.id - The ID of the user blocking
@@ -64,6 +65,7 @@ router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator,
 
 /**
  * Delete Block For Specific User
+ * This endpoint needs a request header called 'Authorisation' with the access token
  *
  * @route POST  /posts/block/:id
  * @param {any} req.params.id - The ID of the user unblocking
