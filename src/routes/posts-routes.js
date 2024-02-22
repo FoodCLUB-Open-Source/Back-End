@@ -16,7 +16,8 @@ import {
   pgQuery,
   s3Delete,
   s3Retrieve,
-  s3Upload
+  s3Upload,
+  stringToUUID
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
@@ -62,7 +63,9 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  */
 router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const { username = "", title = "" } = req.query;
+    const {
+      username = "", title = ""
+    } = req.query;
     const query = `
       SELECT p.id, p.title, p.thumbnail_name, u.username, u.profile_picture
       FROM users u
@@ -72,10 +75,14 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
     `;
 
     const posts = await pgQuery(query, title, username);
-    return res.status(200).json({ data: posts.rows });
+    return res.status(200).json({
+      data: posts.rows
+    });
   } catch (err) {
     console.error(err);
-    return res.status(400).json({ message: "Unknown error occurred." });
+    return res.status(400).json({
+      message: "Unknown error occurred."
+    });
   }
 });
 
@@ -87,13 +94,13 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * @returns {Object} - Returns a status of video posted if successful
  * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
  */
-router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(), async (req, res, next) => {
+router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
   try {
-
     const {
       payload
     } = req.body;
     const user_id = payload.user_id;
+
     const {
       title,
       description,
@@ -102,6 +109,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
       serving_size,
       category
     } = req.body;
+
     let {
       recipe_ingredients,
       recipe_equipment,
@@ -137,6 +145,28 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
 
       const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
       const postUpdateValues = [post_id, category];
+
+      try {
+        //loop through all ingridients
+        for (let i = 0; i < recipe_ingredients.length; i++) {
+          const currentIngridients = recipe_ingredients[i]
+          //get current ingridient id and change id to UUID
+          const currentIngridientsUUID = await stringToUUID(currentIngridients.id)
+
+          //checkto see if current ingridients exisits in db.
+          const exists = await pgQuery("SELECT * FROM Ingredients WHERE id=$1", currentIngridientsUUID)
+          //add to db if the ingridients doesnt exists
+          if (exists.rows.length < 1) {
+            const insertIngridientQuery = " INSERT INTO Ingredients (id,item_name, image_url, hints)VALUES ($1,$2,$3,$4)"
+            const ingridientValues = [currentIngridientsUUID, currentIngridients.item_name, currentIngridients.image_url, currentIngridients.hints]
+            client.query(insertIngridientQuery, ingridientValues)
+          }
+        }
+      } catch (err) {
+        return res.status(400).json({
+          error: err
+        })
+      }
 
       await Promise.all([
         client.query(insertRecipeQuery, recipeValues),
@@ -197,8 +227,10 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
 
     const updatedPosts = await updatePosts(postDetails.rows, user_id);
 
-    return res.status(200).json({ data: updatedPosts }); // sending data to client
-    
+    return res.status(200).json({
+      data: updatedPosts
+    }); // sending data to client
+
   } catch (error) {
     next(error); // server side error
   }
@@ -330,7 +362,9 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": updatedPosts }));
+    await redis.setEx(cacheKey, 3600, JSON.stringify({
+      "posts": updatedPosts
+    }));
     console.log("Cache Miss");
 
 
@@ -420,7 +454,9 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     );
 
     // Respond with an object containing the "posts" key and the array of objects with post information
-    res.status(200).json({ posts: processedRandomPosts });
+    res.status(200).json({
+      posts: processedRandomPosts
+    });
   } catch (err) {
     next(err);
   }
@@ -467,7 +503,9 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
 router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res) => {
   try {
     // Extract search text from request body
-    const { search_text } = req.body;
+    const {
+      search_text
+    } = req.body;
 
     // Define SQL queries
     const usersQuery = `
@@ -487,7 +525,16 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
 
     // Iterate through posts to fetch content creators. We only need content creators for posts
     for (let i = 0; i < posts.rows.length; i++) {
-      const { id, user_id, title, description, video_name, thumbnail_name, created_at, updated_at } = posts.rows[i];
+      const {
+        id,
+        user_id,
+        title,
+        description,
+        video_name,
+        thumbnail_name,
+        created_at,
+        updated_at
+      } = posts.rows[i];
 
       // Query for content creator based on user_id
       const contentCreatorQuery = await pgQuery(
@@ -510,11 +557,16 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
     }
 
     // Send response with users and posts data
-    res.status(200).json({ users: users.rows, posts: posts.rows });
+    res.status(200).json({
+      users: users.rows,
+      posts: posts.rows
+    });
   } catch (error) {
     // Handle errors
     console.error("Error in search query:", error);
-    res.status(500).json({ response: "Internal server error" });
+    res.status(500).json({
+      response: "Internal server error"
+    });
   }
 });
 
