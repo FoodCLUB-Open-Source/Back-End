@@ -10,19 +10,25 @@ const DOMPurify = createDOMPurify(window);
 
 // CHANGE DATE VERIFICATION WITH SPECIFIC DATE FORMAT
 const numericVariables = [
-	"user_id", "post_id", "recipe_id", 
-	"comment_like_count", "like_count", "view_count",
-	"comments_count", "follower_count", "following_count",
-	"likes_count", "page_number", "page_size", "category_id", "user_following_id",
-	"serving_size","preparation_time",
+  "user_id", "post_id", "recipe_id", 
+  "comment_like_count", "like_count", "view_count",
+  "comments_count", "follower_count", "following_count",
+  "likes_count", "page_number", "page_size", "category_id", "user_following_id",
+  "serving_size","preparation_time",
 
 ];
 const uuidVariables = ["story_id"];
 const dateVariables = ["updated_at", "created_at"];
 
+/**
+ * Function that purifies the provided DOM
+ * 
+ * @param {any} value - DOM to be purified
+ * @returns {any} sanitized - Purified DOM 
+ */
 const sanitisedInput = (value) => {
-	let sanitized = DOMPurify.sanitize(value);
-	return sanitized.replace(/\0/g, '');
+  let sanitized = DOMPurify.sanitize(value);
+  return sanitized.replace(/\0/g, "");
 };
 
 /* Checks body, queries, params */
@@ -113,92 +119,92 @@ const inputValidator = [
 				const currentDate = new Date();
 				const inputDate = new Date(value);
 				
-				if (inputDate > currentDate) {
-					throw new Error(`${value} cannot be in the future`);
-				}
+        if (inputDate > currentDate) {
+          throw new Error(`${value} cannot be in the future`);
+        }
 
-				const isoDateFormatRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+        const isoDateFormatRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
   				
-				if (!isoDateFormatRegex.test(value)){
-					throw new Error(`${value} must be in the correct format of : 2023-07-31T15:30:00.000Z`);
-				}
+        if (!isoDateFormatRegex.test(value)){
+          throw new Error(`${value} must be in the correct format of : 2023-07-31T15:30:00.000Z`);
+        }
 				
-				return true;
-			})
-	),
-	check("verification_code")
-		.optional()
-		.isInt()
-		.isLength({ min: 6, max: 6 })
-	,
-	check(["video_url", "thumbnail_url"])// NEEDS TESTING AFTER WE CAN UPLOAD FILES AGAIN
-		.optional()
-		.custom((value) => {
-			if (value.slice(0,37) !== process.env.CLOUDFRONT_URL){
-				throw new Error(`${value} is not calling the appropriate cloudfront url`);
-			}
-			if (value.length < 37){
-				throw new Error(`${value} must be at the very least 37 letters long`);
-			}
-		})
-		.isURL().withMessage((value) => `Invalid URL format for ${value}`)
-		.trim(),
-	check("video_name", "thumbnail_name")
-		.optional()
-		.isLength({ min: 5 }).withMessage((value) => `${value} must be atleast 5 characters long`)
-		.customSanitizer(value => sanitisedInput(value))
-		.trim(),
+        return true;
+      })
+  ),
+  check("verification_code")
+    .optional()
+    .isInt()
+    .isLength({ min: 6, max: 6 })
+  ,
+  check(["video_url", "thumbnail_url"])// NEEDS TESTING AFTER WE CAN UPLOAD FILES AGAIN
+    .optional()
+    .custom((value) => {
+      if (value.slice(0,37) !== process.env.CLOUDFRONT_URL){
+        throw new Error(`${value} is not calling the appropriate cloudfront url`);
+      }
+      if (value.length < 37){
+        throw new Error(`${value} must be at the very least 37 letters long`);
+      }
+    })
+    .isURL().withMessage((value) => `Invalid URL format for ${value}`)
+    .trim(),
+  check("video_name", "thumbnail_name")
+    .optional()
+    .isLength({ min: 5 }).withMessage((value) => `${value} must be atleast 5 characters long`)
+    .customSanitizer(value => sanitisedInput(value))
+    .trim(),
 	
-	check("recipe_description")
-		.optional()
-		.isString()
-		.withMessage("recipe_description must be a string")
-		.customSanitizer((value) => sanitisedInput(value))
-		.trim(),
+  check("recipe_description")
+    .optional()
+    .isString()
+    .withMessage("recipe_description must be a string")
+    .customSanitizer((value) => sanitisedInput(value))
+    .trim(),
 	
-	check("recipe_ingredients")
-		.optional()
-		.isArray()
-		.withMessage("recipe_ingredients must be an array")
-		.custom((value) => {
+  check("recipe_ingredients")
+    .optional()
+    .isArray()
+    .withMessage("recipe_ingredients must be an array")
+    .custom((value) => {
 		  if (!Array.isArray(value)) {
-			throw new Error("recipe_ingredients should be an array");
+        throw new Error("recipe_ingredients should be an array");
 		  }
 	  
-			// Check each element in the array for the specified format
-			/* correct format = [
+      // Check each element in the array for the specified format
+      /* correct format = [
 				"(ingredient 1, Amount g)",
 				 more ....
  			 ],
 			*/
 		  for (const ingredient of value) {
-			if (!/^\(.*,\s*\d+\s*g\)$/.test(ingredient)) {
+        if (!/^\(.*,\s*\d+\s*g\)$/.test(ingredient)) {
 			  throw new Error(
-				"recipe_ingredients should be in the format '(ingredient, amount g)'"
+            "recipe_ingredients should be in the format '(ingredient, amount g)'"
 			  );
-			}
+        }
 		  }
 	  
 		  return true;
-		}),
+    }),
 	
 	  check("recipe_equipment")
-		.optional()
-		.isArray()
-		.withMessage("recipe_equipment must be an array"),
+    .optional()
+    .isArray()
+    .withMessage("recipe_equipment must be an array"),
 	
 	  check("recipe_steps")
-		.optional()
-		.isArray()
-		.withMessage("recipe_steps must be an array"),
+    .optional()
+    .isArray()
+    .withMessage("recipe_steps must be an array"),
 	
-	(req, res, next) => {
-		const errors = validationResult(req);
-		if (!errors.isEmpty()) {
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
 		  return res.status(400).json({ errors: errors.array() });
-		}
-		next();
-	}
+    }
+    next();
+  }
 ];
 
 export default inputValidator;

@@ -30,7 +30,7 @@ const router = Router();
 const storage = memoryStorage();
 const upload = multer({
   storage: storage
-})
+});
 
 
 /* Testing Posts Route */
@@ -57,8 +57,9 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  * and post title parameters are supported.
  *
  * @route GET /
- * @param {string} req.query.username - Username of the profile to search for
- * @param {string} req.query.title - Title of the post to search for
+ * @param {any} req.query.username - Username of the profile to search for
+ * @param {any} req.query.title - Title of the post to search for
+ * @returns {status} - If successful, returns 200 and a JSON object with the posts, else returns 400 and a JSON object with the message set to 'Unknown error occurred.'
  */
 router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
@@ -84,8 +85,8 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * 
  * @route POST /
  * @body {string} req.body - This contains all of the information needed for creating a post.
- * @returns {Object} - Returns a status of video posted if successful
- * @throws {Error} - If there are errors, the post must not be posted. and any posted information needs to be rolled back.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Video Posted'
+ * @throws {Error} - If there are errors, the post must not be posted and any posted information needs to be rolled back.
  */
 router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(), async (req, res, next) => {
   try {
@@ -122,9 +123,9 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
     const client = await pgPool.connect();
 
     try {
-      await client.query('BEGIN');
+      await client.query("BEGIN");
 
-      const insertPostQuery = 'INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id';
+      const insertPostQuery = "INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id";
       const postValues = [user_id, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
 
@@ -132,10 +133,10 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
         post_id
       } = newPost.rows[0];
 
-      const insertRecipeQuery = 'INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())';
+      const insertRecipeQuery = "INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())";
       const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
 
-      const updatePostQuery = 'INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)';
+      const updatePostQuery = "INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)";
       const postUpdateValues = [post_id, category];
 
       await Promise.all([
@@ -143,7 +144,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
         client.query(updatePostQuery, postUpdateValues)
       ]);
 
-      await client.query('COMMIT');
+      await client.query("COMMIT");
 
       console.log("Video Posted " + post_id);
       res.status(200).json({
@@ -157,7 +158,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
         s3Delete(S3_POST_PATH + req.files[1])
       ]);
 
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       next(err);
 
     } finally {
@@ -172,8 +173,9 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
  * Retrieves post details of a specific post based off post ID
  * 
  * @route GET /posts/:post_id/user_id
- * @param {string} req.params.post_id - The ID of the post to retrieve details for
- * @returns {Object} - An object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count
+ * @param {any} req.params.post_id - The ID of the post to retrieve details for
+ * @returns {status} - If successful, returns 200 and a JSON object containing details of the post such as id, title, description, video URL, thumbnail URL, details of user who posted the post, post likes count, post comments count and post view count.
+ *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
@@ -186,12 +188,12 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
       payload
     } = req.body;
     const user_id = payload.user_id;
-    const query = 'SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1'; // query to get post details and user who has posted details
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
     if (postDetails.rows.length === 0) {
       return res.status(404).json({
-        error: 'Post not found'
+        error: "Post not found"
       });
     }
 
@@ -210,10 +212,9 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
  * 
  * @route POST /:post_id
  * @body {string} req.params.post_id - Id of the post that is neeeded
- * @returns {status} - A successful status indicates that posts have been deleted
+ * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Post Deleted', else returns 404 with a JSON object with error set to 'Post not found.'
  * @throws {Error} - If there are errors dont delete any post.
  */
-
 router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, async (req, res, next) => {
   try {
 
@@ -222,7 +223,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
     } = req.params;
 
     // Fetch post details from the database
-    const post = await pgQuery(`SELECT * FROM posts WHERE id = $1`, post_id);
+    const post = await pgQuery("SELECT * FROM posts WHERE id = $1", post_id);
 
     // Ensure the post is present in the database or not
     if (post.rows.length === 0) {
@@ -238,7 +239,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
       user_id
     } = post.rows[0];
 
-    await pgQuery(`DELETE FROM posts WHERE id = $1`, post_id);
+    await pgQuery("DELETE FROM posts WHERE id = $1", post_id);
     // Delete files from S3 and remove likes/views
     await Promise.all([
       s3Delete(video_name),
@@ -258,20 +259,19 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * Get a list of posts for a particular category
  * 
  * @route GET /category/:category_id/:user_id
- * @param {string} req.params.category_id - ID of the category that is needed
+ * @param {any} req.params.category_id - ID of the category that is needed
  * @query {number} req.query.page_size - Number of posts to fetch per page (optional, default: 15)
  * @query {number} req.query.page_number - Page number to fetch (optional, default: 1)
- * @returns {Object} - Returns an array of posts for the specified category
+ * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-
 router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
     // const user_id = payload.user_id;
-    const user_id = payload.user_id
+    const user_id = payload.user_id;
     // Extract category ID from URL parameters
     const {
       category_id
@@ -334,8 +334,8 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     console.log("Cache Miss");
 
 
-    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id)
-    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture)
+    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id);
+    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture);
 
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
@@ -352,16 +352,15 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
  * Get Posts For The Home Page
  * For now random posts later implement the Algorithm
  * @route GET /posts/homepage/user
- * @returns {posts} - Array of objects of post information
+ * @returns {status} - If successful, returns 200 and a JSON object with an array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-
 router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
   // getting user ID
   const {
     payload
-  } = req.body
-  const user_id = payload.user_id
+  } = req.body;
+  const user_id = payload.user_id;
 
   try {
     // Get posts liked by the user
@@ -371,7 +370,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     const likedPosts = postLikeCount.map(post => post.post_id);
 
     // Convert the array to an array literal
-    const likedPostsLiteral = `{${likedPosts.join(',')}}`;
+    const likedPostsLiteral = `{${likedPosts.join(",")}}`;
 
     // Get query parameters for pagination
     const pageSize = parseInt(req.query.page_size) || 15;
@@ -431,10 +430,10 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
  * Update Post Title and Title Description
  * 
  * @route PUT /posts/:post_id
- * @param {string} req.params.post_id - The ID of the post to update
+ * @param {any} req.params.post_id - The ID of the post to update
  * @body {string} req.body.title - The updated title
  * @body {string} req.body.description - The updated title description
- * @returns {Object} - Returns a status indicating the update was successful
+ * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Post Title and Title Description Updated', else returns 500 and a JSON object with message set to 'Post not updated'
  * @throws {Error} - If there are errors during the update
  */
 router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async (req, res, next) => {
@@ -449,7 +448,7 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
 
     // Update the post title and title description
     try {
-      await pgQuery('UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3', title, description, post_id);
+      await pgQuery("UPDATE posts SET title = $1, description = $2, updated_at = NOW() WHERE id = $3", title, description, post_id);
     } catch (error) {
       return res.status(500).json({
         message: "Post not updated"
@@ -464,6 +463,14 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
   }
 });
 
+/**
+ * Retrieves user posts based on search text 
+ * 
+ * @route GET posts/search/user-posts
+ * @param {any} req.body.search_text - Text to search for in user posts
+ * @returns {status} If successful, returns 200 and a JSON object of the users and posts matching the search criteria, else returns 500 and a JSON object with response set to 'Internal server error'
+ * @throws {Error} If there are errors, no posts are retrieved
+ */
 router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res) => {
   try {
     // Extract search text from request body
