@@ -132,6 +132,7 @@ router.post("/posts/comment/like/:id", rateLimiter(), verifyTokens, inputValidat
 
 /**
    * Deleting a like on a specific comment
+   * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token
    * 
    * @route DELETE /like/:post_id/user/:user_id
    * @param {any} req.params.id - The ID of the comment being unliked

@@ -211,6 +211,7 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
 
 /**
  * Delete a specific post
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token
  * 
  * @route POST /:post_id
  * @body {string} req.params.post_id - Id of the post that is neeeded
@@ -433,6 +434,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
 
 /**
  * Update Post Title and Title Description
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token
  * 
  * @route PUT /posts/:post_id
  * @param {any} req.params.post_id - The ID of the post to update
