@@ -517,7 +517,9 @@ router.post("/refresh_session", rateLimiter(10, 1), async (req, res) => {
   }
 });
 
-
+/**
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
+ */
 router.get("/test_tokens", verifyTokens, (req, res) => {
   console.log(req.body);
   res.status(200).json(req.body);

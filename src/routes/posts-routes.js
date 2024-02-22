@@ -82,6 +82,7 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
 
 /**
  * Uploading a Post, video and recipe
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /
  * @body {string} req.body - This contains all of the information needed for creating a post.
@@ -171,6 +172,7 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
 
 /**
  * Retrieves post details of a specific post based off post ID
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /posts/:post_id/user_id
  * @param {any} req.params.post_id - The ID of the post to retrieve details for
@@ -257,6 +259,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
 
 /**
  * Get a list of posts for a particular category
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /category/:category_id/:user_id
  * @param {any} req.params.category_id - ID of the category that is needed
@@ -350,7 +353,9 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
 
 /**
  * Get Posts For The Home Page
- * For now random posts later implement the Algorithm
+ * For now random posts, later implement the Algorithm
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
+ * 
  * @route GET /posts/homepage/user
  * @returns {status} - If successful, returns 200 and a JSON object with an array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.

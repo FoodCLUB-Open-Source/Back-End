@@ -20,6 +20,7 @@ router.get("/testing", async (req, res) => {
 
 /**
  * Process A Video Like
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /like/:post_id/user/:user_id
  * @param {any} req.params.post_id - The ID of the video post being liked
@@ -55,6 +56,7 @@ router.post("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator, 
   
 /**
    * Remove A Video Like 
+   * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
    * 
    * @route DELETE /like/:post_id/user/:user_id
    * @param {any} req.params.post_id - The ID of the video post being unliked
@@ -93,6 +95,7 @@ router.delete("/like/:post_id/user", rateLimiter(), verifyTokens, inputValidator
 
 /** 
  * Posting a like for a specific comment
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /posts/comment/like/:id
  * @param {any} req.params.id - The ID of the comment being liked
@@ -164,6 +167,7 @@ router.delete("/posts/comment/like/:id", rateLimiter(), verifyUserIdentity, inpu
 /**
  * User View A Story
  * This will update the DynamoDB Story_Views Table and process a story view happening
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /story:story_id/view:user_id
  * @param {any} req.params.story_id - The unique identifier of the story being viewed.
@@ -201,6 +205,7 @@ router.post("/story/:story_id/view", rateLimiter(), verifyTokens, inputValidator
 /** 
  * Update Post View
  * This will update the DynamoDB Views Table and process a view happening
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /post:post_id/view:user_id
  * @param {any} req.params.post_id - The unique identifier of the post being viewed.
