@@ -8,8 +8,16 @@ import pgPool from "../config/pgdb.js";
 import s3Client from "../config/s3Client.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
-/* DRY secure postgreSQl query function */
-/* Example of how to use: pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) */
+/**  
+ * Function that does a DRY secure postgreSQl query function 
+   Example of how to use: 
+     pgQuery("INSERT INTO users (username, age, number) VALUES ($1, $2, $3)", "usernameValue", 25, 42) 
+ * 
+ * @param {any} query - Query statement 
+ * @param  {any} inputs - Values to be queried 
+ * @returns {any} - Result of query 
+ * @throws {Error} - If error performing querys
+ */
 export const pgQuery = async (query, ...inputs) => {
   const pgQuery = {
     text: query,
@@ -19,32 +27,38 @@ export const pgQuery = async (query, ...inputs) => {
   try {
     return await pgPool.query(pgQuery);
   } catch (err) {
-    console.error('Error executing postgreSQL query:', err);
+    console.error("Error executing postgreSQL query:", err);
     return { error: `There has been an error performing this query: ${err}` };
   }
 };
 
-/* Ensures all queries happen or none at all.
+/** 
+* Function that ensures all queries happen or none at all.
     Example of how to use:
-    const query = ['INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *', ...]
-    const values = [[userId, post_title, post_description, newVideoName, newThumbNaileName, category_id], ...];
-    const result = await makeTransaction(query, values)
-*/
+     const query = ['INSERT INTO posts (user_id, post_title, post_description, video_name, thumbnail_name, category_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *', ...]
+     const values = [[userId, post_title, post_description, newVideoName, newThumbNaileName, category_id], ...];
+     const result = await makeTransaction(query, values)
+ * 
+ * @param {any} queries - Query statements to be processed
+ * @param {any} values - Values to be queried 
+ * @returns {object} - res object from querying 
+ * @throws {Error} - Returns error if a query does not succeed
+ */
 export const makeTransactions = async (queries, values) => {
   const client = await pgPool.connect();
 
   let res = null;
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     for (let i = 0; i < queries.length; i++) {
       res = await client.query(queries[i], values[i]);
     }
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw err;
   } finally {
     client.release();
@@ -53,10 +67,16 @@ export const makeTransactions = async (queries, values) => {
   return res;
 };
 
-/*DRY upload to s3 function */
+/**
+ * Function that does a DRY upload to s3 function 
+ * 
+ * @param {any} file - Original filename to be uploaded
+ * @param {any} path - File path to be uploaded
+ * @returns {any} randomName - Randomly generated name as key for upload
+ */
 export const s3Upload = async (file, path) => {
 
-  const randomName = path + file.originalname + crypto.randomBytes(32).toString('hex');
+  const randomName = path + file.originalname + crypto.randomBytes(32).toString("hex");
 
   /* Resize the image to the what is specified (DOESNT WORK WITH VIDEOS) */
   //const buffer = await sharp(file.buffer).resize({height: 1920, width: 1080, fit: "contain"}).toBuffer()
@@ -74,7 +94,13 @@ export const s3Upload = async (file, path) => {
   return randomName;
 };
 
-/* Retrieves a image from s3 */
+/** 
+ * Function that retrieves an image from s3
+ * 
+ * @param {any} fileName - Name of file to be retrieved
+ * @returns {any} - Signed URL for associated file
+ * @throws {Error} - Returns error if issue generating pre-signed URL
+ */
 export const s3Retrieve = async (fileName) => {
   try {
     const command = new GetObjectCommand({
@@ -96,7 +122,11 @@ export const s3Retrieve = async (fileName) => {
   }
 };
 
-/* Deletes a image in the s3 bucket */
+/**
+ * Function that deletes an image in the s3 bucket
+ * 
+ * @param {any} fileNameWithPath - Name of file to be deleted from the S3 bucket
+ */
 export const s3Delete = async (fileNameWithPath) => {
   try {
     const params = {
@@ -113,7 +143,13 @@ export const s3Delete = async (fileNameWithPath) => {
 
 };
 
-/* Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT ) */
+/**
+ * Function that takes an array of posts and refines post data using promises to get total post likes count and total post views count. (NEED TO ADD TOTAL COMMENT COUNT )
+ * 
+ * @param {Array<object>} userPosts - Array of posts to be udpated
+ * @param {any} user_id - ID of user to 
+ * @returns {object} post - Refined post object with total views and likes 
+ */
 export async function updatePosts(userPosts, user_id) {
   const updatedPostsPromises = await userPosts.map(async (post) => {
 
@@ -149,6 +185,13 @@ export async function updatePosts(userPosts, user_id) {
   return updatedPosts;
 }
 
+/**
+ * Function to check if a post is bookmarked by a user
+ * 
+ * @param {any} postId - ID of post to be queried
+ * @param {any} userId - ID of user to be queried
+ * @returns {boolean} - True if post is bookmarked, false otherwise
+ */
 export const checkBookmarked = async (postId, userId) => {
   const bookmarks = await pgQuery(`
     SELECT TOP 1
@@ -157,10 +200,16 @@ export const checkBookmarked = async (postId, userId) => {
   `, postId, userId);
 
   return bookmarks.rows.length > 0;
-}
+};
 
 
-/* Checks if a user has liked a post or not, returns true or false */
+/**
+ * Checks if a user has liked a post or not, returns true or false
+ * 
+ * @param {any} postId - ID of post to be queried
+ * @param {any} userId - ID of user to be queried
+ * @returns {boolean} - True if post is liked, false otherwise
+ */
 export const checkLike = async (postId, userId) => {
 
   const isLiked = await getDynamoRequestBuilder("Likes")
@@ -170,9 +219,15 @@ export const checkLike = async (postId, userId) => {
 
   //if length is 1, means user has liked post hence liked is set to true
   return isLiked.length === 1 ? true : false;
-}
+};
 
-/* Checks if a user has viewed a post or not, returns true or false */
+/** 
+ * Checks if a user has viewed a post or not, returns true or false 
+ * 
+ * @param {any} postId - ID of post to be queried
+ * @param {any} userId - ID of user to be queried
+ * @returns {boolean} - True if post is viewed, false otherwise
+ */
 export const checkView = async (postId, userId) => {
 
   const isViewed = await getDynamoRequestBuilder("Views")
@@ -182,26 +237,30 @@ export const checkView = async (postId, userId) => {
 
   //if length is 1, means user has viewed post hence viewed is set to true
   return isViewed.length === 1 ? true : false;
-}
+};
 
-/* Function to perform batch deletion for a specific DynamoDB table delete the multiple items
-Example of how to use: 
-performBatchDeletion("Likes", [{ post_id: 1, user_id: 1 }, { post_id: 2, user_id: 2 }])
-i-e delete all likes for post_id 1
-const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
-const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
-performBatchDeletion("Likes", likesToDelete)
+/** 
+* Function to perform batch deletion for a specific DynamoDB table delete the multiple items
+   Example of how to use: 
+    performBatchDeletion("Likes", [{ post_id: 1, user_id: 1 }, { post_id: 2, user_id: 2 }])
+    i-e delete all likes for post_id 1
+    const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
+    const likesToDelete = Likes.map((item) =>  ({ post_id: item.post_id, user_id: item.user_id }));
+    performBatchDeletion("Likes", likesToDelete)
 
-same usage for multipe tables
- // Create an array of delete requests for 'Likes' and 'Views' tables
- const deleteRequests = [{ tableName: "Likes", items: likesToDelete }, { tableName: "Views", items: viewsToDelete }];
+  same usage for multipe tables
+   // Create an array of delete requests for 'Likes' and 'Views' tables
+   const deleteRequests = [{ tableName: "Likes", items: likesToDelete }, { tableName: "Views", items: viewsToDelete }];
  
-  // Perform batch deletions
-  deleteRequests.forEach(async (deleteRequest) => {
-    const { tableName, items } = deleteRequest;
-    await performBatchDeletion(tableName, items);
+   // Perform batch deletions
+   deleteRequests.forEach(async (deleteRequest) => {
+   const { tableName, items } = deleteRequest;
+   await performBatchDeletion(tableName, items);
   });
-*/
+ * 
+ * @param {any} tableName - Name of DynamoDB table to perform batch deletion on 
+ * @param {any} items - 
+ */
 export const performBatchDeletion = async (tableName, items) => {
   const requestBuilder = getDynamoRequestBuilder(tableName);
 
@@ -210,7 +269,7 @@ export const performBatchDeletion = async (tableName, items) => {
     const keys = Object.keys(item);
 
     if (keys.length !== 2) {
-      throw new Error('Item does not have exactly 2 keys.');
+      throw new Error("Item does not have exactly 2 keys.");
     }
 
     const pk = keys[0];
@@ -227,9 +286,13 @@ export const performBatchDeletion = async (tableName, items) => {
   } catch (error) {
     console.error(`Error deleting ${tableName}:`, error);
   }
-}
+};
 
-/* Functions for Posts */
+/**
+ * Functions for deleting likes and views of posts
+ * 
+ * @param {any} post_id - ID of post to have likes and views removed 
+ */
 export const removeLikesAndViews = async (post_id) => {
   const Likes = await getDynamoRequestBuilder("Likes").query("post_id", parseInt(post_id)).exec();
   const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
@@ -255,7 +318,7 @@ export const removeLikesAndViews = async (post_id) => {
   // Perform batch deletions
   deleteRequests.forEach(async (deleteRequest) => {
     const { tableName, items } = deleteRequest;
-    await performBatchDeletion(tableName, items)
+    await performBatchDeletion(tableName, items);
   });
 
-}
+};
