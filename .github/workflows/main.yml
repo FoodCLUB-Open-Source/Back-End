@@ -69,11 +69,11 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
+        FOODCLUB_PACKAGES_TOKEN: $FOODCLUB_PACKAGES_TOKEN
       run: |
         # Build a docker container and
         # push it to ECR so that it can
         # be deployed to ECS.
-        echo $FOODCLUB_PACKAGES_TOKEN
         docker build --build-arg FOODCLUB_PACKAGES_TOKEN=$FOODCLUB_PACKAGES_TOKEN -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
