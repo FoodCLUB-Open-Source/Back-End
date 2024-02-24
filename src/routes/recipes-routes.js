@@ -22,8 +22,9 @@ router.get("/testing", rateLimiter(), async (req, res) => {
 
 /**
  * Route handler for getting a specific recipe by ID.
- * It first checks if the recipe is cached in Redis, if not it fetches from the database and then caches it.
- * The cached recipe expires after 1 hour.
+ *  It first checks if the recipe is cached in Redis, if not it fetches from the database and then caches it.
+ *  The cached recipe expires after 1 hour.
+ * This endpoint needs a request header called 'Authorisation' with the access token
  *
  * @route GET /:id
  * @param {any} *req.params.id - The Id of the post.
@@ -67,6 +68,8 @@ router.get("/:post_id", verifyAccessOnly, inputValidator, rateLimiter(), async (
 /**
  * Route handler for Update Recipes Table.
  * This will update the details in the recipes table.
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token
+ * 
  * @route PUT /:post_id
  * @param {any} *req.params.post_id - The Id of the post
  * @body 
