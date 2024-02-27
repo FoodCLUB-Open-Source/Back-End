@@ -271,31 +271,54 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     const { payload } = req.body;
     const user_id = payload.user_id;
     // Define S3 bucket paths for storing files
-    const S3_STORY_PATH = "stories/active/";
+    // const S3_STORY_PATH = "stories/active/";
+    const S3_IMAGE_PATH = "stories/active/"
   
     try {
       // Upload the first file (video) and the second file (thumbnail) to an S3 bucket
+
+      /*
       const [newVideoName, newThumbNaileName] = await Promise.all([
         s3Upload(req.files[0], S3_STORY_PATH),
         s3Upload(req.files[1], S3_STORY_PATH)
       ]);
+      */
 
-      // Create a StorySchema object with user_id, video , and thumbnail 
-      const StorySchema = setStory(user_id, newVideoName, newThumbNaileName);
+      if (!req.file || !req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ message: 'Invalid file format. Only images are allowed.' });
+      }
+
+      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
+
+      const currentTime = new Date();
+      const StorySchema = setStory(parseInt(user_id), newImageName, null, currentTime.toISOString());
+
+      // Create a StorySchema object with user_id and image URL
+      // const StorySchema = setStory(parseInt(user_id), newImageName, null);
     
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
 
+      // Respond with a success message
+      res.status(200).json({ Status: "Image Posted" });
+
+     
+
       // Respond with a success messages
-      res.status(200).json({ Status: "Story Posted" });
+      // res.status(200).json({ Status: "Story Posted" });
 
     } catch (err) {
       //if any error in the DynamoDB, delete the files from S3
+
+      /*
       await Promise.all([
         s3Delete(req.files[0], S3_STORY_PATH),
         s3Delete(req.files[1], S3_STORY_PATH)
       ]);
-      
+      */
+
+      await s3Delete(req.file, S3_IMAGE_PATH);
+
       // Throw the error to the next error handler
       res.status(500).json({  message: "Story Post Failed" });
     }
@@ -306,6 +329,42 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
   }
 });
 
+
+/*
+router.post("/:user_id", inputValidator, rateLimiter(), upload.single('image'), async (req, res, next) => {
+  try {
+    // Parse the user_id from the request parameters
+    const { user_id } = req.params;
+    // Define S3 bucket path for storing image files
+    const S3_IMAGE_PATH = "images/active/";
+  
+    try {
+      // Upload the image file to an S3 bucket
+      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
+
+      // Create a StorySchema object with user_id and image URL
+      const StorySchema = setStory(parseInt(user_id), newImageName, null);
+    
+      // Insert the StorySchema object into the DynamoDB Stories table
+      await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
+
+      // Respond with a success message
+      res.status(200).json({ Status: "Image Posted" });
+
+    } catch (err) {
+      // If any error in DynamoDB, delete the uploaded file from S3
+      await s3Delete(req.file, S3_IMAGE_PATH);
+
+      // Throw the error to the next error handler
+      res.status(500).json({  message: "Image Post Failed" });
+    }
+
+  } catch (err) {
+    // Throw the error to the next error handler
+    next(err);
+  }
+});
+*/
 
 /**
  * Deletes a user's story.
