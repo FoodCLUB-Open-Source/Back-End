@@ -7,7 +7,8 @@ import { verifyTokens } from "../middleware/verify.js";
 const router = Router();
 
 /**
- * Removes a post that has been bookmarked by a user
+ * Removes a post that has been bookmarked by a user.
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route DELETE /profile/:userid/bookmark/:postid
  * @param {any} req.params.post_id - The ID of the post to unbookmark
@@ -39,6 +40,7 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
 
 /**
  * Bookmarks a post
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /post/:user_id/bookmark/:post_id
  * @param {any} req.params.post_id - The ID of the post to bookmark

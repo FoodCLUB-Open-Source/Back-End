@@ -1,0 +1,29 @@
+# -*- mode: yaml -*-
+# View the gitStream quickstart for more examples: https://docs.gitstream.cm/quick-start/
+manifest:
+  version: 1.0
+automations:
+  # Add a label that indicates how many minutes it will take to review the PR.
+  estimated_time_to_review: 
+    if:
+      - true
+    run:
+      - action: add-label@v1
+      # etr is defined in the last section of this example
+        args:
+          label: "{{ calc.etr }} min review"
+          color: {{ 'E94637' if (calc.etr >= 20) else ('FBBD10' if (calc.etr >= 5) else '36A853') }}
+  assign_code_experts:
+    # Triggered automatically, assigns a code expert as a reviewer to a PR.
+    if: 
+      - true
+    run:
+      - action: add-reviewers@v1
+        args:
+          reviewers: {{ repo | codeExperts(gt=10) }}
+      - action: explain-code-experts@v1 
+        args:
+          gt: 10 
+# The next function calculates the estimated time to review and makes it available in the automation above.
+calc:
+  etr: {{ branch | estimatedReviewTime }}

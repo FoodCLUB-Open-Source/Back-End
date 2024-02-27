@@ -38,6 +38,7 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
 
 /**
  * Retrieves user details
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:userid/details
  * @returns {status} - If successful, returns 200 and a JSON object containing details of the user such as id, username and profile picture
@@ -71,6 +72,7 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
 
 /**
  * Retrieves profile page data based on the received user ID 
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /
  * @query {string} req.query.page_number - The page number for pagination. In this API pagination is only implemented for user posts
@@ -132,6 +134,7 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
 
 /**
  * Retrieves users that are followed by the user
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:user_id/following
  * @query {string} req.query.page_number - The pageNumber for pagination
@@ -177,6 +180,7 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
 
 /**
  * Retrieves users that follow the user
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:userid/followers
  * @query {string} req.query.page_number - The pageNumber for pagination
@@ -212,6 +216,7 @@ router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req,
 
 /**
  * Unfollows a user
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:userid
  * @param {any} req.params.user_following_id - The ID of the user that is getting unfollowed
@@ -277,6 +282,7 @@ router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), veri
 
 /**
  * Follows A User
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /follow/user/:user_id/following/:user_following_id
  * @param {any} req.params.user_following_id - The ID of the user that is getting followed
@@ -339,6 +345,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
 
 /**
  * Top creators query
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:user_id/topcreators
  * @query {string} req.query.page_number - The pageNumber for pagination
@@ -378,6 +385,7 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
 
 /**
  * Update user profile detials 
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  *
  * @route PUT /:user_id
  * @body
@@ -421,6 +429,7 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
 
 /**
  * Update user profile picture
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  *
  * @route PUT /profile_picture
  * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Profile Picture Updated'
