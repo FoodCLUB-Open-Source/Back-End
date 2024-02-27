@@ -1,0 +1,48 @@
+name: Deploy to AWS EC2
+
+
+on:
+  push:
+    branches: [ "production" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FOODCLUB_PACKAGES_TOKEN: ${{ secrets.FOODCLUB_PACKAGES_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Amazon ECR
+        run: |
+          echo Logging in to Amazon ECR...
+          aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 560645079077.dkr.ecr.eu-west-2.amazonaws.com
+
+      - name: Build and push
+        run: |
+          REPOSITORY_URI=560645079077.dkr.ecr.eu-west-2.amazonaws.com/foodclub-prod
+          COMMIT_HASH=$(echo $GITHUB_SHA | cut -c 1-7)
+          IMAGE_TAG=${COMMIT_HASH:=latest}
+          echo Building the Docker image...
+          docker build --build-arg FOODCLUB_PACKAGES_TOKEN=$FOODCLUB_PACKAGES_TOKEN -t $REPOSITORY_URI:latest .
+          docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+          echo Pushing the Docker images...
+          docker push $REPOSITORY_URI:latest
+          docker push $REPOSITORY_URI:$IMAGE_TAG
+          echo Writing image definitions file...
+          printf '[{"name":"prod-latest","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
+
+      - name: Upload image definitions
+        uses: actions/upload-artifact@v2
+        with:
+          name: imagedefinitions
+          path: imagedefinitions.json
+
+      - name: Deploy to EC2
+        run: |
+          echo "Deploying to EC2"
+          scp -i ${{ secrets.EC2_SSH_KEY }} -o StrictHostKeyChecking=no imagedefinitions.json 

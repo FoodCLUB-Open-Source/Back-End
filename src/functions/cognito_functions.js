@@ -1,4 +1,4 @@
-import { CognitoUser, CognitoUserAttribute, CognitoAccessToken, CognitoIdToken, CognitoUserSession} from "amazon-cognito-identity-js";
+import { CognitoUser, CognitoUserAttribute, CognitoAccessToken, CognitoIdToken, CognitoUserSession } from "amazon-cognito-identity-js";
 import { cognitoUserPool } from "../config/cognito.js";
 /**  
  * This file holds functions (not middleware) that may need to be used in other backend microservices.
@@ -7,8 +7,13 @@ import { cognitoUserPool } from "../config/cognito.js";
 /** This function updates a cognito attribute. It is to be called whenever email or username are
  * changed in the PostgreSQL.
  * NEEDS ADDITION OF AUTHENTICATION BY TOKENS -id and access tokens needed.
-*/
-
+ * 
+ * @param {any} attributeName - Name of the user's attribute to be updated
+ * @param {any} attributeValue - New value for the updated attribute 
+ * @param {any} req.body.payload.username - Username for user with associated attribute
+ * @returns {status} - A status indicating successful update to user's attribute
+ * @throws {Error} - Returns error message for unssuccessful update
+ */
 export const changeAttribute = (attributeName, attributeValue, req) => {
     
   const { username } = req.body.payload.username;
@@ -19,13 +24,13 @@ export const changeAttribute = (attributeName, attributeValue, req) => {
   };
   
   // Get the authorisation header and tokens
-  const authorisation = req.header['authorisation']
+  const authorisation = req.header["authorisation"];
   try {
-    const bearerTokens = parseHeader(authorisation)
+    const bearerTokens = parseHeader(authorisation);
     const access_token = bearerTokens.access_token;
     const id_token = bearerTokens.id_token;
-    const cognitoAccessToken = new CognitoAccessToken({AccessToken: access_token})
-    const cognitoIdToken = new CognitoIdToken({IdToken: id_token})
+    const cognitoAccessToken = new CognitoAccessToken({ AccessToken: access_token });
+    const cognitoIdToken = new CognitoIdToken({ IdToken: id_token });
     
     const sessionData = {
       IdToken: cognitoIdToken,
@@ -57,17 +62,20 @@ export const changeAttribute = (attributeName, attributeValue, req) => {
     });
   } catch (error) {
     throw new Error(error.message) ;
-  };
+  }
 };
 
 
 /** 
  * Function to parse the authorisation header for both id and access bearer tokens
+ * 
+ * @param {object} header - Authorization header to be parsed
+ * @returns {object} - Object with access_token and id_token
+ * @throws {Error} - Returns error for invalid request
  */
-
 export const parseHeader = async (header) => {
-  if (!!header && header.startsWith('Bearer ')) {
-    const parseResult = header.split(' ');
+  if (!!header && header.startsWith("Bearer ")) {
+    const parseResult = header.split(" ");
     const access_token = parseResult[1];
     const id_token = parseResult[2];
     return {
@@ -75,24 +83,25 @@ export const parseHeader = async (header) => {
       id_token: id_token
     };
   } else {
-    throw new Error('Invalid request authorisation header')
+    throw new Error("Invalid request authorisation header");
   }
-}
+};
 
 /**
- * Function to parse through the header when it only has the access token.
- * @param {*} header 
- * @returns 
+ * Function to parse through the header when it only has the access token
+ * 
+ * @param {object} header - Authorization header to be parsed 
+ * @returns {object} - Object with access_token 
+ * @throws {Error} - Returns error for invalid request 
  */
-
 export const parseHeaderAccess = async (header) => {
-  if (!!header && header.startsWith('Bearer ')) {
-    const parseResult = header.split(' ');
+  if (!!header && header.startsWith("Bearer ")) {
+    const parseResult = header.split(" ");
     const access_token = parseResult[1];
     return {
       access_token: access_token,
     };
   } else {
-    throw new Error('Invalid request authorisation header')
+    throw new Error("Invalid request authorisation header");
   }
-}
+};

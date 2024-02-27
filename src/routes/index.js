@@ -7,6 +7,7 @@ import bookmarksRouter from "./bookmarks-routes.js";
 import profileRouter from "./profile-routes.js";
 import recipeRouter from "./recipes-routes.js";
 import storiesRouter from "./stories-routes.js";
+import ingredientsRouter from "./ingredients-routes.js";
 
 export {
   blockRouter,
@@ -18,4 +19,5 @@ export {
   profileRouter,
   recipeRouter,
   storiesRouter,
+  ingredientsRouter,
 };

@@ -3,7 +3,11 @@ import { Server } from "socket.io";
 
 import chatSockets from "../socket/chat.js";
 
-/* Initialises a socket server */
+/**
+ * Initializes a socket server
+ * 
+ * @param {any} server - Server to be initialized
+ */
 const initSocket = (server) => {
   const io = new Server(server, {
     cors: {
@@ -24,6 +28,6 @@ const initSocket = (server) => {
       console.log("User disconnected");
     });
   });
-}
+};
 
 export default initSocket;
