@@ -1,3 +1,9 @@
+/**
+ * Function that logs the time it takes to process requests 
+ * 
+ * @param req
+ * @param res
+ */
 const requestLogging = (req, res, next) => {
   const startMillis = Date.now();
   const start = new Date(startMillis).toISOString();
@@ -10,6 +16,6 @@ const requestLogging = (req, res, next) => {
   });
 
   next();
-}
+};
 
 export default requestLogging;
