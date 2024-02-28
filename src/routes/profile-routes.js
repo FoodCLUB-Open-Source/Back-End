@@ -1,5 +1,5 @@
 import { Router } from "express";
-
+import { changeAttribute } from "../functions/cognito_functions.js";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 import multer, { memoryStorage } from "multer";
@@ -382,6 +382,7 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
  * @route PUT /:user_id
  * @body
  *    {string} req.body.username - The username of the user
+ *     {string} req.body.email - The email of the user
  *    {string} req.body.phone_number - The phone number of the user
  *    {string} req.body.user_bio - The bio of the user
  *    {string} req.body.gender - The gender of the user
@@ -400,17 +401,20 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
     const user_id = payload.user_id;
 
     // Getting user details
-    const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
+    const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, username, email, full_name } = req.body;
 
     // Query to update user details
     const query = `
         UPDATE users
-        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences = $5, country = $6, shipping_address= $7, full_name= $8, 
+        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences=$5, country =$6, shipping_address=$7, username=$8, full_name= $10, email= $11 
         updated_at = NOW()
-        WHERE id = $9`;
+        WHERE id = $12`;
 
     // Execute the query
-    await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
+    await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, username, full_name, email, user_id);
+
+    const attributeArray = [  { attributeName: 'email', attributeValue: email }, { attributeName: 'username', attributeValue: user_name }]
+    changeAttribute(attributeArray, req);
 
     res.status(200).json({ "Status": "Profile Details Updated" });
 
@@ -426,6 +430,7 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
  * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Profile Picture Updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
+
 router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
   try {
     // Getting user ID
@@ -442,14 +447,18 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
         UPDATE users
         SET profile_picture = $1, updated_at = NOW()
         WHERE id = $2`;
+
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+    }
     console.log(req.files[0]);
     //here check if the existing profile picture is the not null then delete the existing profile picture
     if (existingProfilePicture.rows[0].profile_picture !== "") {
-      await s3Delete(existingProfilePicture.rows[0].profile_picture);
+        await s3Delete(existingProfilePicture.rows[0].profile_picture);
     }
     const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
     // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
-    const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`);
+    const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}${req.files[0]}`)
     console.log("new profile picture" + newProfilePictureName);
     await pgQuery(query, profilePictureURL, user_id);
     res.status(200).json({ "Status": "Profile Picture Updated" });

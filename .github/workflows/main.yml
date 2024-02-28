@@ -75,7 +75,6 @@ jobs:
         # Build a docker container and
         # push it to ECR so that it can
         # be deployed to ECS.
-        echo $FOODCLUB_PACKAGES_TOKEN
         docker build --build-arg FOODCLUB_PACKAGES_TOKEN=$FOODCLUB_PACKAGES_TOKEN -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
         docker tag $ECR_REGISTRY/$ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
