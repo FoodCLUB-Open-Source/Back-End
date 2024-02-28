@@ -45,16 +45,16 @@ export const changeAttribute = (attributeName, attributeValue, req) => {
   
     cognitoUser.setSignInUserSession(cognitoUserSession);
 
-    const attributeList = [];
+    const updatedAttributeList = attributeList.map({attributeName, attributeValue});
     
     const newAttribute = {
       Name: attributeName,
       Value: attributeValue,
     };
 
-    attributeList.push(new CognitoUserAttribute(newAttribute));
+    updatedAttributeList.push(new CognitoUserAttribute(newAttribute));
 
-    cognitoUser.updateAttributes(attributeList, (err, result) => {
+    cognitoUser.updateAttributes(updatedAttributeList, (err, result) => {
       if (err) {
         throw new Error(err.message);
       }
