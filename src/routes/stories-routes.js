@@ -72,16 +72,16 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
           }
           stories.forEach(async (story) => { // processing all user stories
             // retrieving URLs and replacing them in the story object
-            const videoURL = await s3Retrieve(story.video_url);
+            const imageUrl = await s3Retrieve(story.image_url);
             const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-            story.video_url = videoURL;
+            story.image_url = imageUrl;
             story.thumbnail_url = thumbnailURL;
 
             let storiesList = userStoryMap[user.user_following_id].stories;
             storiesList = [...storiesList, {
               story_id: story.story_id,
               thumbnail_url: story.thumbnail_url,
-              video_url: story.video_url,
+              image_url: story.image_url,
               created_at: story.created_at,
             }];
             userStoryMap[user.user_following_id].stories = storiesList;
@@ -264,6 +264,11 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
  * @route POST /stories/:user_id
  * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Story Posted', else returns 500 and a JSON object with message set to 'Story Post Failed'
  * @throws {Error} - If any errors occur during the creation process, including file uploads. The story won't be insert into dynamodb, then delete the uploaded filess.
+ * @description 
+ *       This route allows users to create a new story,
+ *       Including uploading a image and a thumbnail. 
+ *       The image should be attached as the first file in req.files[0], 
+ *       The thumbnail should be attached as the second file in req.files[1].
  */
 router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
   try {
@@ -275,14 +280,7 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     const S3_IMAGE_PATH = "stories/active/"
   
     try {
-      // Upload the first file (video) and the second file (thumbnail) to an S3 bucket
-
-      /*
-      const [newVideoName, newThumbNaileName] = await Promise.all([
-        s3Upload(req.files[0], S3_STORY_PATH),
-        s3Upload(req.files[1], S3_STORY_PATH)
-      ]);
-      */
+      // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
 
       if (!req.file || !req.file.mimetype.startsWith('image/')) {
         return res.status(400).json({ message: 'Invalid file format. Only images are allowed.' });
@@ -383,7 +381,7 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
     const { payload } = req.body;
     const user_id = payload.user_id;
 
-    // Get the story from the Stories table for video and thumbnail URLs to delete from the S3 bucket
+    // Get the story from the Stories table for image and thumbnail URLs to delete from the S3 bucket
     const getStory = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
       .exec();
@@ -392,13 +390,13 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
       return res.status(404).json({  message: "Story not found" });
     }
 
-    // get the video and thumbnail paths and story_id
-    const { video_url, thumbnail_url, } = getStory[0];
+    // get the image and thumbnail paths and story_id
+    const { image_url, thumbnail_url, } = getStory[0];
 
-    // Delete the video and thumbnail from the S3 bucket
+    // Delete the image and thumbnail from the S3 bucket
     try {
       await Promise.all([
-        s3Delete(video_url),
+        s3Delete(image_url),
         s3Delete(thumbnail_url)
       ]);
     } catch (err) {
