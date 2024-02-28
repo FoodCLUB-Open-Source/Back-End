@@ -281,11 +281,6 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
   
     try {
       // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
-      const [newImageName, newThumbNaileName] = await Promise.all([
-        s3Upload(req.files[0], S3_STORY_PATH),
-        s3Upload(req.files[1], S3_STORY_PATH)
-      ]);
-      */
 
       if (!req.file || !req.file.mimetype.startsWith('image/')) {
         return res.status(400).json({ message: 'Invalid file format. Only images are allowed.' });
