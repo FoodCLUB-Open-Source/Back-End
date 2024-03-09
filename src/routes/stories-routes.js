@@ -36,10 +36,15 @@ router.get("/testing", async (req, res, next) => {
  */
 router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    const { page_number, page_size } = req.query; // getting page number and page size
+    const page_size = parseInt(req.query.page_size) || 15;
+    const page_number = parseInt(req.query.page_number) || 1;
     const { payload } = req.body;
     const userID = payload.user_id;
 
+
+    if (isNaN(page_number) || isNaN(page_size)) {
+      return res.status(400).json({ message: "Invalid page_number or page_size" });
+    }
     // getting users the user follows
     const query = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC"; // returns the users that are followed by the user with pagination
     const userFollowing = await pgQuery(query, userID); // executing query
@@ -156,11 +161,11 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 
       // Use map to concurrently retrieve S3 URLs for video and thumbnail
       const s3Promises = savedStories.map(async (story) => {
-        story.video_url = await s3Retrieve(story.video_url);
+        story.imageUrl  = await s3Retrieve(story.imageUrl);
         story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
         return {
           story_id: story.story_id,
-          video_url: story.video_url,
+          imageUrl :  story.imageUrl ,
           thumbnail_url: story.thumbnail_url,
           created_at: story.created_at,
           view_count: story.view_count,
@@ -230,7 +235,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
 
     //change the name of the sotry into url form
     const s3Promises = filteredStories.map(async (story) => {
-      story.video_url = await s3Retrieve(story.video_url);
+      story.imageUrl = await s3Retrieve(story.imageUrl);
       story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
       return story;
     });
@@ -277,13 +282,13 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     const user_id = payload.user_id;
     // Define S3 bucket paths for storing files
     // const S3_STORY_PATH = "stories/active/";
-    const S3_IMAGE_PATH = "stories/active/"
+    const S3_IMAGE_PATH = "stories/active/";
   
     try {
       // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
 
-      if (!req.file || !req.file.mimetype.startsWith('image/')) {
-        return res.status(400).json({ message: 'Invalid file format. Only images are allowed.' });
+      if (!req.file || !req.file.mimetype.startsWith("image/")) {
+        return res.status(400).json({ message: "Invalid file format. Only images are allowed." });
       }
 
       const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
