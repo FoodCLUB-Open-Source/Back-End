@@ -78,12 +78,11 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
  * @returns {status} - If successful, returns 200 and a JSON object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
-router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
+router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     // getting userID and converting to integer
     const { page_number, page_size } = req.query; // getting page number and page size
-    const { payload } = req.body;
-    const userID = payload.user_id;
+    const userID = req.params.userId
 
     // QUERIES
     const userNameQuery = "SELECT username, profile_picture FROM users WHERE id = $1"; // username and profile picture query
@@ -184,7 +183,7 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
  * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { page_number, page_size } = req.query; // getting page number and page size
     const { payload } = req.body;
@@ -224,7 +223,7 @@ router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), veri
     const { user_following_id } = req.params;
     const { payload } = req.body;
     const user_id = payload.user_id;
-        
+
     // Wrap each query in a function that returns a promise
     const verifyUserExistenceQuery = () => pgQuery("SELECT * FROM users WHERE id = $1", user_id);
     const verifyFollowingUserExistenceQuery = () => pgQuery("SELECT * FROM users WHERE id = $1", user_following_id);
@@ -289,7 +288,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
     const { user_following_id } = req.params;
     const { payload } = req.body;
     const user_id = payload.user_id;
-        
+
     const verifyUserExistenceQuery = pgQuery("SELECT * FROM users WHERE id = $1", user_id);
     const verifyFollowingUserExistenceQuery = pgQuery("SELECT * FROM users WHERE id = $1", user_following_id);
     const checkFollowQuery = pgQuery("SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2", user_id, user_following_id);
@@ -346,7 +345,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
  * @returns {status} - If successful, returns 200 and a JSON object with an array of objects containing details of the users to follow
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
 
     const { page_number, page_size } = req.query; // getting page number and page size
@@ -394,7 +393,7 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
  * @returns {Status} - If successful, returns 200 and a JSON object with Status set to 'Profile Details updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     // Getting user ID
     const { payload } = req.body;
@@ -413,7 +412,7 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
     // Execute the query
     await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, username, full_name, email, user_id);
 
-    const attributeArray = [  { attributeName: 'email', attributeValue: email }, { attributeName: 'username', attributeValue: user_name }]
+    const attributeArray = [{ attributeName: 'email', attributeValue: email }, { attributeName: 'username', attributeValue: user_name }]
     changeAttribute(attributeArray, req);
 
     res.status(200).json({ "Status": "Profile Details Updated" });
@@ -449,12 +448,12 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
         WHERE id = $2`;
 
     if (!req.files || req.files.length === 0) {
-        return res.status(400).json({ error: 'No files uploaded' });
+      return res.status(400).json({ error: 'No files uploaded' });
     }
     console.log(req.files[0]);
     //here check if the existing profile picture is the not null then delete the existing profile picture
     if (existingProfilePicture.rows[0].profile_picture !== "") {
-        await s3Delete(existingProfilePicture.rows[0].profile_picture);
+      await s3Delete(existingProfilePicture.rows[0].profile_picture);
     }
     const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
     // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
