@@ -84,8 +84,9 @@ router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => 
     const { page_number, page_size } = req.query; // getting page number and page size
     const userID = req.params.userId
 
+
     // QUERIES
-    const userNameQuery = "SELECT username, profile_picture FROM users WHERE id = $1"; // username and profile picture query
+    const userNameQuery = "SELECT id,username, profile_picture ,full_name FROM users WHERE id = $1"; // username and profile picture query
     const userFollowersQuery = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1"; // user followers query
     const userFollowingQuery = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1"; // user following query
     const userPostsQuery = "SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // user posts query with pagination
@@ -109,12 +110,11 @@ router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => 
 
     // Check if profile picture exists before retrieving from S3
     const profilePicture = userNameProfile.rows[0].profile_picture;
-    const profilePictureUrl = profilePicture ? await s3Retrieve(profilePicture) : null;
+    userNameProfile.rows[0].profile_picture = profilePicture ? await s3Retrieve(profilePicture) : null;
 
     // storing data as object
     const userDataObject = {
-      username: userNameProfile.rows[0].username,
-      profile_picture: profilePictureUrl,
+      userInfo: userNameProfile.rows[0],
       total_user_likes: userLikesCount,
       total_user_followers: userFollowersCount,
       total_user_following: userFollowingCount,
@@ -128,7 +128,6 @@ router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => 
     next(error); // server side error
   }
 });
-
 /**
  * Retrieves users that are followed by the user
  * 
