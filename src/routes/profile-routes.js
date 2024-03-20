@@ -137,7 +137,7 @@ router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => 
  * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/following/currentUser", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { page_number, page_size } = req.query; // getting page number and page size
     const { payload } = req.body;
