@@ -221,7 +221,7 @@ router.get("/following/:userId", rateLimiter(), verifyTokens, inputValidator, as
  * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/followers/currentUser", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { page_number, page_size } = req.query; // getting page number and page size
     const { payload } = req.body;
@@ -246,6 +246,34 @@ router.get("/followers", rateLimiter(), verifyTokens, inputValidator, async (req
     next(error); // server side error
   }
 });
+
+//Retrieves users that follow the user with the given ID.
+router.get("/followers/:userId", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+  try {
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const userID = req.params.userId // getting userID
+
+    const query = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)"; // returns the users that follow the user with pagination
+    const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+
+    //maps all profile picture to retrieve a http link for the profile pic
+    userFollowers.rows = await Promise.all(
+      userFollowers.rows.map(async (row) => {
+        if (row.profile_picture) {           // Check if profile picture exists
+          row.profile_picture = await s3Retrieve(row.profile_picture);
+        }
+        return row;
+      })
+    );
+
+    return res.status(200).json({ data: userFollowers.rows }); // sends details to client
+  } catch (error) {
+    next(error); // server side error
+  }
+});
+
+
 
 /**
  * Unfollows a user
