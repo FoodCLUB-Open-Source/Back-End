@@ -175,9 +175,8 @@ router.get("/following/currentUser", rateLimiter(), verifyTokens, inputValidator
 
 
 
-//Retrieves users that are followed by the params userid. This is the same as the above endpoint but doesnt use JWT for user payload.
-
-router.get("/following/:userId", rateLimiter(), inputValidator, async (req, res, next) => {
+//Retrieves users that are followed by the user
+router.get("/following/:userId", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { page_number, page_size } = req.query; // getting page number and page size
     const { payload } = req.body;
