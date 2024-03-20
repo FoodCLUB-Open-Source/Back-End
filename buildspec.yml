@@ -11,7 +11,6 @@ phases:
   build:
     commands:
       - echo Building the Docker image...
-      - echo test $FOODCLUB_PACKAGES_TOKEN
       - docker build --build-arg FOODCLUB_PACKAGES_TOKEN=$FOODCLUB_PACKAGES_TOKEN -t $REPOSITORY_URI:latest .
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
   post_build:
