@@ -28,7 +28,7 @@ jobs:
           COMMIT_HASH=$(echo $GITHUB_SHA | cut -c 1-7)
           IMAGE_TAG=${COMMIT_HASH:=latest}
           echo Building the Docker image...
-          echo $FOODCLUB_PACKAGES_TOKEN
+          echo test $FOODCLUB_PACKAGES_TOKEN
           docker build --build-arg FOODCLUB_PACKAGES_TOKEN=$FOODCLUB_PACKAGES_TOKEN -t $REPOSITORY_URI:latest .
           docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
           echo Pushing the Docker images...
