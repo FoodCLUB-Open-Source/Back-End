@@ -208,12 +208,10 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
  *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
+
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-
-    const {
-      post_id
-    } = req.params;
+    const post_id = req.params.post_id
     const {
       payload
     } = req.body;
@@ -227,10 +225,9 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
       });
     }
 
-    const updatedPosts = await updatePosts(postDetails.rows, user_id);
 
     return res.status(200).json({
-      data: updatedPosts
+      data: postDetails.rows[0]
     }); // sending data to client
 
   } catch (error) {
