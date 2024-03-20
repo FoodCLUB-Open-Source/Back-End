@@ -1,5 +1,4 @@
 <span style="display: flex; justify-content: center; align-items: center; gap: 20px; font-size: 32px; font-weight: bold">
-    <img alt="FoodCLUB Logo" src="assets/foodclub-logo.jpeg">
     FoodCLUB Backend
 </span>
 
