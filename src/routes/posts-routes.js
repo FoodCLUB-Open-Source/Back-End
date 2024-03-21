@@ -17,7 +17,8 @@ import {
   s3Delete,
   s3Retrieve,
   s3Upload,
-  stringToUUID
+  stringToUUID,
+  updatePosts
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
@@ -324,12 +325,12 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+
+router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
-    // const user_id = payload.user_id;
     const user_id = payload.user_id;
     // Extract category ID from URL parameters
     const {
@@ -354,23 +355,6 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-
-      // Return cached data if available
-      // IMPORTANT: If you update a post, remember to delete this cache
-      // For example, if you update post with ID 2:
-      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
-      // await redis.del('category:' + categoryId + ':page:' + currentPage);
-
-      const cachedPosts = JSON.parse(cachedData);
-      const paginatedPosts = {};
-      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
-
-      //For testing cache proccess
-      console.log("Cache Hit");
-      return res.status(200).json(paginatedPosts);
-    }
-
     // SQL query to fetch specific category posts
     const query = `
       SELECT *
@@ -385,24 +369,28 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     const specificCategoryPosts = await pgQuery(query, category_id, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
-    const updatedPosts = await updatedPosts(specificCategoryPosts.rows, user_id);
+    let updatedPosts = await updatePosts(specificCategoryPosts.rows, user_id);
 
-    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-    //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({
-      "posts": updatedPosts
-    }));
-    console.log("Cache Miss");
+    for (let i = 0; i < updatedPosts.length; i++) {
+      // Fetch the content creator details for each post
+      let contentCreator = await pgQuery("SELECT username, full_name FROM users WHERE id = $1", updatedPosts[i].user_id);
 
-
-    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id);
-    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture);
-
-
+      // Check if the content creator details exist
+      if (contentCreator.rows.length > 0) {
+        // Assign content creator details to the updated post
+        updatedPosts[i].content_creator = {
+          username: contentCreator.rows[0].username,
+          full_name: contentCreator.rows[0].full_name
+        };
+      } else {
+        // If content creator details are not found, set content_creator to null
+        updatedPosts[i].content_creator = null;
+      }
+    }
+    console.log(updatedPosts)
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
-      "posts": processedPosts,
-      contentCreator: contentCreator.rows[0]
+      "posts": updatedPosts
     });
   } catch (err) {
     next(err);
