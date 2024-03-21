@@ -215,17 +215,16 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
  *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
-
-router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+// verifyTokens,
+router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-
     const post_id = req.params.post_id;
     const { payload } = req.body;
-    const user_id = payload.user_id;
+    // const user_id = payload.user_id;
+    const user_id = 1;
 
-
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
-    const postDetails = await pgQuery(query, post_id); // performing query
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
+    const postDetails = await pgQuery(query, post_id);
 
     if (postDetails.rows.length === 0) {
       return res.status(404).json({ error: "Post not found" });
@@ -246,27 +245,30 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
       s3Promises.push(s3Retrieve(post.thumbnail_name));
     }
 
-    // Check if profile_picture exists and retrieve it from S3
-    if (post.profile_picture) {
-      s3Promises.push(s3Retrieve(post.profile_picture));
-    }
-
     // Wait for all s3Retrieve promises to resolve
     const s3Results = await Promise.all(s3Promises);
 
     // Update postDetails with S3 retrieval results
     if (post.video_name) {
-      post.video_name = s3Results.shift(); // Shifts and returns the first element of s3Results
+      post.video_name = s3Results.shift();
     }
     if (post.thumbnail_name) {
       post.thumbnail_name = s3Results.shift();
     }
-    if (post.profile_picture) {
-      post.profile_picture = s3Results.shift();
-    }
 
-    return res.status(200).json({ data: post }); // sending data to client
+    // Retrieve user information asynchronously
+    const userInfo = await getUserInfo(post.username);
+    // Wait for user info retrieval
+    console.log(userInfo)
 
+    // Construct the response object
+    post.user = {
+      id: userInfo.id,
+      username: userInfo.username,
+      profile_picture: await s3Retrieve(userInfo.profile_picture)
+    };
+
+    return res.status(200).json({ data: post });
   } catch (error) {
     next(error); // server side error
   }
