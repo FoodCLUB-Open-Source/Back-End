@@ -333,13 +333,14 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-
+//verifyTokens, 
 router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
     const user_id = payload.user_id;
+
     // Extract category ID from URL parameters
     const {
       category_id
@@ -381,21 +382,19 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
 
     for (let i = 0; i < updatedPosts.length; i++) {
       // Fetch the content creator details for each post
-      let contentCreator = await pgQuery("SELECT username, full_name FROM users WHERE id = $1", updatedPosts[i].user_id);
+      let contentCreator = await pgQuery("SELECT username, full_name,profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
 
       // Check if the content creator details exist
       if (contentCreator.rows.length > 0) {
+
         // Assign content creator details to the updated post
-        updatedPosts[i].content_creator = {
-          username: contentCreator.rows[0].username,
-          full_name: contentCreator.rows[0].full_name
-        };
+        updatedPosts[i].user = await getUserInfo(contentCreator.rows[0].username)
       } else {
         // If content creator details are not found, set content_creator to null
         updatedPosts[i].content_creator = null;
       }
     }
-    console.log(updatedPosts)
+
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
       "posts": updatedPosts
