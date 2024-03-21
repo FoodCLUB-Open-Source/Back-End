@@ -211,24 +211,54 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
 
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    const post_id = req.params.post_id
-    const {
-      payload
-    } = req.body;
+
+    const post_id = req.params.post_id;
+    const { payload } = req.body;
     const user_id = payload.user_id;
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
+
+
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
     if (postDetails.rows.length === 0) {
-      return res.status(404).json({
-        error: "Post not found"
-      });
+      return res.status(404).json({ error: "Post not found" });
     }
 
+    const post = postDetails.rows[0];
 
-    return res.status(200).json({
-      data: postDetails.rows[0]
-    }); // sending data to client
+    // Array to store promises for s3Retrieve calls
+    const s3Promises = [];
+
+    // Check if video_name exists and retrieve it from S3
+    if (post.video_name) {
+      s3Promises.push(s3Retrieve(post.video_name));
+    }
+
+    // Check if thumbnail_name exists and retrieve it from S3
+    if (post.thumbnail_name) {
+      s3Promises.push(s3Retrieve(post.thumbnail_name));
+    }
+
+    // Check if profile_picture exists and retrieve it from S3
+    if (post.profile_picture) {
+      s3Promises.push(s3Retrieve(post.profile_picture));
+    }
+
+    // Wait for all s3Retrieve promises to resolve
+    const s3Results = await Promise.all(s3Promises);
+
+    // Update postDetails with S3 retrieval results
+    if (post.video_name) {
+      post.video_name = s3Results.shift(); // Shifts and returns the first element of s3Results
+    }
+    if (post.thumbnail_name) {
+      post.thumbnail_name = s3Results.shift();
+    }
+    if (post.profile_picture) {
+      post.profile_picture = s3Results.shift();
+    }
+
+    return res.status(200).json({ data: post }); // sending data to client
 
   } catch (error) {
     next(error); // server side error
