@@ -17,7 +17,8 @@ import {
   s3Delete,
   s3Retrieve,
   s3Upload,
-  stringToUUID
+  stringToUUID,
+  updatePosts
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
@@ -208,30 +209,57 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
  *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
+
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
 
-    const {
-      post_id
-    } = req.params;
-    const {
-      payload
-    } = req.body;
+    const post_id = req.params.post_id;
+    const { payload } = req.body;
     const user_id = payload.user_id;
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
+
+
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
     const postDetails = await pgQuery(query, post_id); // performing query
 
     if (postDetails.rows.length === 0) {
-      return res.status(404).json({
-        error: "Post not found"
-      });
+      return res.status(404).json({ error: "Post not found" });
     }
 
-    const updatedPosts = await updatePosts(postDetails.rows, user_id);
+    const post = postDetails.rows[0];
 
-    return res.status(200).json({
-      data: updatedPosts
-    }); // sending data to client
+    // Array to store promises for s3Retrieve calls
+    const s3Promises = [];
+
+    // Check if video_name exists and retrieve it from S3
+    if (post.video_name) {
+      s3Promises.push(s3Retrieve(post.video_name));
+    }
+
+    // Check if thumbnail_name exists and retrieve it from S3
+    if (post.thumbnail_name) {
+      s3Promises.push(s3Retrieve(post.thumbnail_name));
+    }
+
+    // Check if profile_picture exists and retrieve it from S3
+    if (post.profile_picture) {
+      s3Promises.push(s3Retrieve(post.profile_picture));
+    }
+
+    // Wait for all s3Retrieve promises to resolve
+    const s3Results = await Promise.all(s3Promises);
+
+    // Update postDetails with S3 retrieval results
+    if (post.video_name) {
+      post.video_name = s3Results.shift(); // Shifts and returns the first element of s3Results
+    }
+    if (post.thumbnail_name) {
+      post.thumbnail_name = s3Results.shift();
+    }
+    if (post.profile_picture) {
+      post.profile_picture = s3Results.shift();
+    }
+
+    return res.status(200).json({ data: post }); // sending data to client
 
   } catch (error) {
     next(error); // server side error
@@ -297,12 +325,12 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+
+router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
-    // const user_id = payload.user_id;
     const user_id = payload.user_id;
     // Extract category ID from URL parameters
     const {
@@ -327,23 +355,6 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-
-      // Return cached data if available
-      // IMPORTANT: If you update a post, remember to delete this cache
-      // For example, if you update post with ID 2:
-      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
-      // await redis.del('category:' + categoryId + ':page:' + currentPage);
-
-      const cachedPosts = JSON.parse(cachedData);
-      const paginatedPosts = {};
-      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
-
-      //For testing cache proccess
-      console.log("Cache Hit");
-      return res.status(200).json(paginatedPosts);
-    }
-
     // SQL query to fetch specific category posts
     const query = `
       SELECT *
@@ -358,24 +369,28 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     const specificCategoryPosts = await pgQuery(query, category_id, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
-    const updatedPosts = await updatedPosts(specificCategoryPosts.rows, user_id);
+    let updatedPosts = await updatePosts(specificCategoryPosts.rows, user_id);
 
-    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-    //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({
-      "posts": updatedPosts
-    }));
-    console.log("Cache Miss");
+    for (let i = 0; i < updatedPosts.length; i++) {
+      // Fetch the content creator details for each post
+      let contentCreator = await pgQuery("SELECT username, full_name FROM users WHERE id = $1", updatedPosts[i].user_id);
 
-
-    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id);
-    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture);
-
-
+      // Check if the content creator details exist
+      if (contentCreator.rows.length > 0) {
+        // Assign content creator details to the updated post
+        updatedPosts[i].content_creator = {
+          username: contentCreator.rows[0].username,
+          full_name: contentCreator.rows[0].full_name
+        };
+      } else {
+        // If content creator details are not found, set content_creator to null
+        updatedPosts[i].content_creator = null;
+      }
+    }
+    console.log(updatedPosts)
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
-      "posts": processedPosts,
-      contentCreator: contentCreator.rows[0]
+      "posts": updatedPosts
     });
   } catch (err) {
     next(err);
