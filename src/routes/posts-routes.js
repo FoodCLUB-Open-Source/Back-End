@@ -12,6 +12,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 import {
   checkLike,
   checkView,
+  getUserInfo,
   makeTransactions,
   pgQuery,
   s3Delete,
@@ -76,9 +77,14 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
     `;
 
-    const posts = await pgQuery(query, title, username);
+    let posts = await pgQuery(query, title, username);
+    posts = posts.rows
+
+    for (let i = 0; i < posts.length; i++) {
+      posts[i].user = await getUserInfo(posts[i].username)
+    }
     return res.status(200).json({
-      data: posts.rows
+      data: posts
     });
   } catch (err) {
     console.error(err);
