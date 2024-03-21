@@ -37,7 +37,7 @@ app.use(
 );
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use("/health", (req, res) => {
-  res.status(200).send('Healthy');
+  res.status(200).send('OK');
 });
 
 /*  All Routes  */
