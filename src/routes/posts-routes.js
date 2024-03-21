@@ -215,13 +215,13 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
  *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
-// verifyTokens,
-router.get("/:post_id", rateLimiter(), inputValidator, async (req, res, next) => {
+
+router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const post_id = req.params.post_id;
     const { payload } = req.body;
-    // const user_id = payload.user_id;
-    const user_id = 1;
+    const user_id = payload.user_id;
+
 
     const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
     const postDetails = await pgQuery(query, post_id);
