@@ -341,3 +341,20 @@ export const removeLikesAndViews = async (post_id) => {
   });
 
 };
+
+export async function stringToUUID(inputString) {
+  try {
+    // Hash the input string using MD5
+    const hash = await crypto.createHash('md5').update(inputString).digest('hex');
+
+    // Convert the hash to UUID format (8-4-4-4-12)
+    const uuid = `${hash.substr(0, 8)}-${hash.substr(8, 4)}-${hash.substr(12, 4)}-${hash.substr(16, 4)}-${hash.substr(20)}`;
+
+    return uuid;
+
+  } catch (err) {
+    return {
+      error: `There has been an error performing this query`
+    };
+  }
+}
