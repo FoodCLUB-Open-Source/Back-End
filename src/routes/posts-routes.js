@@ -223,7 +223,8 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
     const user_id = payload.user_id;
 
 
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
+
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username  FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
     const postDetails = await pgQuery(query, post_id);
 
     if (postDetails.rows.length === 0) {
@@ -259,7 +260,7 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
     // Retrieve user information asynchronously
     const userInfo = await getUserInfo(post.username);
     // Wait for user info retrieval
-    console.log(userInfo)
+
 
     // Construct the response object
     post.user = {
