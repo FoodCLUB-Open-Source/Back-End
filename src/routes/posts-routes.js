@@ -12,6 +12,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 import {
   checkLike,
   checkView,
+  getUserInfo,
   makeTransactions,
   pgQuery,
   s3Delete,
@@ -76,9 +77,14 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
     `;
 
-    const posts = await pgQuery(query, title, username);
+    let posts = await pgQuery(query, title, username);
+    posts = posts.rows
+
+    for (let i = 0; i < posts.length; i++) {
+      posts[i].user = await getUserInfo(posts[i].username)
+    }
     return res.status(200).json({
-      data: posts.rows
+      data: posts
     });
   } catch (err) {
     console.error(err);
@@ -212,14 +218,14 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
 
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-
     const post_id = req.params.post_id;
     const { payload } = req.body;
     const user_id = payload.user_id;
 
 
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
-    const postDetails = await pgQuery(query, post_id); // performing query
+
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username  FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
+    const postDetails = await pgQuery(query, post_id);
 
     if (postDetails.rows.length === 0) {
       return res.status(404).json({ error: "Post not found" });
@@ -240,27 +246,30 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
       s3Promises.push(s3Retrieve(post.thumbnail_name));
     }
 
-    // Check if profile_picture exists and retrieve it from S3
-    if (post.profile_picture) {
-      s3Promises.push(s3Retrieve(post.profile_picture));
-    }
-
     // Wait for all s3Retrieve promises to resolve
     const s3Results = await Promise.all(s3Promises);
 
     // Update postDetails with S3 retrieval results
     if (post.video_name) {
-      post.video_name = s3Results.shift(); // Shifts and returns the first element of s3Results
+      post.video_name = s3Results.shift();
     }
     if (post.thumbnail_name) {
       post.thumbnail_name = s3Results.shift();
     }
-    if (post.profile_picture) {
-      post.profile_picture = s3Results.shift();
-    }
 
-    return res.status(200).json({ data: post }); // sending data to client
+    // Retrieve user information asynchronously
+    const userInfo = await getUserInfo(post.username);
+    // Wait for user info retrieval
 
+
+    // Construct the response object
+    post.user = {
+      id: userInfo.id,
+      username: userInfo.username,
+      profile_picture: await s3Retrieve(userInfo.profile_picture)
+    };
+
+    return res.status(200).json({ data: post });
   } catch (error) {
     next(error); // server side error
   }
@@ -325,13 +334,14 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-
+//verifyTokens, 
 router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
     const user_id = payload.user_id;
+
     // Extract category ID from URL parameters
     const {
       category_id
@@ -373,21 +383,19 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
 
     for (let i = 0; i < updatedPosts.length; i++) {
       // Fetch the content creator details for each post
-      let contentCreator = await pgQuery("SELECT username, full_name FROM users WHERE id = $1", updatedPosts[i].user_id);
+      let contentCreator = await pgQuery("SELECT username, full_name,profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
 
       // Check if the content creator details exist
       if (contentCreator.rows.length > 0) {
+
         // Assign content creator details to the updated post
-        updatedPosts[i].content_creator = {
-          username: contentCreator.rows[0].username,
-          full_name: contentCreator.rows[0].full_name
-        };
+        updatedPosts[i].user = await getUserInfo(contentCreator.rows[0].username)
       } else {
         // If content creator details are not found, set content_creator to null
         updatedPosts[i].content_creator = null;
       }
     }
-    console.log(updatedPosts)
+
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
       "posts": updatedPosts
@@ -404,12 +412,14 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
  * @returns {status} - If successful, returns 200 and a JSON object with an array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
+
+router.get("/homepage/user", inputValidator, verifyTokens, rateLimiter(), async (req, res, next) => {
   // getting user ID
   const {
     payload
   } = req.body;
   const user_id = payload.user_id;
+
 
   try {
     // Get posts liked by the user
@@ -431,7 +441,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // SQL query to fetch homepage posts with additional user information
     const query = `
       SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at,
-             u.username, u.full_name, u.id as user_id, u.profile_picture,
+             u.username,
              COALESCE((SELECT COUNT(*) FROM bookmarks b WHERE b.user_id = $1 AND b.post_id = p.id), 0) AS is_bookmarked
       FROM posts p
       JOIN users u ON p.user_id = u.id
@@ -446,6 +456,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // Process the posts to add video and thumbnail URLs, like count, and view count
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
+
         const videoUrl = await s3Retrieve(post.video_name);
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
@@ -454,9 +465,11 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
 
         const isLiked = await checkLike(post.id, user_id);
         const isViewed = await checkView(post.id, user_id);
+        const user = await getUserInfo(post.username)
 
         return {
           ...post,
+          user: user,
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
           like_count: likeCount.length,

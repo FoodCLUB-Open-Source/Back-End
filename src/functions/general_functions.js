@@ -16,6 +16,7 @@ import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import {
   error
 } from "console";
+import { type } from "os";
 
 
 /**  
@@ -325,13 +326,13 @@ export const removeLikesAndViews = async (post_id) => {
 
   // Create an array of delete requests for 'Likes' and 'Views' tables
   const deleteRequests = [{
-      tableName: "Likes",
-      items: likesToDelete,
-    },
-    {
-      tableName: "Views",
-      items: viewsToDelete,
-    },
+    tableName: "Likes",
+    items: likesToDelete,
+  },
+  {
+    tableName: "Views",
+    items: viewsToDelete,
+  },
   ];
 
   // Perform batch deletions
@@ -358,3 +359,30 @@ export async function stringToUUID(inputString) {
     };
   }
 }
+
+export async function getUserInfo(userData) {
+  try {
+    let query, userInfo;
+    if (typeof (userData) === "number") {
+      query = "SELECT id, username, full_name, profile_picture FROM users WHERE id = $1";
+    } else {
+      query = "SELECT id, username, full_name, profile_picture FROM users WHERE username = $1";
+    }
+
+    userInfo = await pgQuery(query, userData);
+
+    if (userInfo.rows.length > 0) {
+      if (userInfo.rows[0].profile_picture != null) {
+        userInfo.rows[0].profile_picture = await s3Retrieve(userInfo.rows[0].profile_picture);
+      }
+      return userInfo.rows[0];
+    } else {
+      return null;
+    }
+  } catch (err) {
+    console.log(err);
+    throw err; // Re-throw the error for the caller to handle
+  }
+}
+
+
