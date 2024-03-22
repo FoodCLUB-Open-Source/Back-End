@@ -411,12 +411,14 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
  * @returns {status} - If successful, returns 200 and a JSON object with an array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
+
+router.get("/homepage/user", inputValidator, verifyTokens, rateLimiter(), async (req, res, next) => {
   // getting user ID
   const {
     payload
   } = req.body;
   const user_id = payload.user_id;
+
 
   try {
     // Get posts liked by the user
@@ -438,7 +440,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // SQL query to fetch homepage posts with additional user information
     const query = `
       SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at,
-             u.username, u.full_name, u.id as user_id, u.profile_picture,
+             u.username,
              COALESCE((SELECT COUNT(*) FROM bookmarks b WHERE b.user_id = $1 AND b.post_id = p.id), 0) AS is_bookmarked
       FROM posts p
       JOIN users u ON p.user_id = u.id
@@ -453,6 +455,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // Process the posts to add video and thumbnail URLs, like count, and view count
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
+
         const videoUrl = await s3Retrieve(post.video_name);
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
@@ -461,9 +464,11 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
 
         const isLiked = await checkLike(post.id, user_id);
         const isViewed = await checkView(post.id, user_id);
+        const user = await getUserInfo(post.username)
 
         return {
           ...post,
+          user: user,
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
           like_count: likeCount.length,
