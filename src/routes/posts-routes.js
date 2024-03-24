@@ -220,11 +220,11 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
   try {
     const post_id = req.params.post_id;
     const { payload } = req.body;
-    const user_id = payload.user_id;
+    const user_id =  payload.user_id;
 
 
 
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username  FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.full_name  FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
     const postDetails = await pgQuery(query, post_id);
 
     if (postDetails.rows.length === 0) {
@@ -261,15 +261,22 @@ router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req,
     const userInfo = await getUserInfo(post.username);
     // Wait for user info retrieval
 
-
-    // Construct the response object
-    post.user = {
-      id: userInfo.id,
-      username: userInfo.username,
-      profile_picture: await s3Retrieve(userInfo.profile_picture)
+    const responseData = {
+      id: post.id,
+      title: post.title,
+      description: post.description,
+      video_name: post.video_name,
+      thumbnail_name: post.thumbnail_name,
+      user: {
+        id: userInfo.id,
+        username: userInfo.username,
+        full_name: userInfo.full_name, // Ensure this is not null if possible
+        profile_picture: await s3Retrieve(userInfo.profile_picture)
+      }
     };
 
-    return res.status(200).json({ data: post });
+
+    return res.status(200).json({ data: responseData });
   } catch (error) {
     next(error); // server side error
   }
@@ -383,7 +390,7 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
 
     for (let i = 0; i < updatedPosts.length; i++) {
       // Fetch the content creator details for each post
-      let contentCreator = await pgQuery("SELECT username, full_name,profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
+      let contentCreator = await pgQuery("SELECT username, full_name, profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
 
       // Check if the content creator details exist
       if (contentCreator.rows.length > 0) {
@@ -544,7 +551,7 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
 
     // Define SQL queries
     const usersQuery = `
-      SELECT id, username, profile_picture
+      SELECT id, username, profile_picture, full_name
       FROM users
       WHERE LOWER(username) LIKE LOWER($1)
     `;

@@ -218,7 +218,7 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
   
   cognitoUser.authenticateUser(authenticationDetails, {
     onSuccess: async (result) =>{
-      const user = await pgQuery("SELECT id, username, profile_picture FROM users WHERE username = $1", username);
+      const user = await pgQuery("SELECT id, username, profile_picture, full_name FROM users WHERE username = $1", username);
       // signInUserSession is an instance of CognitoUserSession
       // these return object instances, not just strings of the tokens.
       const signInUserSession = cognitoUser.getSignInUserSession();

@@ -203,7 +203,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
