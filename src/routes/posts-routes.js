@@ -219,10 +219,6 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const post_id = req.params.post_id;
-    const { payload } = req.body;
-    const user_id =  payload.user_id;
-
-
 
     const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.full_name  FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
     const postDetails = await pgQuery(query, post_id);
