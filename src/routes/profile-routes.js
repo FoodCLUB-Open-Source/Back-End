@@ -495,12 +495,13 @@ router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, asyn
  * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Profile Picture Updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-
-router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
+//upload.any()
+router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     // Getting user ID
     const { payload } = req.body;
     const user_id = payload.user_id;
+    console.log(user_id)
 
     const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
 
@@ -517,10 +518,12 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
       return res.status(400).json({ error: 'No files uploaded' });
     }
     console.log(req.files[0]);
-    //here check if the existing profile picture is the not null then delete the existing profile picture
-    if (existingProfilePicture.rows[0].profile_picture !== "") {
+
+    // Check if existingProfilePicture has rows and the first row is not null before accessing profile_picture
+    if (existingProfilePicture.rows.length > 0 && existingProfilePicture.rows[0].profile_picture !== null) {
       await s3Delete(existingProfilePicture.rows[0].profile_picture);
     }
+
     const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
     // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
     const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}${req.files[0]}`)
@@ -532,6 +535,10 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
     next(error); // Handle server-side error
   }
 });
+
+
+
+
 
 
 export default router;
