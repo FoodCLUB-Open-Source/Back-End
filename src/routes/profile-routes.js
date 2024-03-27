@@ -501,7 +501,7 @@ router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputV
     // Getting user ID
     const { payload } = req.body;
     const user_id = payload.user_id;
-    console.log(user_id)
+
 
     const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
 
@@ -517,7 +517,7 @@ router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputV
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
-    console.log(req.files[0]);
+
 
     // Check if existingProfilePicture has rows and the first row is not null before accessing profile_picture
     if (existingProfilePicture.rows.length > 0 && existingProfilePicture.rows[0].profile_picture !== null) {
@@ -527,7 +527,7 @@ router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputV
     const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
     // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
     const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}${req.files[0]}`)
-    console.log("new profile picture" + newProfilePictureName);
+    // console.log("new profile picture" + newProfilePictureName);
     await pgQuery(query, profilePictureURL, user_id);
     res.status(200).json({ "Status": "Profile Picture Updated" });
 
