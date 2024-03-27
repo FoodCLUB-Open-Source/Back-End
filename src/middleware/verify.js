@@ -1,5 +1,5 @@
 import { CognitoAccessToken, CognitoIdToken } from "amazon-cognito-identity-js";
-import { accessVerifier, idVerifier }from "../config/cognito.js";
+import { accessVerifier, idVerifier } from "../config/cognito.js";
 import { parseHeader, parseHeaderAccess } from "../functions/cognito_functions.js";
 
 // All tokens should be passed from frontend and stored as strings, not as objects.
@@ -42,7 +42,7 @@ export const verifyIdToken = async (idToken) => {
 
   if (idToken) {
     const cognitoIdToken = new CognitoIdToken({ IdToken: idToken });
-    console.log(cognitoIdToken);
+
     try {
       const payload = await idVerifier.verify(
         cognitoIdToken.getJwtToken()
