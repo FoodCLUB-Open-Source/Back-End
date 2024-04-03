@@ -538,12 +538,11 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
  * @returns {status} If successful, returns 200 and a JSON object of the users and posts matching the search criteria, else returns 500 and a JSON object with response set to 'Internal server error'
  * @throws {Error} If there are errors, no posts are retrieved
  */
-router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res) => {
+router.get("/search/user-posts/:searchText", verifyTokens, rateLimiter(), inputValidator, async (req, res) => {
   try {
-    // Extract search text from request body
-    const {
-      search_text
-    } = req.body;
+    // Extract search text from URL params
+    const search_text = req.params.searchText
+
 
     // Define SQL queries
     const usersQuery = `
@@ -607,5 +606,7 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
     });
   }
 });
+
+console.log(await pgQuery("SELECT * FROM users"))
 
 export default router;
