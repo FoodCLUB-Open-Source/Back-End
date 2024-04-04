@@ -102,34 +102,26 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Video Posted'
  * @throws {Error} - If there are errors, the post must not be posted and any posted information needs to be rolled back.
  */
-router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
+router.post("/", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
   try {
-    const {
-      payload
-    } = req.body;
-    const user_id = payload.user_id;
+    console.log("im being called")
+    const { payload } = req.body;
+    const user_id = 251;
 
-    const {
-      title,
-      description,
-      recipe_description,
-      preparation_time,
-      serving_size,
-      category
-    } = req.body;
+    const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
 
-    let {
-      recipe_ingredients,
-      recipe_equipment,
-      recipe_steps
-    } = req.body;
+    // let { recipe_ingredients, recipe_equipment, recipe_steps } = req.body;
+    let { ingredients } = req.body;
 
-    recipe_ingredients = JSON.parse(recipe_ingredients);
-    recipe_equipment = JSON.parse(recipe_equipment);
-    recipe_steps = JSON.parse(recipe_steps);
+    // recipe_ingredients = JSON.parse(recipe_ingredients);
+    // recipe_equipment = JSON.parse(recipe_equipment);
+    // recipe_steps = JSON.parse(recipe_steps);
+
+    ingredients = JSON.parse(ingredients);
+
 
     const S3_POST_PATH = "posts/active/";
-    //Used to upload to s3 bucket
+
     const [newVideoName, newThumbNaileName] = await Promise.all([
       s3Upload(req.files[0], S3_POST_PATH),
       s3Upload(req.files[1], S3_POST_PATH)
@@ -140,56 +132,42 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
     try {
       await client.query("BEGIN");
 
+      // Insert the post into the posts table
       const insertPostQuery = "INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id";
       const postValues = [user_id, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
+      const { post_id } = newPost.rows[0];
 
-      const {
-        post_id
-      } = newPost.rows[0];
+      // Insert the recipe into the recipes table
+      const insertRecipeQuery = "INSERT INTO recipes (post_id, recipe_description, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id as recipe_id";
+      const recipeValues = [post_id, recipe_description, preparation_time, serving_size];
+      const newRecipe = await client.query(insertRecipeQuery, recipeValues);
+      const { recipe_id } = newRecipe.rows[0];
 
-      const insertRecipeQuery = "INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())";
-      const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
-
-      const updatePostQuery = "INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)";
-      const postUpdateValues = [post_id, category];
-
-      try {
-        //loop through all ingridients
-        for (let i = 0; i < recipe_ingredients.length; i++) {
-          const currentIngridients = recipe_ingredients[i]
-          //get current ingridient id and change id to UUID
-          const currentIngridientsUUID = await stringToUUID(currentIngridients.id)
-
-          //checkto see if current ingridients exisits in db.
-          const exists = await pgQuery("SELECT * FROM Ingredients WHERE id=$1", currentIngridientsUUID)
-          //add to db if the ingridients doesnt exists
-          if (exists.rows.length < 1) {
-            const insertIngridientQuery = " INSERT INTO Ingredients (id,item_name, image_url, hints)VALUES ($1,$2,$3,$4)"
-            const ingridientValues = [currentIngridientsUUID, currentIngridients.item_name, currentIngridients.image_url, currentIngridients.hints]
-            client.query(insertIngridientQuery, ingridientValues)
-          }
+      // Loop through recipe ingredients
+      for (let i = 0; i < ingredients.length; i++) {
+        const { productId, label, imageUrl, quantity, unit } = ingredients[i];
+        // Insert product into products table if it doesn't exist
+        const productExistsQuery = "SELECT id FROM products WHERE id = $1";
+        const productExists = await client.query(productExistsQuery, [productId]);
+        if (productExists.rows.length === 0) {
+          const insertProductQuery = "INSERT INTO products (id, label, imageUrl) VALUES ($1, $2, $3)";
+          await client.query(insertProductQuery, [productId, label, imageUrl]);
         }
-      } catch (err) {
-        return res.status(400).json({
-          error: err
-        })
+        // Insert association into recipe_products table
+        const insertRecipeProductQuery = "INSERT INTO recipe_products (recipe_id, product_id, quantity, unit) VALUES ($1, $2, $3, $4)";
+        await client.query(insertRecipeProductQuery, [recipe_id, productId, quantity, unit]);
       }
 
-      await Promise.all([
-        client.query(insertRecipeQuery, recipeValues),
-        client.query(updatePostQuery, postUpdateValues)
-      ]);
+      // Insert category into posts_categories table
+      const insertCategoryQuery = "INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)";
+      const postCategoryValues = [post_id, category];
+      await client.query(insertCategoryQuery, postCategoryValues);
 
       await client.query("COMMIT");
-
-      console.log("Video Posted " + post_id);
-      res.status(200).json({
-        Status: "Video Posted"
-      });
+      res.status(200).json({ Status: "Video Posted" });
 
     } catch (err) {
-
       await Promise.all([
         s3Delete(S3_POST_PATH + req.files[0]),
         s3Delete(S3_POST_PATH + req.files[1])
@@ -205,6 +183,8 @@ router.post("/", inputValidator, verifyTokens, rateLimiter(500, 15), upload.any(
     next(err);
   }
 });
+
+
 
 /**
  * Retrieves post details of a specific post based off post ID
@@ -607,6 +587,9 @@ router.get("/search/user-posts/:searchText", verifyTokens, rateLimiter(), inputV
   }
 });
 
-console.log(await pgQuery("SELECT * FROM users"))
+
+
+
+
 
 export default router;
