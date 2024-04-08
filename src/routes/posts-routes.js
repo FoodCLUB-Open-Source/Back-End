@@ -607,6 +607,6 @@ router.get("/search/user-posts/:searchText", verifyTokens, rateLimiter(), inputV
   }
 });
 
-console.log(await pgQuery("SELECT * FROM users"))
+
 
 export default router;
