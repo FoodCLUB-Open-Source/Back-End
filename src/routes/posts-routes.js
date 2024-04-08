@@ -5,28 +5,25 @@ import {
 import multer, {
   memoryStorage
 } from "multer";
-
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
-
 import {
   checkLike,
   checkView,
   getUserInfo,
-  makeTransactions,
   pgQuery,
   s3Delete,
   s3Retrieve,
   s3Upload,
-  stringToUUID,
-  updatePosts
+  updatePosts,
+  getUserInfoFromIdToken
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
 import {
   verifyTokens,
-  verifyUserIdentity
+  verifyUserIdentity,
 } from "../middleware/verify.js";
 
 const router = Router();
@@ -102,21 +99,16 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Video Posted'
  * @throws {Error} - If there are errors, the post must not be posted and any posted information needs to be rolled back.
  */
-router.post("/", inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
+router.post("/", verifyTokens, inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
   try {
-    console.log("im being called")
-    const { payload } = req.body;
-    const user_id = 251;
+
+    let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
+    let user_id = user.user_id
+
 
     const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
 
-    // let { recipe_ingredients, recipe_equipment, recipe_steps } = req.body;
     let { ingredients } = req.body;
-
-    // recipe_ingredients = JSON.parse(recipe_ingredients);
-    // recipe_equipment = JSON.parse(recipe_equipment);
-    // recipe_steps = JSON.parse(recipe_steps);
-
     ingredients = JSON.parse(ingredients);
 
 
@@ -128,7 +120,6 @@ router.post("/", inputValidator, rateLimiter(500, 15), upload.any(), async (req,
     ]);
 
     const client = await pgPool.connect();
-
     try {
       await client.query("BEGIN");
 
