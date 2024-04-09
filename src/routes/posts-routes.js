@@ -580,7 +580,4 @@ router.get("/search/user-posts/:searchText", verifyTokens, rateLimiter(), inputV
 
 
 
-
-
-
 export default router;
