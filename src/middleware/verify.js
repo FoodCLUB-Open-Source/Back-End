@@ -74,9 +74,11 @@ export const verifyTokens = async (req, res, next) => {
   try {
     const authorisation = req.headers["authorisation"];
     const bearerTokens = await parseHeader(authorisation);
+
     const access_token = bearerTokens.access_token;
     const id_token = bearerTokens.id_token;
     await verifyAccessToken(access_token);
+
     req.body.payload = await verifyIdToken(id_token);
     return next();
   } catch (error) {

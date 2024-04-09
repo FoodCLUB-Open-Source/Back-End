@@ -17,6 +17,7 @@ import {
   error
 } from "console";
 import { type } from "os";
+import { verifyIdToken } from "../middleware/verify.js";
 
 
 /**  
@@ -382,6 +383,18 @@ export async function getUserInfo(userData) {
   } catch (err) {
     console.log(err);
     throw err; // Re-throw the error for the caller to handle
+  }
+}
+
+export async function getUserInfoFromIdToken(idToken) {
+  try {
+    let user = await verifyIdToken(idToken)
+    user.user_id = parseInt(user.user_id)
+    return user
+
+  }
+  catch (err) {
+    console.log("Erro has occured")
   }
 }
 
