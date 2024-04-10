@@ -1,8 +1,9 @@
 import { Router } from "express";
 import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
-import { checkLike, checkView, pgQuery, updatePosts } from "../functions/general_functions.js";
+import { checkLike, checkView, pgQuery, s3Retrieve, updatePosts } from "../functions/general_functions.js";
 import { verifyTokens } from "../middleware/verify.js";
+import redis from "../config/redisConfig.js";
 
 const router = Router();
 
@@ -82,7 +83,7 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
     // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
     const bookmarkPostsQuery = `
         SELECT 
-            p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username, pc.name as post_category,
+            p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username,
             CASE 
                 WHEN fol.user_following_id IS NOT NULL THEN true 
                 ELSE false 
@@ -105,9 +106,29 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
         OFFSET (($2 - 1) * $3)`; // query to get bookmarked post details
 
     const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
-    const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows,parseInt(user_id)); // updating post objects to include further information
+    const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows, parseInt(user_id)); // updating post objects to include further information
 
-    return res.status(200).json({ data: updatedPostsData }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
+    // Query to retrieve Bookmarker's information
+    const bookmarkerQuery = `
+      SELECT 
+        id, username, profile_picture 
+      FROM 
+        users 
+      WHERE 
+        id = $1`;
+
+    // Execute the query to retrieve bookmarker's information
+    const bookmarker = await pgQuery(bookmarkerQuery, updatedPostsData.length > 0 ? updatedPostsData[0].user_id : user_id);
+
+    if (bookmarker.rows.length > 0) {
+      // If bookmarker's information is found, retrieve profile picture from S3
+      bookmarker.rows[0].profile_picture = await s3Retrieve(bookmarker.rows[0].profile_picture);
+    }
+
+    res.status(200).json({
+       data: updatedPostsData,
+       bookmarker: bookmarker.rows[0] // Include bookmarker's information in the response
+       }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
   } catch (error) {
     next(error); // server side error
   }
