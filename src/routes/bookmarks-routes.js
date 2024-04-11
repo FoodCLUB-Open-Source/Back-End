@@ -118,16 +118,35 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
         id = $1`;
 
     // Execute the query to retrieve bookmarker's information
-    const bookmarker = await pgQuery(bookmarkerQuery, updatedPostsData.length > 0 ? updatedPostsData[0].user_id : user_id);
+    const bookmarker = await pgQuery(bookmarkerQuery, user_id);
+    let bookmarkerData = {};
 
     if (bookmarker.rows.length > 0) {
       // If bookmarker's information is found, retrieve profile picture from S3
-      bookmarker.rows[0].profile_picture = await s3Retrieve(bookmarker.rows[0].profile_picture);
+      const bookmarkerInfo = bookmarker.rows[0];
+      bookmarkerData = {
+        id: bookmarkerInfo.id,
+        username: bookmarkerInfo.username,
+        profile_picture: await s3Retrieve(bookmarkerInfo.profile_picture)
+      };
     }
 
+    const responseData = updatedPostsData.map(post => {
+      const { user_id, full_name, profile_picture, username, ...postWithoutUser } = post;
+      return {
+          ...postWithoutUser,
+          user: { // User information is nested under each post
+              user_id,
+              full_name,
+              profile_picture,
+              username
+          }
+      };
+  });
+
     res.status(200).json({
-       data: updatedPostsData,
-       bookmarker: bookmarker.rows[0] // Include bookmarker's information in the response
+       data: responseData,
+       bookmarker: bookmarkerData // Include bookmarker's information in the response
        }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
   } catch (error) {
     next(error); // server side error
