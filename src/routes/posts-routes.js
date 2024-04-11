@@ -5,25 +5,25 @@ import {
 import multer, {
   memoryStorage
 } from "multer";
-
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
-
 import {
   checkLike,
   checkView,
-  makeTransactions,
+  getUserInfo,
   pgQuery,
   s3Delete,
   s3Retrieve,
-  s3Upload
+  s3Upload,
+  updatePosts,
+  getUserInfoFromIdToken
 } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 import redis from "../config/redisConfig.js";
 import pgPool from "../config/pgdb.js";
 import {
   verifyTokens,
-  verifyUserIdentity
+  verifyUserIdentity,
 } from "../middleware/verify.js";
 
 const router = Router();
@@ -63,7 +63,9 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  */
 router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const { username = "", title = "" } = req.query;
+    const {
+      username = "", title = ""
+    } = req.query;
     const query = `
       SELECT p.id, p.title, p.thumbnail_name, u.username, u.profile_picture
       FROM users u
@@ -72,11 +74,20 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
     `;
 
-    const posts = await pgQuery(query, title, username);
-    return res.status(200).json({ data: posts.rows });
+    let posts = await pgQuery(query, title, username);
+    posts = posts.rows
+
+    for (let i = 0; i < posts.length; i++) {
+      posts[i].user = await getUserInfo(posts[i].username)
+    }
+    return res.status(200).json({
+      data: posts
+    });
   } catch (err) {
     console.error(err);
-    return res.status(400).json({ message: "Unknown error occurred." });
+    return res.status(400).json({
+      message: "Unknown error occurred."
+    });
   }
 });
 
@@ -89,71 +100,66 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Video Posted'
  * @throws {Error} - If there are errors, the post must not be posted and any posted information needs to be rolled back.
  */
-router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(), async (req, res, next) => {
+router.post("/", verifyTokens, inputValidator, rateLimiter(500, 15), upload.any(), async (req, res, next) => {
   try {
 
-    const {
-      payload
-    } = req.body;
-    const user_id = payload.user_id;
-    const {
-      title,
-      description,
-      recipe_description,
-      preparation_time,
-      serving_size,
-      category
-    } = req.body;
-    let {
-      recipe_ingredients,
-      recipe_equipment,
-      recipe_steps
-    } = req.body;
+    let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
+    let user_id = user.user_id
 
-    recipe_ingredients = JSON.parse(recipe_ingredients);
-    recipe_equipment = JSON.parse(recipe_equipment);
-    recipe_steps = JSON.parse(recipe_steps);
+
+    const { title, description, recipe_description, preparation_time, serving_size, category } = req.body;
+
+    let { ingredients } = req.body;
+    ingredients = JSON.parse(ingredients);
+
 
     const S3_POST_PATH = "posts/active/";
-    //Used to upload to s3 bucket
+
     const [newVideoName, newThumbNaileName] = await Promise.all([
       s3Upload(req.files[0], S3_POST_PATH),
       s3Upload(req.files[1], S3_POST_PATH)
     ]);
 
     const client = await pgPool.connect();
-
     try {
       await client.query("BEGIN");
 
+      // Insert the post into the posts table
       const insertPostQuery = "INSERT INTO posts (user_id, title, description, video_name, thumbnail_name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id as post_id";
       const postValues = [user_id, title, description, newVideoName, newThumbNaileName];
       const newPost = await client.query(insertPostQuery, postValues);
+      const { post_id } = newPost.rows[0];
 
-      const {
-        post_id
-      } = newPost.rows[0];
+      // Insert the recipe into the recipes table
+      const insertRecipeQuery = "INSERT INTO recipes (post_id, recipe_description, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id as recipe_id";
+      const recipeValues = [post_id, recipe_description, preparation_time, serving_size];
+      const newRecipe = await client.query(insertRecipeQuery, recipeValues);
+      const { recipe_id } = newRecipe.rows[0];
 
-      const insertRecipeQuery = "INSERT INTO recipes (post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())";
-      const recipeValues = [post_id, recipe_description, recipe_ingredients, recipe_equipment, recipe_steps, preparation_time, serving_size];
+      // Loop through recipe ingredients
+      for (let i = 0; i < ingredients.length; i++) {
+        const { productId, label, imageUrl, quantity, unit } = ingredients[i];
+        // Insert product into products table if it doesn't exist
+        const productExistsQuery = "SELECT id FROM products WHERE id = $1";
+        const productExists = await client.query(productExistsQuery, [productId]);
+        if (productExists.rows.length === 0) {
+          const insertProductQuery = "INSERT INTO products (id, label, imageUrl) VALUES ($1, $2, $3)";
+          await client.query(insertProductQuery, [productId, label, imageUrl]);
+        }
+        // Insert association into recipe_products table
+        const insertRecipeProductQuery = "INSERT INTO recipe_products (recipe_id, product_id, quantity, unit) VALUES ($1, $2, $3, $4)";
+        await client.query(insertRecipeProductQuery, [recipe_id, productId, quantity, unit]);
+      }
 
-      const updatePostQuery = "INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)";
-      const postUpdateValues = [post_id, category];
-
-      await Promise.all([
-        client.query(insertRecipeQuery, recipeValues),
-        client.query(updatePostQuery, postUpdateValues)
-      ]);
+      // Insert category into posts_categories table
+      const insertCategoryQuery = "INSERT INTO posts_categories (post_id, category_name) VALUES ($1, $2)";
+      const postCategoryValues = [post_id, category];
+      await client.query(insertCategoryQuery, postCategoryValues);
 
       await client.query("COMMIT");
-
-      console.log("Video Posted " + post_id);
-      res.status(200).json({
-        Status: "Video Posted"
-      });
+      res.status(200).json({ Status: "Video Posted" });
 
     } catch (err) {
-
       await Promise.all([
         s3Delete(S3_POST_PATH + req.files[0]),
         s3Delete(S3_POST_PATH + req.files[1])
@@ -170,6 +176,8 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
   }
 });
 
+
+
 /**
  * Retrieves post details of a specific post based off post ID
  * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
@@ -180,29 +188,64 @@ router.post("/", inputValidator, rateLimiter(500, 15), verifyTokens, upload.any(
  *                     Else, returns 404 and a JSON object with error message set to 'Post not found'
  * @throws {Error} - If there is error retrieving post details or validation issues do not retrieve anything
  */
+
 router.get("/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
+    const post_id = req.params.post_id;
 
-    const {
-      post_id
-    } = req.params;
-    const {
-      payload
-    } = req.body;
-    const user_id = payload.user_id;
-    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.profile_picture from posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1"; // query to get post details and user who has posted details
-    const postDetails = await pgQuery(query, post_id); // performing query
+    const query = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, u.username, u.full_name  FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = $1";
+    const postDetails = await pgQuery(query, post_id);
 
     if (postDetails.rows.length === 0) {
-      return res.status(404).json({
-        error: "Post not found"
-      });
+      return res.status(404).json({ error: "Post not found" });
     }
 
-    const updatedPosts = await updatePosts(postDetails.rows, user_id);
+    const post = postDetails.rows[0];
 
-    return res.status(200).json({ data: updatedPosts }); // sending data to client
-    
+    // Array to store promises for s3Retrieve calls
+    const s3Promises = [];
+
+    // Check if video_name exists and retrieve it from S3
+    if (post.video_name) {
+      s3Promises.push(s3Retrieve(post.video_name));
+    }
+
+    // Check if thumbnail_name exists and retrieve it from S3
+    if (post.thumbnail_name) {
+      s3Promises.push(s3Retrieve(post.thumbnail_name));
+    }
+
+    // Wait for all s3Retrieve promises to resolve
+    const s3Results = await Promise.all(s3Promises);
+
+    // Update postDetails with S3 retrieval results
+    if (post.video_name) {
+      post.video_name = s3Results.shift();
+    }
+    if (post.thumbnail_name) {
+      post.thumbnail_name = s3Results.shift();
+    }
+
+    // Retrieve user information asynchronously
+    const userInfo = await getUserInfo(post.username);
+    // Wait for user info retrieval
+
+    const responseData = {
+      id: post.id,
+      title: post.title,
+      description: post.description,
+      video_name: post.video_name,
+      thumbnail_name: post.thumbnail_name,
+      user: {
+        id: userInfo.id,
+        username: userInfo.username,
+        full_name: userInfo.full_name, // Ensure this is not null if possible
+        profile_picture: await s3Retrieve(userInfo.profile_picture)
+      }
+    };
+
+
+    return res.status(200).json({ data: responseData });
   } catch (error) {
     next(error); // server side error
   }
@@ -269,13 +312,14 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @returns {status} - If successful, returns 200 and a JSON object with an array of posts for the specified category
  * @throws {Error} - If there are errors, no posts are retrieved
  */
-router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+//verifyTokens, 
+router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
-    // const user_id = payload.user_id;
     const user_id = payload.user_id;
+
     // Extract category ID from URL parameters
     const {
       category_id
@@ -299,23 +343,6 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-
-      // Return cached data if available
-      // IMPORTANT: If you update a post, remember to delete this cache
-      // For example, if you update post with ID 2:
-      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
-      // await redis.del('category:' + categoryId + ':page:' + currentPage);
-
-      const cachedPosts = JSON.parse(cachedData);
-      const paginatedPosts = {};
-      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
-
-      //For testing cache proccess
-      console.log("Cache Hit");
-      return res.status(200).json(paginatedPosts);
-    }
-
     // SQL query to fetch specific category posts
     const query = `
       SELECT *
@@ -330,22 +357,26 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
     const specificCategoryPosts = await pgQuery(query, category_id, pageSize, offset);
 
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
-    const updatedPosts = await updatedPosts(specificCategoryPosts.rows, user_id);
+    let updatedPosts = await updatePosts(specificCategoryPosts.rows, user_id);
 
-    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
-    //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": updatedPosts }));
-    console.log("Cache Miss");
+    for (let i = 0; i < updatedPosts.length; i++) {
+      // Fetch the content creator details for each post
+      let contentCreator = await pgQuery("SELECT username, full_name, profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
 
+      // Check if the content creator details exist
+      if (contentCreator.rows.length > 0) {
 
-    const contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", processedPosts[0].user_id);
-    contentCreator.rows[0].profile_picture = await s3Retrieve(contentCreator.rows[0].profile_picture);
-
+        // Assign content creator details to the updated post
+        updatedPosts[i].user = await getUserInfo(contentCreator.rows[0].username)
+      } else {
+        // If content creator details are not found, set content_creator to null
+        updatedPosts[i].content_creator = null;
+      }
+    }
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
-      "posts": processedPosts,
-      contentCreator: contentCreator.rows[0]
+      "posts": updatedPosts
     });
   } catch (err) {
     next(err);
@@ -361,12 +392,14 @@ router.get("/category/:category_id", rateLimiter(), verifyTokens, inputValidator
  * @returns {status} - If successful, returns 200 and a JSON object with an array of objects of post information
  * @throws {Error} - If there are errors dont retrieve any posts.
  */
-router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async (req, res, next) => {
+
+router.get("/homepage/user", inputValidator, verifyTokens, rateLimiter(), async (req, res, next) => {
   // getting user ID
   const {
     payload
   } = req.body;
   const user_id = payload.user_id;
+
 
   try {
     // Get posts liked by the user
@@ -388,7 +421,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // SQL query to fetch homepage posts with additional user information
     const query = `
       SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at,
-             u.username, u.full_name, u.id as user_id, u.profile_picture,
+             u.username,
              COALESCE((SELECT COUNT(*) FROM bookmarks b WHERE b.user_id = $1 AND b.post_id = p.id), 0) AS is_bookmarked
       FROM posts p
       JOIN users u ON p.user_id = u.id
@@ -403,6 +436,7 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     // Process the posts to add video and thumbnail URLs, like count, and view count
     const processedRandomPosts = await Promise.all(
       randomPosts.rows.map(async (post) => {
+
         const videoUrl = await s3Retrieve(post.video_name);
         const thumbnailUrl = await s3Retrieve(post.thumbnail_name);
 
@@ -411,9 +445,11 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
 
         const isLiked = await checkLike(post.id, user_id);
         const isViewed = await checkView(post.id, user_id);
+        const user = await getUserInfo(post.username)
 
         return {
           ...post,
+          user: user,
           video_url: videoUrl,
           thumbnail_url: thumbnailUrl,
           like_count: likeCount.length,
@@ -425,7 +461,9 @@ router.get("/homepage/user", inputValidator, rateLimiter(), verifyTokens, async 
     );
 
     // Respond with an object containing the "posts" key and the array of objects with post information
-    res.status(200).json({ posts: processedRandomPosts });
+    res.status(200).json({
+      posts: processedRandomPosts
+    });
   } catch (err) {
     next(err);
   }
@@ -478,14 +516,15 @@ router.put("/:post_id", verifyUserIdentity, inputValidator, rateLimiter(), async
  * @returns {status} If successful, returns 200 and a JSON object of the users and posts matching the search criteria, else returns 500 and a JSON object with response set to 'Internal server error'
  * @throws {Error} If there are errors, no posts are retrieved
  */
-router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res) => {
+router.get("/search/user-posts/:searchText", verifyTokens, rateLimiter(), inputValidator, async (req, res) => {
   try {
-    // Extract search text from request body
-    const { search_text } = req.body;
+    // Extract search text from URL params
+    const search_text = req.params.searchText
+
 
     // Define SQL queries
     const usersQuery = `
-      SELECT id, username, profile_picture
+      SELECT id, username, profile_picture, full_name
       FROM users
       WHERE LOWER(username) LIKE LOWER($1)
     `;
@@ -501,7 +540,16 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
 
     // Iterate through posts to fetch content creators. We only need content creators for posts
     for (let i = 0; i < posts.rows.length; i++) {
-      const { id, user_id, title, description, video_name, thumbnail_name, created_at, updated_at } = posts.rows[i];
+      const {
+        id,
+        user_id,
+        title,
+        description,
+        video_name,
+        thumbnail_name,
+        created_at,
+        updated_at
+      } = posts.rows[i];
 
       // Query for content creator based on user_id
       const contentCreatorQuery = await pgQuery(
@@ -524,12 +572,19 @@ router.get("/search/user-posts", rateLimiter(), inputValidator, async (req, res)
     }
 
     // Send response with users and posts data
-    res.status(200).json({ users: users.rows, posts: posts.rows });
+    res.status(200).json({
+      users: users.rows,
+      posts: posts.rows
+    });
   } catch (error) {
     // Handle errors
     console.error("Error in search query:", error);
-    res.status(500).json({ response: "Internal server error" });
+    res.status(500).json({
+      response: "Internal server error"
+    });
   }
 });
+
+
 
 export default router;

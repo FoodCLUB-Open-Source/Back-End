@@ -1,5 +1,5 @@
 import { Router } from "express";
-
+import { changeAttribute } from "../functions/cognito_functions.js";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 import multer, { memoryStorage } from "multer";
@@ -80,15 +80,15 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
  * @returns {status} - If successful, returns 200 and a JSON object containing profile page data of user including username, profile picture, total user likes, total user followers, total user following, user posts and top suggested creators
  * @throws {Error} - If there is error retrieving user profile page data or validation issues
  */
-router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
+router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     // getting userID and converting to integer
     const { page_number, page_size } = req.query; // getting page number and page size
-    const { payload } = req.body;
-    const userID = payload.user_id;
+    const userID = req.params.userId
+
 
     // QUERIES
-    const userNameQuery = "SELECT username, profile_picture FROM users WHERE id = $1"; // username and profile picture query
+    const userNameQuery = "SELECT id,username, profile_picture ,full_name FROM users WHERE id = $1"; // username and profile picture query
     const userFollowersQuery = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1"; // user followers query
     const userFollowingQuery = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1"; // user following query
     const userPostsQuery = "SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // user posts query with pagination
@@ -112,12 +112,11 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
 
     // Check if profile picture exists before retrieving from S3
     const profilePicture = userNameProfile.rows[0].profile_picture;
-    const profilePictureUrl = profilePicture ? await s3Retrieve(profilePicture) : null;
+    userNameProfile.rows[0].profile_picture = profilePicture ? await s3Retrieve(profilePicture) : null;
 
     // storing data as object
     const userDataObject = {
-      username: userNameProfile.rows[0].username,
-      profile_picture: profilePictureUrl,
+      userInfo: userNameProfile.rows[0],
       total_user_likes: userLikesCount,
       total_user_followers: userFollowersCount,
       total_user_following: userFollowingCount,
@@ -131,7 +130,6 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
     next(error); // server side error
   }
 });
-
 /**
  * Retrieves users that are followed by the user
  * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
@@ -142,11 +140,50 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
  * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that are followed by the user such as id, username, profile picture, followsBack boolean
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/following/currentUser", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { page_number, page_size } = req.query; // getting page number and page size
     const { payload } = req.body;
     const userID = payload.user_id;
+
+    // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
+
+    // queries for id of users, usernames, profile pictures, and whether they follow them back that the given user is following
+    const query = `
+        SELECT f1.user_following_id, u.username, u.profile_picture,
+               CASE WHEN f2.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS followsBack
+        FROM following f1
+        LEFT JOIN following f2 ON f1.user_following_id = f2.user_id AND f2.user_following_id = f1.user_id
+        JOIN users u ON f1.user_following_id = u.id
+        WHERE f1.user_id = $1
+        ORDER BY f1.created_at ASC 
+        LIMIT $3 OFFSET (($2 - 1) * $3)`;
+
+    const userFollowing = await pgQuery(query, userID, page_number, page_size);
+
+    //maps all profile picture to retrieve a http link for the profile pic
+    userFollowing.rows = await Promise.all(
+      userFollowing.rows.map(async (row) => {
+        if (row.profile_picture) {           // Check if profile picture exists
+          row.profile_picture = await s3Retrieve(row.profile_picture);
+        }
+        return row;
+      })
+    );
+    return res.status(200).json({ data: userFollowing.rows }); // sends details to client
+  } catch (error) {
+    next(error); // server side error
+  }
+});
+
+
+
+//Retrieves users that are followed by the user
+router.get("/following/:userId", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+  try {
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const { payload } = req.body;
+    const userID = req.params.userId;
 
     // const query = 'SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)'; // returns the users that are followed by the user with pagination
 
@@ -188,7 +225,7 @@ router.get("/following", rateLimiter(), verifyTokens, inputValidator, async (req
  * @returns {status} - If successful, returns 200 and a JSON object containing details of the users that follow the user such as id, username and profile picture
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/followers/currentUser", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { page_number, page_size } = req.query; // getting page number and page size
     const { payload } = req.body;
@@ -214,6 +251,34 @@ router.get("/followers", rateLimiter(),verifyTokens, inputValidator, async (req,
   }
 });
 
+//Retrieves users that follow the user with the given ID.
+router.get("/followers/:userId", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+  try {
+    const { page_number, page_size } = req.query; // getting page number and page size
+    const userID = req.params.userId // getting userID
+
+    const query = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1 ORDER BY following.created_at ASC LIMIT $3 OFFSET (($2 - 1) * $3)"; // returns the users that follow the user with pagination
+    const userFollowers = await pgQuery(query, userID, page_number, page_size);
+
+
+    //maps all profile picture to retrieve a http link for the profile pic
+    userFollowers.rows = await Promise.all(
+      userFollowers.rows.map(async (row) => {
+        if (row.profile_picture) {           // Check if profile picture exists
+          row.profile_picture = await s3Retrieve(row.profile_picture);
+        }
+        return row;
+      })
+    );
+
+    return res.status(200).json({ data: userFollowers.rows }); // sends details to client
+  } catch (error) {
+    next(error); // server side error
+  }
+});
+
+
+
 /**
  * Unfollows a user
  * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
@@ -229,7 +294,7 @@ router.delete("/unfollow/user/following/:user_following_id", rateLimiter(), veri
     const { user_following_id } = req.params;
     const { payload } = req.body;
     const user_id = payload.user_id;
-        
+
     // Wrap each query in a function that returns a promise
     const verifyUserExistenceQuery = () => pgQuery("SELECT * FROM users WHERE id = $1", user_id);
     const verifyFollowingUserExistenceQuery = () => pgQuery("SELECT * FROM users WHERE id = $1", user_following_id);
@@ -295,7 +360,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
     const { user_following_id } = req.params;
     const { payload } = req.body;
     const user_id = payload.user_id;
-        
+
     const verifyUserExistenceQuery = pgQuery("SELECT * FROM users WHERE id = $1", user_id);
     const verifyFollowingUserExistenceQuery = pgQuery("SELECT * FROM users WHERE id = $1", user_following_id);
     const checkFollowQuery = pgQuery("SELECT * FROM following WHERE user_id = $1 AND user_following_id = $2", user_id, user_following_id);
@@ -353,7 +418,7 @@ router.post("/follow/user/following/:user_following_id", rateLimiter(), verifyTo
  * @returns {status} - If successful, returns 200 and a JSON object with an array of objects containing details of the users to follow
  * @throws {Error} - If there is error retrieving user details or validation issues
  */
-router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/topcreators", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
 
     const { page_number, page_size } = req.query; // getting page number and page size
@@ -390,6 +455,7 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
  * @route PUT /:user_id
  * @body
  *    {string} req.body.username - The username of the user
+ *     {string} req.body.email - The email of the user
  *    {string} req.body.phone_number - The phone number of the user
  *    {string} req.body.user_bio - The bio of the user
  *    {string} req.body.gender - The gender of the user
@@ -401,24 +467,27 @@ router.get("/topcreators", rateLimiter(),verifyTokens, inputValidator, async (re
  * @returns {Status} - If successful, returns 200 and a JSON object with Status set to 'Profile Details updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.put("/profile_details", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     // Getting user ID
     const { payload } = req.body;
     const user_id = payload.user_id;
 
     // Getting user details
-    const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name } = req.body;
+    const { phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, username, email, full_name } = req.body;
 
     // Query to update user details
     const query = `
         UPDATE users
-        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences = $5, country = $6, shipping_address= $7, full_name= $8, 
+        SET phone_number = $1, user_bio = $2, gender = $3, date_of_birth = $4, dietary_preferences=$5, country =$6, shipping_address=$7, username=$8, full_name= $10, email= $11 
         updated_at = NOW()
-        WHERE id = $9`;
+        WHERE id = $12`;
 
     // Execute the query
-    await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, full_name, user_id);
+    await pgQuery(query, phone_number, user_bio, gender, date_of_birth, dietary_preferences, country, shipping_address, username, full_name, email, user_id);
+
+    const attributeArray = [{ attributeName: 'email', attributeValue: email }, { attributeName: 'username', attributeValue: user_name }]
+    changeAttribute(attributeArray, req);
 
     res.status(200).json({ "Status": "Profile Details Updated" });
 
@@ -435,11 +504,13 @@ router.put("/profile_details", rateLimiter(),verifyTokens, inputValidator, async
  * @returns {status} - If successful, returns 200 and a JSON object with Status set to 'Profile Picture Updated'
  * @throws {Error} - If there are errors in user details retrieval or validation
  */
-router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputValidator, async (req, res, next) => {
+//upload.any()
+router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     // Getting user ID
     const { payload } = req.body;
     const user_id = payload.user_id;
+
 
     const S3_PROFILE_PICTURE_PATH = "profile_pictures/active/";
 
@@ -451,15 +522,21 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
         UPDATE users
         SET profile_picture = $1, updated_at = NOW()
         WHERE id = $2`;
-    console.log(req.files[0]);
-    //here check if the existing profile picture is the not null then delete the existing profile picture
-    if (existingProfilePicture.rows[0].profile_picture !== "") {
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+
+    // Check if existingProfilePicture has rows and the first row is not null before accessing profile_picture
+    if (existingProfilePicture.rows.length > 0 && existingProfilePicture.rows[0].profile_picture !== null) {
       await s3Delete(existingProfilePicture.rows[0].profile_picture);
     }
+
     const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
     // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
-    const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`);
-    console.log("new profile picture" + newProfilePictureName);
+    const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}${req.files[0]}`)
+    // console.log("new profile picture" + newProfilePictureName);
     await pgQuery(query, profilePictureURL, user_id);
     res.status(200).json({ "Status": "Profile Picture Updated" });
 
@@ -467,6 +544,10 @@ router.put("/profile_picture", rateLimiter(), verifyTokens, upload.any(), inputV
     next(error); // Handle server-side error
   }
 });
+
+
+
+
 
 
 export default router;

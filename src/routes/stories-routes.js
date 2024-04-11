@@ -37,10 +37,15 @@ router.get("/testing", async (req, res, next) => {
  */
 router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    const { page_number, page_size } = req.query; // getting page number and page size
+    const page_size = parseInt(req.query.page_size) || 15;
+    const page_number = parseInt(req.query.page_number) || 1;
     const { payload } = req.body;
     const userID = payload.user_id;
 
+
+    if (isNaN(page_number) || isNaN(page_size)) {
+      return res.status(400).json({ message: "Invalid page_number or page_size" });
+    }
     // getting users the user follows
     const query = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC"; // returns the users that are followed by the user with pagination
     const userFollowing = await pgQuery(query, userID); // executing query
@@ -73,16 +78,16 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
           }
           stories.forEach(async (story) => { // processing all user stories
             // retrieving URLs and replacing them in the story object
-            const videoURL = await s3Retrieve(story.video_url);
+            const imageUrl = await s3Retrieve(story.image_url);
             const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-            story.video_url = videoURL;
+            story.image_url = imageUrl;
             story.thumbnail_url = thumbnailURL;
 
             let storiesList = userStoryMap[user.user_following_id].stories;
             storiesList = [...storiesList, {
               story_id: story.story_id,
               thumbnail_url: story.thumbnail_url,
-              video_url: story.video_url,
+              image_url: story.image_url,
               created_at: story.created_at,
             }];
             userStoryMap[user.user_following_id].stories = storiesList;
@@ -159,11 +164,11 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 
       // Use map to concurrently retrieve S3 URLs for video and thumbnail
       const s3Promises = savedStories.map(async (story) => {
-        story.video_url = await s3Retrieve(story.video_url);
+        story.imageUrl  = await s3Retrieve(story.imageUrl);
         story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
         return {
           story_id: story.story_id,
-          video_url: story.video_url,
+          imageUrl :  story.imageUrl ,
           thumbnail_url: story.thumbnail_url,
           created_at: story.created_at,
           view_count: story.view_count,
@@ -202,7 +207,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
@@ -234,7 +239,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
 
     //change the name of the sotry into url form
     const s3Promises = filteredStories.map(async (story) => {
-      story.video_url = await s3Retrieve(story.video_url);
+      story.imageUrl = await s3Retrieve(story.imageUrl);
       story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
       return story;
     });
@@ -269,6 +274,11 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
  * @route POST /stories/:user_id
  * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Story Posted', else returns 500 and a JSON object with message set to 'Story Post Failed'
  * @throws {Error} - If any errors occur during the creation process, including file uploads. The story won't be insert into dynamodb, then delete the uploaded filess.
+ * @description 
+ *       This route allows users to create a new story,
+ *       Including uploading a image and a thumbnail. 
+ *       The image should be attached as the first file in req.files[0], 
+ *       The thumbnail should be attached as the second file in req.files[1].
  */
 router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
   try {
@@ -276,31 +286,47 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     const { payload } = req.body;
     const user_id = payload.user_id;
     // Define S3 bucket paths for storing files
-    const S3_STORY_PATH = "stories/active/";
+    // const S3_STORY_PATH = "stories/active/";
+    const S3_IMAGE_PATH = "stories/active/";
   
     try {
-      // Upload the first file (video) and the second file (thumbnail) to an S3 bucket
-      const [newVideoName, newThumbNaileName] = await Promise.all([
-        s3Upload(req.files[0], S3_STORY_PATH),
-        s3Upload(req.files[1], S3_STORY_PATH)
-      ]);
+      // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
 
-      // Create a StorySchema object with user_id, video , and thumbnail 
-      const StorySchema = setStory(user_id, newVideoName, newThumbNaileName);
+      if (!req.file || !req.file.mimetype.startsWith("image/")) {
+        return res.status(400).json({ message: "Invalid file format. Only images are allowed." });
+      }
+
+      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
+
+      const currentTime = new Date();
+      const StorySchema = setStory(parseInt(user_id), newImageName, null, currentTime.toISOString());
+
+      // Create a StorySchema object with user_id and image URL
+      // const StorySchema = setStory(parseInt(user_id), newImageName, null);
     
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
 
+      // Respond with a success message
+      res.status(200).json({ Status: "Image Posted" });
+
+     
+
       // Respond with a success messages
-      res.status(200).json({ Status: "Story Posted" });
+      // res.status(200).json({ Status: "Story Posted" });
 
     } catch (err) {
       //if any error in the DynamoDB, delete the files from S3
+
+      /*
       await Promise.all([
         s3Delete(req.files[0], S3_STORY_PATH),
         s3Delete(req.files[1], S3_STORY_PATH)
       ]);
-      
+      */
+
+      await s3Delete(req.file, S3_IMAGE_PATH);
+
       // Throw the error to the next error handler
       res.status(500).json({  message: "Story Post Failed" });
     }
@@ -311,6 +337,42 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
   }
 });
 
+
+/*
+router.post("/:user_id", inputValidator, rateLimiter(), upload.single('image'), async (req, res, next) => {
+  try {
+    // Parse the user_id from the request parameters
+    const { user_id } = req.params;
+    // Define S3 bucket path for storing image files
+    const S3_IMAGE_PATH = "images/active/";
+  
+    try {
+      // Upload the image file to an S3 bucket
+      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
+
+      // Create a StorySchema object with user_id and image URL
+      const StorySchema = setStory(parseInt(user_id), newImageName, null);
+    
+      // Insert the StorySchema object into the DynamoDB Stories table
+      await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
+
+      // Respond with a success message
+      res.status(200).json({ Status: "Image Posted" });
+
+    } catch (err) {
+      // If any error in DynamoDB, delete the uploaded file from S3
+      await s3Delete(req.file, S3_IMAGE_PATH);
+
+      // Throw the error to the next error handler
+      res.status(500).json({  message: "Image Post Failed" });
+    }
+
+  } catch (err) {
+    // Throw the error to the next error handler
+    next(err);
+  }
+});
+*/
 
 /**
  * Deletes a user's story.
@@ -330,7 +392,7 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
     const { payload } = req.body;
     const user_id = payload.user_id;
 
-    // Get the story from the Stories table for video and thumbnail URLs to delete from the S3 bucket
+    // Get the story from the Stories table for image and thumbnail URLs to delete from the S3 bucket
     const getStory = await getDynamoRequestBuilder("Stories")
       .query("user_id", parseInt(user_id))
       .exec();
@@ -339,13 +401,13 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
       return res.status(404).json({  message: "Story not found" });
     }
 
-    // get the video and thumbnail paths and story_id
-    const { video_url, thumbnail_url, } = getStory[0];
+    // get the image and thumbnail paths and story_id
+    const { image_url, thumbnail_url, } = getStory[0];
 
-    // Delete the video and thumbnail from the S3 bucket
+    // Delete the image and thumbnail from the S3 bucket
     try {
       await Promise.all([
-        s3Delete(video_url),
+        s3Delete(image_url),
         s3Delete(thumbnail_url)
       ]);
     } catch (err) {
