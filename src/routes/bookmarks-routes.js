@@ -29,7 +29,7 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
       res.status(200).json({ message: "Post is no longer bookmarked" }); // if true success response code is sent
     }
     else if (postgresQuery.rowCount === 0) {
-      res.status(400).json({ message: "This post has already been deleted" }); 
+      res.status(400).json({ message: "This post has already been deleted" });
     }
     else {
       res.status(400).json({ message: postgresQuery.error }); // else unsuccessful response code is sent along with error message
@@ -75,7 +75,7 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
  * @returns {status} - If successful, returns 200 and an array of the posts bookmarked by the user
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
-router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => {
+router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const { user_id } = req.params; // retrieving userID
     const { page_number, page_size } = req.query; // getting page number and page size

@@ -43,11 +43,11 @@ export const setStoryViews = (storyId, userId) => ({
   created_at: new Date().toISOString()
 });
 
-export const setStory = (userId, videoUrl, thumbnailUrl) => ({
-  story_id: uuid(),
-  user_id : userId,
-  video_url  : videoUrl,
-  thumbnail_url: thumbnailUrl,
-  view_count: 0,
-  created_at: new Date().toISOString()
+export const setStory = (userId, imageUrl, thumbnailUrl) => ({
+	story_id: uuid(),
+	user_id : userId,
+	imageUrl  : imageUrl,
+	thumbnail_url: thumbnailUrl,
+	view_count: 0,
+	created_at: new Date().toISOString()
 });

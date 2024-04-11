@@ -1,12 +1,24 @@
 /* File for useful functions to encourage DRY code */
 import crypto from "crypto";
 
-import { DeleteObjectCommand, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  GetObjectCommand
+} from "@aws-sdk/client-s3";
+import {
+  getSignedUrl
+} from "@aws-sdk/s3-request-presigner";
 
 import pgPool from "../config/pgdb.js";
 import s3Client from "../config/s3Client.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
+import {
+  error
+} from "console";
+import { type } from "os";
+import { verifyIdToken } from "../middleware/verify.js";
+
 
 /**  
  * Function that does a DRY secure postgreSQl query function 
@@ -75,6 +87,10 @@ export const makeTransactions = async (queries, values) => {
  * @returns {any} randomName - Randomly generated name as key for upload
  */
 export const s3Upload = async (file, path) => {
+  // Hanldes  if file is not present
+  if (!file) {
+    throw new Error('File is undefined')
+  }
 
   const randomName = path + file.originalname + crypto.randomBytes(32).toString("hex");
 
@@ -298,21 +314,26 @@ export const removeLikesAndViews = async (post_id) => {
   const Views = await getDynamoRequestBuilder("Views").query("post_id", parseInt(post_id)).exec();
 
   // Prepare the list of items to delete from the 'Likes' table
-  const likesToDelete = Likes.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+  const likesToDelete = Likes.map((item) => ({
+    post_id: item.post_id,
+    user_id: item.user_id
+  }));
 
   // Prepare the list of items to delete from the 'Views' table
-  const viewsToDelete = Views.map((item) => ({ post_id: item.post_id, user_id: item.user_id }));
+  const viewsToDelete = Views.map((item) => ({
+    post_id: item.post_id,
+    user_id: item.user_id
+  }));
 
   // Create an array of delete requests for 'Likes' and 'Views' tables
-  const deleteRequests = [
-    {
-      tableName: "Likes",
-      items: likesToDelete,
-    },
-    {
-      tableName: "Views",
-      items: viewsToDelete,
-    },
+  const deleteRequests = [{
+    tableName: "Likes",
+    items: likesToDelete,
+  },
+  {
+    tableName: "Views",
+    items: viewsToDelete,
+  },
   ];
 
   // Perform batch deletions
@@ -322,3 +343,59 @@ export const removeLikesAndViews = async (post_id) => {
   });
 
 };
+
+export async function stringToUUID(inputString) {
+  try {
+    // Hash the input string using MD5
+    const hash = await crypto.createHash('md5').update(inputString).digest('hex');
+
+    // Convert the hash to UUID format (8-4-4-4-12)
+    const uuid = `${hash.substr(0, 8)}-${hash.substr(8, 4)}-${hash.substr(12, 4)}-${hash.substr(16, 4)}-${hash.substr(20)}`;
+
+    return uuid;
+
+  } catch (err) {
+    return {
+      error: `There has been an error performing this query`
+    };
+  }
+}
+
+export async function getUserInfo(userData) {
+  try {
+    let query, userInfo;
+    if (typeof (userData) === "number") {
+      query = "SELECT id, username, full_name, profile_picture FROM users WHERE id = $1";
+    } else {
+      query = "SELECT id, username, full_name, profile_picture FROM users WHERE username = $1";
+    }
+
+    userInfo = await pgQuery(query, userData);
+
+    if (userInfo.rows.length > 0) {
+      if (userInfo.rows[0].profile_picture != null) {
+        userInfo.rows[0].profile_picture = await s3Retrieve(userInfo.rows[0].profile_picture);
+      }
+      return userInfo.rows[0];
+    } else {
+      return null;
+    }
+  } catch (err) {
+    console.log(err);
+    throw err; // Re-throw the error for the caller to handle
+  }
+}
+
+export async function getUserInfoFromIdToken(idToken) {
+  try {
+    let user = await verifyIdToken(idToken)
+    user.user_id = parseInt(user.user_id)
+    return user
+
+  }
+  catch (err) {
+    console.log("Erro has occured")
+  }
+}
+
+
