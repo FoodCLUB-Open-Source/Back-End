@@ -135,7 +135,8 @@ router.get("/:user_id", rateLimiter(), inputValidator, async(req, res, next) => 
       const { user_id, full_name, profile_picture, username, ...postWithoutUser } = post;
       return {
           ...postWithoutUser,
-          user: { // User information is nested under each post
+          // User information is nested under each post
+          user: { 
               user_id,
               full_name,
               profile_picture,
