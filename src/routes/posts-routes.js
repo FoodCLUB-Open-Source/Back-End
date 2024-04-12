@@ -61,13 +61,14 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  * @param {any} req.query.title - Title of the post to search for
  * @returns {status} - If successful, returns 200 and a JSON object with the posts, else returns 400 and a JSON object with the message set to 'Unknown error occurred.'
  */
-router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const {
       username = "", title = ""
     } = req.query;
-    const user_id = parseInt(req.body.user_id);
-      const query = `
+    const user_id = parseInt(req.body.payload.user_id)
+    console.log(user_id)
+    const query = `
       SELECT p.id, p.title, p.thumbnail_name, p.video_name, u.username
       FROM users u
       JOIN posts p
@@ -93,13 +94,13 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
       * Given some posts do not have an exisiting recipe_id, we have to check to see if an associated recipe exists for a post. This can be 
       * changed or removed when we match the recipe_id with the post_id in a future issue.
       */
-       if (results.rows.length == 0) {
+      if (results.rows.length == 0) {
         // Set recipe_id to null if it does not exist
         updatedPosts[i].recipe_id = null;
-       } else {
+      } else {
         // Append recipe_id to post object
         updatedPosts[i].recipe_id = results.rows[0].id;
-       }
+      }
 
       // Retrieve user information, then remove duplicate username property
       updatedPosts[i].user = await getUserInfo(updatedPosts[i].username);
