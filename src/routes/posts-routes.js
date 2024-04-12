@@ -66,22 +66,48 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
     const {
       username = "", title = ""
     } = req.query;
-    const query = `
-      SELECT p.id, p.title, p.thumbnail_name, u.username, u.profile_picture
+    const user_id = parseInt(req.body.user_id);
+      const query = `
+      SELECT p.id, p.title, p.thumbnail_name, p.video_name, u.username
       FROM users u
       JOIN posts p
       ON p.user_id = u.id
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
     `;
 
-    let posts = await pgQuery(query, title, username);
-    posts = posts.rows
+    // Retrieve posts based on query and then store in new object
+    const posts = await pgQuery(query, title, username);
+    const tempPosts = posts.rows;
 
-    for (let i = 0; i < posts.length; i++) {
-      posts[i].user = await getUserInfo(posts[i].username)
+    // Retrieves additional data for all posts
+    let updatedPosts = await updatePosts(tempPosts, user_id);
+
+    for (let i = 0; i < updatedPosts.length; i++) {
+      // Retrieve recipe_id for every post
+      const results = await pgQuery(
+        "SELECT * FROM recipes WHERE post_id=$1",
+        updatedPosts[i].id
+      );
+
+      /** NOTE :
+      * Given some posts do not have an exisiting recipe_id, we have to check to see if an associated recipe exists for a post. This can be 
+      * changed or removed when we match the recipe_id with the post_id in a future issue.
+      */
+       if (results.rows.length == 0) {
+        // Set recipe_id to null if it does not exist
+        updatedPosts[i].recipe_id = null;
+       } else {
+        // Append recipe_id to post object
+        updatedPosts[i].recipe_id = results.rows[0].id;
+       }
+
+      // Retrieve user information, then remove duplicate username property
+      updatedPosts[i].user = await getUserInfo(updatedPosts[i].username);
+      delete updatedPosts[i].username;
     }
+
     return res.status(200).json({
-      data: posts
+      data: updatedPosts
     });
   } catch (err) {
     console.error(err);
