@@ -3,7 +3,6 @@ import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 import { checkLike, checkView, pgQuery, s3Retrieve, updatePosts } from "../functions/general_functions.js";
 import { verifyTokens } from "../middleware/verify.js";
-import redis from "../config/redisConfig.js";
 
 const router = Router();
 
@@ -75,9 +74,11 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
  * @returns {status} - If successful, returns 200 and an array of the posts bookmarked by the user
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
-router.get("/:user_id", rateLimiter(), inputValidator, async (req, res, next) => {
-  try {
-    const { user_id } = req.params; // retrieving userID
+router.get("/:user_id", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+    try{
+    // const { payload } = req.params;
+    // const user_id = payload.user_id; // retrieving userID
+    const { user_id} = req.params;
     const { page_number, page_size } = req.query; // getting page number and page size
 
     // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
