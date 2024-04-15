@@ -30,40 +30,46 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * @returns {status} - If successful, returns 200 and a JSON object with the specific recipe, else returns 404 and a JSON object with error set to 'Recipe not found'
  */
 router.get("/:recipe_id", verifyTokens, inputValidator, rateLimiter(), async (req, res, next) => {
-  const postId = parseInt(req.params.recipe_id);
+  const recipeId = parseInt(req.params.recipe_id);
+
   try {
-    const REDIS_KEY = `RECIPE|${postId}`;
-    let redisRecipe = await redis.HGETALL(REDIS_KEY);
-    const exists = Object.keys(redisRecipe).length;
-    if (exists) {
-      redisRecipeExists(postId).then((responce) => {
-        return res.status(200).json({ recipe: responce });
-      });
+    // Fetch recipe from the database
+    const specificRecipe = await pgQuery(
+      "SELECT * FROM recipes WHERE id = $1",
+      recipeId
+    );
+
+    // If recipe not found in the database, return 404 error
+    if (specificRecipe.rows.length === 0) {
+      return res.status(404).json({ error: "Recipe not found" });
     }
-    else {
-      try {
-        const specificRecipe = await pgQuery(
-          "SELECT * FROM recipes WHERE id=$1",
-          postId
-        );
-        if (specificRecipe.rows.length === 0) {
-          return res.status(404).json({ error: "Recipe not found" });
-        }
-        //add new recipe to redis
-        await redisNewRecipe(postId).then(() => {
-          console.log("New Recipe on Redis created");
-        });
-        return res.status(200).json({ recipe: specificRecipe.rows[0] });
-      } catch (err) {
-        console.error(`Error fetching recipe for post ${postId}:`, err);
-        return next(err);
-      }
-    }
+
+    // Fetch ingredients for the recipe
+    let ingredients = await pgQuery(
+      "SELECT rp.*, p.label, p.imageurl FROM recipe_products rp JOIN products p ON rp.product_id = p.id WHERE rp.recipe_id = $1",
+      recipeId
+    );
+
+    // Add ingredients to the recipe object
+    specificRecipe.rows[0].recipe_ingredients = ingredients.rows;
+
+    // Fetch categories for the recipe
+    let recipeCategories = await pgQuery(
+      "SELECT category_name FROM posts_categories WHERE post_id = $1",
+      specificRecipe.rows[0].post_id
+    );
+
+    // Add categories to the recipe object
+    specificRecipe.rows[0].categories = recipeCategories.rows;
+
+    // Return the fetched recipe
+    return res.status(200).json({ recipe: specificRecipe.rows[0] });
   } catch (err) {
-    console.error(`Error handling request for recipe post ${postId}:`, err);
+    console.error(`Error handling request for recipe post ${recipeId}:`, err);
     next(err);
   }
 });
+
 /**
  * Route handler for Update Recipes Table.
  * This will update the details in the recipes table.
@@ -130,5 +136,8 @@ router.put("/:post_id", inputValidator, verifyUserIdentity, rateLimiter(), async
     next(err);
   }
 });
+
+// console.log(await pgQuery("SELECT * FROM posts_categories"))
+
 
 export default router;
