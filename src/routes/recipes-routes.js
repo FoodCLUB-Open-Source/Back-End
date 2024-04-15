@@ -29,7 +29,7 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * @param {any} *req.params.id - The Id of the post.
  * @returns {status} - If successful, returns 200 and a JSON object with the specific recipe, else returns 404 and a JSON object with error set to 'Recipe not found'
  */
-router.get("/:recipe_id", inputValidator, rateLimiter(), async (req, res, next) => {
+router.get("/:recipe_id", verifyTokens, inputValidator, rateLimiter(), async (req, res, next) => {
   const recipeId = parseInt(req.params.recipe_id);
 
   try {
