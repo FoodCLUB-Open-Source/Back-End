@@ -336,7 +336,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 //verifyTokens, 
-router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
@@ -344,11 +344,14 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
     const user_id = payload.user_id;
 
     // Extract category ID from URL parameters
-    const {
-      category_id
-    } = req.params;
+    const { category_name } = req.params;
+    let getCategoryId = await pgQuery("SELECT * FROM categories WHERE name ILIKE $1", category_name);
+    let category_id = getCategoryId.rows.length > 0 ? getCategoryId.rows[0].id : null;
 
-    // Pagination settings
+    if (category_id == null) {
+      return res.status(400).json({ error: "This category doesnt exist" })
+    }
+
     // Get query parameters for pagination
     let pageSize = parseInt(req.query.page_size) || 15;
     let currentPage = parseInt(req.query.page_number) || 1;
@@ -383,6 +386,9 @@ router.get("/category/:category_id", verifyTokens, rateLimiter(), inputValidator
     let updatedPosts = await updatePosts(specificCategoryPosts.rows, user_id);
 
     for (let i = 0; i < updatedPosts.length; i++) {
+      let recipe_id = await pgQuery("SELECT id FROM recipes WHERE post_id=$1", updatedPosts[i].post_id)
+      updatedPosts[i].recipe_id = recipe_id.rows[0].id
+
       // Fetch the content creator details for each post
       let contentCreator = await pgQuery("SELECT username, full_name, profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
 
@@ -604,6 +610,7 @@ router.get("/search/user-posts/:searchText", verifyTokens, rateLimiter(), inputV
     });
   }
 });
+
 
 
 
