@@ -336,12 +336,12 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 //verifyTokens, 
-router.get("/category/:category_name", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
     } = req.body;
-    const user_id = 1
+    const user_id = payload.user_id;
 
     // Extract category ID from URL parameters
     const { category_name } = req.params;
@@ -349,7 +349,7 @@ router.get("/category/:category_name", rateLimiter(), inputValidator, async (req
     let category_id = getCategoryId.rows.length > 0 ? getCategoryId.rows[0].id : null;
 
     if (category_id == null) {
-      return res.status(400).json({ err: "This category doesnt exist" })
+      return res.status(400).json({ error: "This category doesnt exist" })
     }
 
     // Get query parameters for pagination
