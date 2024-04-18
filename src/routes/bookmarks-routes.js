@@ -75,7 +75,7 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
 router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
-    try{
+  try {
     const { user_id } = req.params; // retrieving userID
     const { page_number, page_size } = req.params; // getting page number and page size
 
@@ -122,34 +122,40 @@ router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req,
     if (bookmarker.rows.length > 0) {
       // If bookmarker's information is found, retrieve profile picture from S3
       const bookmarkerInfo = bookmarker.rows[0];
+      if (bookmarkerInfo.profile_picture != null) {
+        bookmarkerInfo.profile_picture = await s3Retrieve(bookmarkerInfo.profile_picture)
+      }
       bookmarkerData = {
         id: bookmarkerInfo.id,
         username: bookmarkerInfo.username,
-        profile_picture: await s3Retrieve(bookmarkerInfo.profile_picture)
-      };
+        profile_picture: bookmarkerInfo.profile_picture
+      }
     }
 
     const responseData = updatedPostsData.map(post => {
       const { user_id, full_name, profile_picture, username, ...postWithoutUser } = post;
       return {
-          ...postWithoutUser,
-          // User information is nested under each post
-          user: { 
-              user_id,
-              full_name,
-              profile_picture,
-              username
-          }
-      };
-  });
+        ...postWithoutUser,
+        // User information is nested under each post
+        user: {
+          user_id,
+          full_name,
+          profile_picture,
+          username
+        }
+      };
+    });
 
     res.status(200).json({
-       data: responseData,
-       bookmarker: bookmarkerData // Include bookmarker's information in the response
-       }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
+      data: responseData,
+      bookmarker: bookmarkerData // Include bookmarker's information in the response
+    }); // sending data to client (if array is empty it means user has no posts bookmarked or posts information does not exist in database)
   } catch (error) {
     next(error); // server side error
   }
 });
+
+
+
 
 export default router;
