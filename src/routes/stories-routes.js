@@ -27,6 +27,7 @@ router.get("/testing", async (req, res, next) => {
 
 /**
  * Retrieves stories of users that are followed by the user 
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /following_stories
  * @query {string} req.query.page_number - The page number for pagination.
@@ -113,6 +114,8 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
 
 /**
  * Retrieves a user's  saved stories
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
+ * 
  * @route GET /user/:user_id
  * @query {string} req.query.page_number - The page number for pagination
  * @query {String} req.query.page_size - The page size for pagination
@@ -198,6 +201,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 
 /**
  * Retrieves stories of a user
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:user_id
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
@@ -265,6 +269,7 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
  *  Including uploading a video and a thumbnail. 
  *  The video should be attached as the first file in req.files[0], 
  *  The thumbnail should be attached as the second file in req.files[1].
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST /stories/:user_id
  * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Story Posted', else returns 500 and a JSON object with message set to 'Story Post Failed'
@@ -373,6 +378,7 @@ router.post("/:user_id", inputValidator, rateLimiter(), upload.single('image'), 
  * Deletes a user's story.
  *  This route allows the user to delete their story.
  *  It deletes the story from the DynamoDB and removes associated files from the S3 bucket.
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route DELETE stories/story/story_id/user
  * @param {any} req.params.story_id - The ID of the story.

@@ -20,6 +20,7 @@ router.get("/testing", async (req, res) => {
 
 /**
  * Posting Comment For Specific Post
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route POST  /posts/comments/:id
  * @param {any} req.params.id - The ID of the post with the comment
@@ -52,6 +53,7 @@ router.post("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res,
 
 /**
  * Getting 30 most liked Comments For Specific Post
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /posts/comments/:id
  * @param {any} req.params.id - The ID of the post with the 30 most liked comments
@@ -80,6 +82,7 @@ router.get("/posts/comments/:id", rateLimiter(), verifyTokens, async (req, res, 
 
 /** 
  * Update Comment For Specific Post
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route PUT /posts/comments/:id
  * @param {any} req.params.id - The ID of the comment getting updated
