@@ -74,14 +74,11 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
  * @returns {status} - If successful, returns 200 and an array of the posts bookmarked by the user
  * @throws {Error} - If there are errors fetching bookmarked posts
  */
-router.get("/:user_id", rateLimiter(),verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
     try{
-    // const { payload } = req.params;
-    // const user_id = payload.user_id; // retrieving userID
-    const { user_id} = req.params;
-    const { page_number, page_size } = req.query; // getting page number and page size
+    const { user_id } = req.params; // retrieving userID
+    const { page_number, page_size } = req.params; // getting page number and page size
 
-    // const bookmarkPostsQuery = "SELECT p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at FROM posts p JOIN bookmarks b ON p.id = b.post_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // query to get bookmarked post details
     const bookmarkPostsQuery = `
         SELECT 
             p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username,
