@@ -146,7 +146,7 @@ router.delete("/posts/comments/:id", rateLimiter(), async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object of the 20 replies for the comment if successful
  * @throws {Error} If there is an error, the retrieval of the 20 replies failed
  */
-router.get("/posts/comments/replies/:id", rateLimiter(), verifyTokens, async (req, res, next) => {
+router.get("/posts/comments/replies/:id", rateLimiter(), async (req, res, next) => {
   try {
     const commentId = req.params.id;
 
