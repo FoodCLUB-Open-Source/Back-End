@@ -77,7 +77,7 @@ router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidat
 router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { user_id } = req.params; // retrieving userID
-    const { page_number, page_size } = req.params; // getting page number and page size
+    const { page_number, page_size } = req.params;// getting page number and page size
 
     const bookmarkPostsQuery = `
         SELECT 
@@ -105,6 +105,15 @@ router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req,
 
     const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
     const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows, parseInt(user_id)); // updating post objects to include further information
+
+    // Attempt to retrieve profile picture of user of each bookmarked post
+    Promise.allSettled(
+      updatedPostsData.map(async(posts) =>{
+        let contentCreator = await pgQuery("SELECT id,username,profile_picture FROM users WHERE id =$1", posts.user_id);
+        posts.profile_picture = (contentCreator.rows[0].profile_picture !== null) ? await s3Retrieve(contentCreator.rows[0].profile_picture) : null;
+      }
+    )
+  );
 
     // Query to retrieve Bookmarker's information
     const bookmarkerQuery = `
