@@ -16,39 +16,29 @@ const router = Router();
  * @returns {status} - Returns 200 for successful block, 400 if user is already blocked
  * @throws {Error} - If there are errors, the comment posting failed
  */
-router.post("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
+router.post("/posts/block/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    console.log(`Req body contains: ${req.body.user_id}`);
 
     const psqlClient = await pgPool.connect(); // connects to database
-    const blocking_user_id = parseInt(req.params.id); // converts data from req.params to int
+    const blocking_user_id = parseInt(req.body.payload.user_id); // converts data from req.params to int
     const blocked_user_id = parseInt(req.body.user_id); // converts data from req.body to int
-
-    console.log(
-      `Inserting blocked_users with blocking_user_id:, ${blocking_user_id}`
-    );
-
-    console.log(
-      `Inserting blocked_users with blocked_user_id:, ${blocked_user_id}`
-    );
 
     // Check if a block already exists for this user and the blocked user
     const queryExists =
-        "SELECT * FROM blocked_users WHERE user_id = $1 AND blocked_user_id = $2";
+      "SELECT * FROM blocked_users WHERE user_id = $1 AND blocked_user_id = $2";
     const blockExists = await psqlClient.query(queryExists, [
       blocking_user_id,
       blocked_user_id,
     ]);
-    console.log(`BlockExists length: ${blockExists.rows.length}`);
 
     if (blockExists.rows && blockExists.rows.length !== 0) {
-      console.log(`BlockExists length: ${blockExists.rows.length}`);
+
       return res.status(400).json({ Status: "User is already blocked." });
     }
 
     const postQuery =
-        "INSERT INTO blocked_users(user_id, blocked_user_id) VALUES($1, $2)";
-      // state query
+      "INSERT INTO blocked_users(user_id, blocked_user_id) VALUES($1, $2)";
+    // state query
 
     await psqlClient.query(postQuery, [blocking_user_id, blocked_user_id]);
     console.log("Query executed successfully");
@@ -89,8 +79,8 @@ router.delete("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidato
       `Inserting blocked_users with blocked_user_id: ${unblocked_user_id}`
     );
     const deleteQuery =
-        "DELETE FROM blocked_users WHERE user_id = $1 AND blocked_user_id = $2";
-      // state query
+      "DELETE FROM blocked_users WHERE user_id = $1 AND blocked_user_id = $2";
+    // state query
 
     const result = await psqlClient.query(deleteQuery, [
       unblocking_user_id,
