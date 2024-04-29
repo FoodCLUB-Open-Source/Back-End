@@ -63,13 +63,13 @@ router.post("/posts/block/", rateLimiter(), verifyTokens, inputValidator, async 
  * @returns {status} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the user could not be located (404)
  */
-router.delete("/posts/block/:id", rateLimiter(), verifyAccessOnly, inputValidator, async (req, res, next) => {
+router.delete("/posts/block/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     console.log(`Expected URL:, ${req.originalUrl}`);
 
     const psqlClient = await pgPool.connect(); // connects to database
-    const unblocking_user_id = parseFloat(req.params.id); // converts data from req.params to float
-    const unblocked_user_id = parseFloat(req.body.user_id); // converts data from req.body to float
+    const unblocking_user_id = parseInt(req.body.payload.user_id); // converts data from req.params to float
+    const unblocked_user_id = parseInt(req.body.user_id); // converts data from req.body to float
 
     console.log(
       `Inserting blocked_users with blocking_user_id: ${unblocking_user_id}`
