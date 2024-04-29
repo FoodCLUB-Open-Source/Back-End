@@ -61,12 +61,12 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  * @param {any} req.query.title - Title of the post to search for
  * @returns {status} - If successful, returns 200 and a JSON object with the posts, else returns 400 and a JSON object with the message set to 'Unknown error occurred.'
  */
-router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       username = "", title = ""
     } = req.query;
-    const user_id = parseInt(req.body.payload.user_id)
+    const user_id = parseInt(req.body.user_id)
     console.log(user_id)
     const query = `
       SELECT p.id, p.title, p.thumbnail_name, p.video_name, u.username
@@ -340,7 +340,7 @@ router.delete("/:post_id", rateLimiter(), verifyUserIdentity, inputValidator, as
  * @throws {Error} - If there are errors, no posts are retrieved
  */
 //verifyTokens, 
-router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/category/:category_name",verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     const {
       payload
@@ -373,6 +373,22 @@ router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidat
     // Check if data is already cached
     const cachedData = await redis.get(cacheKey);
 
+    if (cachedData) {
+
+      // Return cached data if available
+      // IMPORTANT: If you update a post, remember to delete this cache
+      // For example, if you update post with ID 2:
+      // const cacheKeys = await redis.keys(`category:${category}:page:*`);
+      // await redis.del('category:' + categoryId + ':page:' + currentPage);
+      const cachedPosts = JSON.parse(cachedData);
+      const paginatedPosts = {};
+      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
+
+      //For testing cache proccess
+      console.log("Cache Hit");
+      return res.status(200).json(paginatedPosts);
+    }
+
     // SQL query to fetch specific category posts
     const query = `
       SELECT *
@@ -385,13 +401,20 @@ router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidat
 
     // Execute the query with parameters
     const specificCategoryPosts = await pgQuery(query, category_id, pageSize, offset);
-
+    
     // Process the posts to add video and thumbnail URLs, view_count ,like_count
     let updatedPosts = await updatePosts(specificCategoryPosts.rows, user_id);
 
     for (let i = 0; i < updatedPosts.length; i++) {
       let recipe_id = await pgQuery("SELECT id FROM recipes WHERE post_id=$1", updatedPosts[i].post_id)
-      updatedPosts[i].recipe_id = recipe_id.rows[0].id
+      
+      if (recipe_id.rows.length == 0) {
+        // Set recipe_id to null if it does not exist
+        updatedPosts[i].recipe_id = null;
+       } else {
+        // Append recipe_id to post object
+        updatedPosts[i].recipe_id = recipe_id.rows[0].id;
+       }
 
       // Fetch the content creator details for each post
       let contentCreator = await pgQuery("SELECT username, full_name, profile_picture FROM users WHERE id = $1", updatedPosts[i].user_id);
@@ -406,6 +429,11 @@ router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidat
         updatedPosts[i].content_creator = null;
       }
     }
+    
+    // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
+    //expirey timer 3600 seconds = 1 hour
+    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": updatedPosts }));
+    console.log("Cache Miss");
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
