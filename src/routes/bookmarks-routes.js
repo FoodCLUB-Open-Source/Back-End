@@ -17,9 +17,8 @@ const router = Router();
  */
 router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    const { post_id } = req.params; // retrieving userID and postID
-    const { payload } = req.body;
-    const user_id = payload.user_id;
+    const { post_id } = req.params; // retrieving postID
+    const user_id = req.body.payload.user_id; // Retriving user_id from JWT token 
 
     const query = "DELETE FROM bookmarks WHERE user_id = $1 AND post_id = $2"; // query to remove post from bookmarks
     const postgresQuery = await pgQuery(query, user_id, post_id);
@@ -49,18 +48,27 @@ router.delete("/profile/bookmark/:post_id", rateLimiter(), verifyTokens, inputVa
  */
 router.post("/post/bookmark/:post_id", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    const { post_id } = req.params; // retrieving userID and postID
-    const { payload } = req.body;
-    const user_id = payload.user_id;
+    const { post_id } = req.params; // retrieving postID
+    const user_id = req.body.payload.user_id; // retrieving user_id from JWT token
 
+    //check if post is already bookmarked for user
+    const checkQuery = "SELECT COUNT(*) FROM bookmarks WHERE user_id = $1 AND post_id = $2";
+    const checkResult = await pgQuery(checkQuery, user_id, post_id);
+
+    if(checkResult.rows[0].count>0){
+      //Post is already bookmarked, send message
+      res.status(400).json({ message: "Post already bookmarked" });
+    } else {  
+      //if Post is not bookmarked, proceed to insert bookmark
     const query = "INSERT INTO bookmarks (user_id, post_id, created_at) VALUES ($1, $2, NOW())"; // query to add a post to bookmarks
     const postgresQuery = await pgQuery(query, user_id, post_id);
 
-    if (postgresQuery.rowCount === 1) { // if statement to check if was added
+    if (postgresQuery.rowCount === 1) { // if statement to check post was added
       res.status(200).json({ message: "Post bookmarked" }); // if true success response code is sent
     } else {
       res.status(400).json({ message: postgresQuery.error }); // else unsuccessful response code is sent along with error message
     }
+  }
   } catch (error) {
     next(error); // server side error
   }
@@ -79,6 +87,7 @@ router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req,
     const { user_id } = req.params; // retrieving userID
     const { page_number, page_size } = req.params;// getting page number and page size
 
+    // query to get bookmarked post details
     const bookmarkPostsQuery = `
         SELECT 
             p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username,
