@@ -7,11 +7,49 @@ import { verifyAccessOnly, verifyTokens } from "../middleware/verify.js";
 const router = Router();
 
 /**
- * Posting Block For Specific User
- * This endpoint needs a request header called 'Authorisation' with the access token 
+ * Retrieve Blocked Users for Authenticated User
+ * This endpoint retrieves the list of users blocked by the authenticated user.
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token
  *
- * @route POST  /posts/block/:id
- * @param {any} req.params.id - The ID of the user blocking
+ * @route GET /posts/block/
+ * @returns {object} Returns JSON object containing an array of blocked users
+ * @throws {Error} If there are errors while fetching blocked users
+ */
+router.get("/posts/block/", rateLimiter(), verifyTokens, async (req, res, next) => {
+  try {
+    // Get the authenticated user's ID from the request
+    const user_id = req.body.payload.user_id;
+
+    const psqlClient = await pgPool.connect(); // Connect to the database
+    // Query to retrieve blocked users for the authenticated user
+    const queryBlockedUsers =
+      "SELECT * FROM blocked_users where user_id=$1";
+
+    // Execute the query with the authenticated user's ID as a parameter
+    const blockedUsersResult = await psqlClient.query(queryBlockedUsers, [user_id]);
+    // Check if any blocked users were found
+    if (blockedUsersResult.rows.length === 0) {
+    // If no blocked users found, return appropriate message
+      return res.status(404).json({ message: "No blocked users found" });
+    }
+    // Release the database connection
+    psqlClient.release();
+
+    // Send the blocked users data as response
+    res.status(200).json({ blockedUsers: blockedUsersResult.rows });
+  } catch (err) {
+    // If an error occurs, log the error and pass it to the error handling middleware
+    console.error("Failed to fetch blocked users:", err);
+    next(err);
+  }
+});
+
+
+/**
+ * Posting Block For Specific User
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token.
+ *
+ * @route POST  /posts/block/
  * @body {string} req.body.user_id - The ID of the user getting blocked
  * @returns {status} - Returns 200 for successful block, 400 if user is already blocked
  * @throws {Error} - If there are errors, the comment posting failed
@@ -20,7 +58,7 @@ router.post("/posts/block/", rateLimiter(), verifyTokens, inputValidator, async 
   try {
 
     const psqlClient = await pgPool.connect(); // connects to database
-    const blocking_user_id = parseInt(req.body.payload.user_id); // converts data from req.params to int
+    const blocking_user_id = parseInt(req.body.payload.user_id); // converts data from req.body.payload to int
     const blocked_user_id = parseInt(req.body.user_id); // converts data from req.body to int
 
     // Check if a block already exists for this user and the blocked user
@@ -36,10 +74,11 @@ router.post("/posts/block/", rateLimiter(), verifyTokens, inputValidator, async 
       return res.status(400).json({ Status: "User is already blocked." });
     }
 
+    //query for insert block
     const postQuery =
       "INSERT INTO blocked_users(user_id, blocked_user_id) VALUES($1, $2)";
-    // state query
 
+    // state query
     await psqlClient.query(postQuery, [blocking_user_id, blocked_user_id]);
     console.log("Query executed successfully");
 
@@ -55,10 +94,9 @@ router.post("/posts/block/", rateLimiter(), verifyTokens, inputValidator, async 
 
 /**
  * Delete Block For Specific User
- * This endpoint needs a request header called 'Authorisation' with the access token
+ * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token
  *
- * @route POST  /posts/block/:id
- * @param {any} req.params.id - The ID of the user unblocking
+ * @route POST  /posts/block/
  * @body {string} req.body.user_id - The ID of the user getting unblocked
  * @returns {status} - Returns a status of comment if posted successfully
  * @throws {Error} - If there are errors, the user could not be located (404)
@@ -68,7 +106,7 @@ router.delete("/posts/block/", rateLimiter(), verifyTokens, inputValidator, asyn
     console.log(`Expected URL:, ${req.originalUrl}`);
 
     const psqlClient = await pgPool.connect(); // connects to database
-    const unblocking_user_id = parseInt(req.body.payload.user_id); // converts data from req.params to float
+    const unblocking_user_id = parseInt(req.body.payload.user_id); // converts data from req.body.payload to float
     const unblocked_user_id = parseInt(req.body.user_id); // converts data from req.body to float
 
     console.log(
