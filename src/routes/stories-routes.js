@@ -285,6 +285,11 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
     let user_id = user.user_id
 
+    const { store_in_memory } = req.body;
+
+    const storeInMemory = store_in_memory ? true : false;
+
+
     // Define S3 bucket paths for storing files
     // const S3_STORY_PATH = "stories/active/";
     const S3_IMAGE_PATH = "stories/active/";
@@ -299,7 +304,7 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
       const newImageName = await s3Upload(req.files[0], S3_IMAGE_PATH);
 
       const currentTime = new Date();
-      const StorySchema = setStory(parseInt(user_id), newImageName, null, currentTime.toISOString());
+      const StorySchema = setStory(parseInt(user_id), newImageName, null, storeInMemory);
 
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
