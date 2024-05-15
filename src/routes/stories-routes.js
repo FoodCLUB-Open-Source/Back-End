@@ -1,14 +1,14 @@
 /* For stories routes */
-import { Router } from "express";
+import { Router, query } from "express";
 import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 
-import { pgQuery, s3Delete, s3Upload, s3Retrieve, getUserInfoFromIdToken } from "../functions/general_functions.js";
+import { pgQuery, s3Delete, s3Upload, s3Retrieve, getUserInfoFromIdToken, checkReactionExists } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
-import { setStory } from "../dynamo_schemas/dynamo_schemas.js";
+import { setStory, setStoryReactions } from "../dynamo_schemas/dynamo_schemas.js";
 import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
@@ -333,41 +333,6 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
 });
 
 
-/*
-router.post("/:user_id", inputValidator, rateLimiter(), upload.single('image'), async (req, res, next) => {
-  try {
-    // Parse the user_id from the request parameters
-    const { user_id } = req.params;
-    // Define S3 bucket path for storing image files
-    const S3_IMAGE_PATH = "images/active/";
-  
-    try {
-      // Upload the image file to an S3 bucket
-      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
-
-      // Create a StorySchema object with user_id and image URL
-      const StorySchema = setStory(parseInt(user_id), newImageName, null);
-    
-      // Insert the StorySchema object into the DynamoDB Stories table
-      await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
-
-      // Respond with a success message
-      res.status(200).json({ Status: "Image Posted" });
-
-    } catch (err) {
-      // If any error in DynamoDB, delete the uploaded file from S3
-      await s3Delete(req.file, S3_IMAGE_PATH);
-
-      // Throw the error to the next error handler
-      res.status(500).json({  message: "Image Post Failed" });
-    }
-
-  } catch (err) {
-    // Throw the error to the next error handler
-    next(err);
-  }
-});
-*/
 
 /**
  * Deletes a user's story.
@@ -425,5 +390,53 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
     next(err);
   }
 });
+
+
+/**
+ * Posts a reaction to a story.
+ * This endpoint needs a valid reaction id and story id 
+ * 
+ * @route POST stories/reaction/storyId/reactionId
+ * @param {any} req.params.story_id - The ID of the story.
+ * @param {any} req.params.reaction_Id - The ID of the reaction.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Reaction Submitted Succesfully', else returns 404 
+ * @throws {Error} - If any error occurs during the deletion process.
+ */
+
+router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) => {
+  try {
+    const { payload } = req.body;
+    const user_id = payload.user_id;
+    const reactionId = parseInt(req.params.reaction_Id)
+    const storyId = req.params.story_Id
+    if (!checkReactionExists(reactionId)) {
+      return res.status(401).json({ responce: "reaction id doesnt exist" })
+    }
+    let storyExists = await getDynamoRequestBuilder("Stories").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+    if (storyExists.length < 1) {
+      return res.status(400).json({ responce: "Story doesnt exist" })
+    }
+
+    const checkForDuplicateReactions = await getDynamoRequestBuilder("Story_Reactions").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+    for (let i = 0; i < checkForDuplicateReactions.length; i++) {
+      if (checkForDuplicateReactions[i].user_id == user_id) {
+        return res.status(400).json({ responce: "user has already reacted" })
+      }
+    }
+    const reactionSchema = setStoryReactions(storyId, user_id, reactionId)
+    // Insert the StorySchema object into the DynamoDB Stories table
+    await getDynamoRequestBuilder("Story_Reactions").put(reactionSchema).exec();
+
+    // Respond with a success message
+    res.status(200).json({ Status: "Reaction Submitted Succesfully" });
+
+
+  }
+  catch (err) {
+    return res.status(404).json({ Error: "Internal Server Error" })
+  }
+})
+
+
 
 export default router;

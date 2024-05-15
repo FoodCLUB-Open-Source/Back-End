@@ -127,7 +127,7 @@ router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req,
     // Query to retrieve Bookmarker's information
     const bookmarkerQuery = `
       SELECT 
-        id, username, profile_picture 
+        id, username, profile_picture, full_name 
       FROM 
         users 
       WHERE 
@@ -144,10 +144,12 @@ router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req,
         bookmarkerInfo.profile_picture = await s3Retrieve(bookmarkerInfo.profile_picture)
       }
       bookmarkerData = {
+       user: { 
         id: bookmarkerInfo.id,
         username: bookmarkerInfo.username,
+        fullname: bookmarkerInfo.full_name,
         profile_picture: bookmarkerInfo.profile_picture
-      }
+       }}
     }
 
     const responseData = updatedPostsData.map(post => {

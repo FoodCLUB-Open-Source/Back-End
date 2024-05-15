@@ -18,6 +18,8 @@ import {
 } from "console";
 import { type } from "os";
 import { verifyIdToken } from "../middleware/verify.js";
+import { check } from "express-validator";
+
 
 
 /**  
@@ -397,5 +399,25 @@ export async function getUserInfoFromIdToken(idToken) {
     console.log("Erro has occured")
   }
 }
+
+export function checkReactionExists(reactionInt) {
+  const reactions = new Map()
+  reactions.set(1, "Yum Yum")
+  reactions.set(2, "I want this Recipe")
+  reactions.set(3, "Let Go together")
+  reactions.set(4, "Creative")
+  reactions.set(5, "Stay Healthy")
+  reactions.set(6, "Enjoy")
+
+  if (reactions.has(reactionInt)) {
+    return true
+  }
+  else {
+    return false
+  }
+
+}
+
+
 
 
