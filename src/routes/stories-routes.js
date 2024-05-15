@@ -79,14 +79,14 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
           stories.forEach(async (story) => { // processing all user stories
             // retrieving URLs and replacing them in the story object
             const imageUrl = await s3Retrieve(story.image_url);
-            const thumbnailURL = await s3Retrieve(story.thumbnail_url);
+            // const thumbnailURL = await s3Retrieve(story.thumbnail_url);
             story.image_url = imageUrl;
-            story.thumbnail_url = thumbnailURL;
+            // story.thumbnail_url = thumbnailURL;
 
             let storiesList = userStoryMap[user.user_following_id].stories;
             storiesList = [...storiesList, {
               story_id: story.story_id,
-              thumbnail_url: story.thumbnail_url,
+              // thumbnail_url: story.thumbnail_url,
               image_url: story.image_url,
               created_at: story.created_at,
             }];
@@ -165,11 +165,11 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
       // Use map to concurrently retrieve S3 URLs for video and thumbnail
       const s3Promises = savedStories.map(async (story) => {
         story.imageUrl = await s3Retrieve(story.imageUrl);
-        story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+        // story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
         return {
           story_id: story.story_id,
           imageUrl: story.imageUrl,
-          thumbnail_url: story.thumbnail_url,
+          // thumbnail_url: story.thumbnail_url,
           created_at: story.created_at,
           view_count: story.view_count,
         };
@@ -207,15 +207,15 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
-    const user_id = payload.user_id;
+    const user_id = parseInt(payload.user_id);
 
     // Query to retrive user details from database
     const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
-    const userDetails = await pgQuery(query, parseInt(user_id));
+    const userDetails = await pgQuery(query,user_id);
 
     if (userDetails.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
@@ -240,7 +240,7 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
     //change the name of the sotry into url form
     const s3Promises = filteredStories.map(async (story) => {
       story.imageUrl = await s3Retrieve(story.imageUrl);
-      story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+      // story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
       return story;
     });
 
@@ -252,7 +252,7 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
       user_id: user_id,
       full_name: userDetail.full_name,
       user_name: userDetail.username,
-      profile_picture: userDetail.profile_picture,
+      profile_picture: userDetail.profile_picture || null,
       users_stories: [...updatedStories]
 
     };
