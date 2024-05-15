@@ -1,14 +1,14 @@
 /* For stories routes */
-import { Router } from "express";
+import { Router, query } from "express";
 import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
 
 
-import { pgQuery, s3Delete, s3Upload, s3Retrieve } from "../functions/general_functions.js";
+import { pgQuery, s3Delete, s3Upload, s3Retrieve, getUserInfoFromIdToken, checkReactionExists } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
 
-import { setStory } from "../dynamo_schemas/dynamo_schemas.js";
+import { setStory, setStoryReactions } from "../dynamo_schemas/dynamo_schemas.js";
 import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
@@ -56,16 +56,16 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
       userFollowing.rows.map(async (user) => {
         try {
           let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-                    
+
           // filtering out stories that are older than 24 hours
           const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
-          stories = stories.filter( story => {
+          stories = stories.filter(story => {
             const timeDiff = Date.now() - Date.parse(story.created_at);
             return timeDiff < ONE_DAY;
           });
-                    
+
           if (stories.length === 0) return; // no recent stories for user
-                    
+
           if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
             // if not user details are created and stored
             userStoryMap[user.user_following_id] = {
@@ -92,7 +92,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
             }];
             userStoryMap[user.user_following_id].stories = storiesList;
           });
-                    
+
         } catch (error) {
           console.error(error);
           return res.status(400).json({ error: error });
@@ -164,11 +164,11 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 
       // Use map to concurrently retrieve S3 URLs for video and thumbnail
       const s3Promises = savedStories.map(async (story) => {
-        story.imageUrl  = await s3Retrieve(story.imageUrl);
+        story.imageUrl = await s3Retrieve(story.imageUrl);
         story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
         return {
           story_id: story.story_id,
-          imageUrl :  story.imageUrl ,
+          imageUrl: story.imageUrl,
           thumbnail_url: story.thumbnail_url,
           created_at: story.created_at,
           view_count: story.view_count,
@@ -184,12 +184,12 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
         user_name: userDetail.username,
         profile_picture: userDetail.profile_picture,
         saved_stories: [...updatedStories]
-      // Include other user details as needed
+        // Include other user details as needed
       };
-    
+
 
       res.status(200).json({ stories: user_details });
-    } catch (err){
+    } catch (err) {
 
       return res.status(500).json({ message: err });
     }
@@ -215,7 +215,7 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
 
     // Query to retrive user details from database
     const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
-    const userDetails = await pgQuery(query, parseInt(user_id)); 
+    const userDetails = await pgQuery(query, parseInt(user_id));
 
     if (userDetails.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
@@ -254,7 +254,7 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
       user_name: userDetail.username,
       profile_picture: userDetail.profile_picture,
       users_stories: [...updatedStories]
-     
+
     };
     //return the variable object
     res.status(200).json({ stories: user_details });
@@ -282,35 +282,37 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
  */
 router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
   try {
-    // Parse the user_id from the request parameters
-    const { payload } = req.body;
-    const user_id = payload.user_id;
+    let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
+    let user_id = user.user_id
+
+    const { store_in_memory } = req.body;
+
+    const storeInMemory = store_in_memory ? true : false;
+
+
     // Define S3 bucket paths for storing files
     // const S3_STORY_PATH = "stories/active/";
     const S3_IMAGE_PATH = "stories/active/";
-  
+
     try {
       // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
 
-      if (!req.file || !req.file.mimetype.startsWith("image/")) {
+      if (!req.files || !req.files[0].mimetype.startsWith("image/")) {
         return res.status(400).json({ message: "Invalid file format. Only images are allowed." });
       }
 
-      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
+      const newImageName = await s3Upload(req.files[0], S3_IMAGE_PATH);
 
       const currentTime = new Date();
-      const StorySchema = setStory(parseInt(user_id), newImageName, null, currentTime.toISOString());
+      const StorySchema = setStory(parseInt(user_id), newImageName, null, storeInMemory);
 
-      // Create a StorySchema object with user_id and image URL
-      // const StorySchema = setStory(parseInt(user_id), newImageName, null);
-    
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
 
       // Respond with a success message
       res.status(200).json({ Status: "Image Posted" });
 
-     
+
 
       // Respond with a success messages
       // res.status(200).json({ Status: "Story Posted" });
@@ -318,17 +320,10 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     } catch (err) {
       //if any error in the DynamoDB, delete the files from S3
 
-      /*
-      await Promise.all([
-        s3Delete(req.files[0], S3_STORY_PATH),
-        s3Delete(req.files[1], S3_STORY_PATH)
-      ]);
-      */
-
       await s3Delete(req.file, S3_IMAGE_PATH);
 
       // Throw the error to the next error handler
-      res.status(500).json({  message: "Story Post Failed" });
+      res.status(500).json({ message: "Story Post Failed" });
     }
 
   } catch (err) {
@@ -338,41 +333,6 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
 });
 
 
-/*
-router.post("/:user_id", inputValidator, rateLimiter(), upload.single('image'), async (req, res, next) => {
-  try {
-    // Parse the user_id from the request parameters
-    const { user_id } = req.params;
-    // Define S3 bucket path for storing image files
-    const S3_IMAGE_PATH = "images/active/";
-  
-    try {
-      // Upload the image file to an S3 bucket
-      const newImageName = await s3Upload(req.file, S3_IMAGE_PATH);
-
-      // Create a StorySchema object with user_id and image URL
-      const StorySchema = setStory(parseInt(user_id), newImageName, null);
-    
-      // Insert the StorySchema object into the DynamoDB Stories table
-      await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
-
-      // Respond with a success message
-      res.status(200).json({ Status: "Image Posted" });
-
-    } catch (err) {
-      // If any error in DynamoDB, delete the uploaded file from S3
-      await s3Delete(req.file, S3_IMAGE_PATH);
-
-      // Throw the error to the next error handler
-      res.status(500).json({  message: "Image Post Failed" });
-    }
-
-  } catch (err) {
-    // Throw the error to the next error handler
-    next(err);
-  }
-});
-*/
 
 /**
  * Deletes a user's story.
@@ -398,7 +358,7 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
       .exec();
 
     if (getStory.length === 0) {
-      return res.status(404).json({  message: "Story not found" });
+      return res.status(404).json({ message: "Story not found" });
     }
 
     // get the image and thumbnail paths and story_id
@@ -413,7 +373,7 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
     } catch (err) {
       // Handle errors here or log them for debugging
       console.error("Error deleting files from S3:", err);
-      return res.status(500).json({  message: "Error deleting files from S3" });
+      return res.status(500).json({ message: "Error deleting files from S3" });
     }
 
     // Delete the story from the Stories table
@@ -430,6 +390,52 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
     next(err);
   }
 });
+
+
+/**
+ * Posts a reaction to a story.
+ * This endpoint needs a valid reaction id and story id 
+ * 
+ * @route POST stories/reaction/storyId/reactionId
+ * @param {any} req.params.story_id - The ID of the story.
+ * @param {any} req.params.reaction_Id - The ID of the reaction.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to 'Reaction Submitted Succesfully', else returns 404 
+ * @throws {Error} - If any error occurs during the deletion process.
+ */
+
+router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) => {
+  try {
+    const { payload } = req.body;
+    const user_id = payload.user_id;
+    const reactionId = parseInt(req.params.reaction_Id)
+    const storyId = req.params.story_Id
+    if (!checkReactionExists(reactionId)) {
+      return res.status(401).json({ responce: "reaction id doesnt exist" })
+    }
+    let storyExists = await getDynamoRequestBuilder("Stories").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+    if (storyExists.length < 1) {
+      return res.status(400).json({ responce: "Story doesnt exist" })
+    }
+
+    const checkForDuplicateReactions = await getDynamoRequestBuilder("Story_Reactions").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+    for (let i = 0; i < checkForDuplicateReactions.length; i++) {
+      if (checkForDuplicateReactions[i].user_id == user_id) {
+        return res.status(400).json({ responce: "user has already reacted" })
+      }
+    }
+    const reactionSchema = setStoryReactions(storyId, user_id, reactionId)
+    // Insert the StorySchema object into the DynamoDB Stories table
+    await getDynamoRequestBuilder("Story_Reactions").put(reactionSchema).exec();
+
+    // Respond with a success message
+    res.status(200).json({ Status: "Reaction Submitted Succesfully" });
+
+
+  }
+  catch (err) {
+    return res.status(404).json({ Error: "Internal Server Error" })
+  }
+})
 
 
 
