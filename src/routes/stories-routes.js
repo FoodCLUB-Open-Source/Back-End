@@ -456,6 +456,14 @@ router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) =
 
 
 
+/**
+ * Gets a reaction to a story.
+ * This endpoint needs a valid story id 
+ * 
+ * @route GET stories/reaction/story/storyId
+ * @param {any} req.params.story_id - The ID of the story.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to an array of users
+ */
 router.get("/reaction/story/:storyId", async (req, res) => {
   try {
 
