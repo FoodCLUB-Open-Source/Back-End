@@ -207,7 +207,7 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
@@ -283,7 +283,7 @@ router.get("/", rateLimiter(), /*verifyTokens,*/ inputValidator, async (req, res
 router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
   try {
     let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
-    let user_id = user.user_id
+    let user_id = user.user_id;
 
     const { store_in_memory } = req.body;
 
@@ -308,7 +308,7 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
 
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
-
+      console.log(StorySchema)
       // Respond with a success message
       res.status(200).json({ Status: "Image Posted" });
 
