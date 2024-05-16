@@ -438,5 +438,45 @@ router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) =
 })
 
 
+router.get("/reactions", async (req, res) => {
+  try {
+    // Destructure the storyId from the request body
+    const { storyId } = req.body;
+
+    // Query DynamoDB to get reactions for the specified storyId
+    const storyReactions = await getDynamoRequestBuilder("Story_Reactions")
+      .query("story_id", storyId)
+      .useIndex("story_id-index")
+      .scanIndexDescending()
+      .exec();
+
+    // Iterate over each reaction to fetch user details
+    for (let i = 0; i < storyReactions.length; i++) {
+      const userDetailsResult = await pgQuery(
+        "SELECT full_name, profile_picture FROM users WHERE id=$1", storyReactions[i].user_id
+      );
+      const userDetails = userDetailsResult.rows[0];
+
+      // If the user has a profile picture, retrieve it from S3
+      if (userDetails && userDetails.profile_picture) {
+        userDetails.profile_picture = await s3Retrieve(userDetails.profile_picture);
+      }
+
+      // Attach user details to the reaction
+      storyReactions[i].user = userDetails;
+    }
+
+    // Respond with the reactions
+    res.status(200).json({ reactions: storyReactions });
+  } catch (err) {
+    // Log the error and respond with a 500 status code
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+
+
 
 export default router;
