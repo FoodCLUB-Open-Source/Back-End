@@ -407,41 +407,61 @@ router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) =
   try {
     const { payload } = req.body;
     const user_id = payload.user_id;
-    const reactionId = parseInt(req.params.reaction_Id)
-    const storyId = req.params.story_Id
+    const reactionId = parseInt(req.params.reaction_Id);
+    const storyId = req.params.story_Id;
+
+    // Check if the reaction ID is valid
     if (!checkReactionExists(reactionId)) {
-      return res.status(401).json({ responce: "reaction id doesnt exist" })
-    }
-    let storyExists = await getDynamoRequestBuilder("Stories").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-    if (storyExists.length < 1) {
-      return res.status(400).json({ responce: "Story doesnt exist" })
+      return res.status(401).json({ response: "Reaction ID doesn't exist" });
     }
 
-    const checkForDuplicateReactions = await getDynamoRequestBuilder("Story_Reactions").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-    for (let i = 0; i < checkForDuplicateReactions.length; i++) {
-      if (checkForDuplicateReactions[i].user_id == user_id) {
-        return res.status(400).json({ responce: "user has already reacted" })
+    // Query DynamoDB to check if the story exists
+    const storyExists = await getDynamoRequestBuilder("Stories")
+      .query("story_id", storyId)
+      .useIndex("story_id-index")
+      .scanIndexDescending()
+      .exec();
+
+    if (storyExists.length < 1) {
+      return res.status(400).json({ response: "Story doesn't exist" });
+    }
+
+    // Check for duplicate reactions by the same user on the same story
+    const duplicateReactions = await getDynamoRequestBuilder("Story_Reactions")
+      .query("story_id", storyId)
+      .useIndex("story_id-index")
+      .scanIndexDescending()
+      .exec();
+
+    for (let reaction of duplicateReactions) {
+      if (reaction.user_id === user_id) {
+        return res.status(400).json({ response: "User has already reacted" });
       }
     }
-    const reactionSchema = setStoryReactions(storyId, user_id, reactionId)
-    // Insert the StorySchema object into the DynamoDB Stories table
+
+    // Create the reaction schema
+    const reactionSchema = setStoryReactions(storyId, user_id, reactionId);
+
+    // Insert the reaction schema into the DynamoDB Story_Reactions table
     await getDynamoRequestBuilder("Story_Reactions").put(reactionSchema).exec();
 
     // Respond with a success message
-    res.status(200).json({ Status: "Reaction Submitted Succesfully" });
-
-
+    res.status(200).json({ status: "Reaction Submitted Successfully" });
+  } catch (err) {
+    // Log the error and respond with a 500 status code
+    console.error(err);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-  catch (err) {
-    return res.status(404).json({ Error: "Internal Server Error" })
-  }
-})
+});
 
 
-router.get("/reactions", async (req, res) => {
+
+router.get("/reaction/story/:storyId", async (req, res) => {
   try {
+
     // Destructure the storyId from the request body
-    const { storyId } = req.body;
+    const storyId = req.params.storyId;
+
 
     // Query DynamoDB to get reactions for the specified storyId
     const storyReactions = await getDynamoRequestBuilder("Story_Reactions")
