@@ -79,14 +79,14 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
           stories.forEach(async (story) => { // processing all user stories
             // retrieving URLs and replacing them in the story object
             const imageUrl = await s3Retrieve(story.image_url);
-            const thumbnailURL = await s3Retrieve(story.thumbnail_url);
+            // const thumbnailURL = await s3Retrieve(story.thumbnail_url);
             story.image_url = imageUrl;
-            story.thumbnail_url = thumbnailURL;
+            // story.thumbnail_url = thumbnailURL;
 
             let storiesList = userStoryMap[user.user_following_id].stories;
             storiesList = [...storiesList, {
               story_id: story.story_id,
-              thumbnail_url: story.thumbnail_url,
+              // thumbnail_url: story.thumbnail_url,
               image_url: story.image_url,
               created_at: story.created_at,
             }];
@@ -165,11 +165,11 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
       // Use map to concurrently retrieve S3 URLs for video and thumbnail
       const s3Promises = savedStories.map(async (story) => {
         story.imageUrl = await s3Retrieve(story.imageUrl);
-        story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+        // story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
         return {
           story_id: story.story_id,
           imageUrl: story.imageUrl,
-          thumbnail_url: story.thumbnail_url,
+          // thumbnail_url: story.thumbnail_url,
           created_at: story.created_at,
           view_count: story.view_count,
         };
@@ -211,11 +211,11 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
   try {
     //we get the id of the user in string format
     const { payload } = req.body;
-    const user_id = payload.user_id;
+    const user_id = parseInt(payload.user_id);
 
     // Query to retrive user details from database
     const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
-    const userDetails = await pgQuery(query, parseInt(user_id));
+    const userDetails = await pgQuery(query,user_id);
 
     if (userDetails.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
@@ -240,7 +240,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     //change the name of the sotry into url form
     const s3Promises = filteredStories.map(async (story) => {
       story.imageUrl = await s3Retrieve(story.imageUrl);
-      story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+      // story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
       return story;
     });
 
@@ -252,7 +252,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
       user_id: user_id,
       full_name: userDetail.full_name,
       user_name: userDetail.username,
-      profile_picture: userDetail.profile_picture,
+      profile_picture: userDetail.profile_picture || null,
       users_stories: [...updatedStories]
 
     };
@@ -407,35 +407,103 @@ router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) =
   try {
     const { payload } = req.body;
     const user_id = payload.user_id;
-    const reactionId = parseInt(req.params.reaction_Id)
-    const storyId = req.params.story_Id
+    const reactionId = parseInt(req.params.reaction_Id);
+    const storyId = req.params.story_Id;
+
+    // Check if the reaction ID is valid
     if (!checkReactionExists(reactionId)) {
-      return res.status(401).json({ responce: "reaction id doesnt exist" })
-    }
-    let storyExists = await getDynamoRequestBuilder("Stories").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-    if (storyExists.length < 1) {
-      return res.status(400).json({ responce: "Story doesnt exist" })
+      return res.status(401).json({ response: "Reaction ID doesn't exist" });
     }
 
-    const checkForDuplicateReactions = await getDynamoRequestBuilder("Story_Reactions").query("story_id", storyId).useIndex("story_id-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
-    for (let i = 0; i < checkForDuplicateReactions.length; i++) {
-      if (checkForDuplicateReactions[i].user_id == user_id) {
-        return res.status(400).json({ responce: "user has already reacted" })
+    // Query DynamoDB to check if the story exists
+    const storyExists = await getDynamoRequestBuilder("Stories")
+      .query("story_id", storyId)
+      .useIndex("story_id-index")
+      .scanIndexDescending()
+      .exec();
+
+    if (storyExists.length < 1) {
+      return res.status(400).json({ response: "Story doesn't exist" });
+    }
+
+    // Check for duplicate reactions by the same user on the same story
+    const duplicateReactions = await getDynamoRequestBuilder("Story_Reactions")
+      .query("story_id", storyId)
+      .useIndex("story_id-index")
+      .scanIndexDescending()
+      .exec();
+
+    for (let reaction of duplicateReactions) {
+      if (reaction.user_id === user_id) {
+        return res.status(400).json({ response: "User has already reacted" });
       }
     }
-    const reactionSchema = setStoryReactions(storyId, user_id, reactionId)
-    // Insert the StorySchema object into the DynamoDB Stories table
+
+    // Create the reaction schema
+    const reactionSchema = setStoryReactions(storyId, user_id, reactionId);
+
+    // Insert the reaction schema into the DynamoDB Story_Reactions table
     await getDynamoRequestBuilder("Story_Reactions").put(reactionSchema).exec();
 
     // Respond with a success message
-    res.status(200).json({ Status: "Reaction Submitted Succesfully" });
+    res.status(200).json({ status: "Reaction Submitted Successfully" });
+  } catch (err) {
+    // Log the error and respond with a 500 status code
+    console.error(err);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 
+
+/**
+ * Gets a reaction to a story.
+ * This endpoint needs a valid story id 
+ * 
+ * @route GET stories/reaction/story/storyId
+ * @param {any} req.params.story_id - The ID of the story.
+ * @returns {status} - If successful, returns 200 and a JSON object with status set to an array of users
+ */
+router.get("/reaction/story/:storyId", async (req, res) => {
+  try {
+
+    // Destructure the storyId from the request body
+    const storyId = req.params.storyId;
+
+
+    // Query DynamoDB to get reactions for the specified storyId
+    const storyReactions = await getDynamoRequestBuilder("Story_Reactions")
+      .query("story_id", storyId)
+      .useIndex("story_id-index")
+      .scanIndexDescending()
+      .exec();
+
+    // Iterate over each reaction to fetch user details
+    for (let i = 0; i < storyReactions.length; i++) {
+      const userDetailsResult = await pgQuery(
+        "SELECT full_name, profile_picture FROM users WHERE id=$1", storyReactions[i].user_id
+      );
+      const userDetails = userDetailsResult.rows[0];
+
+      // If the user has a profile picture, retrieve it from S3
+      if (userDetails && userDetails.profile_picture) {
+        userDetails.profile_picture = await s3Retrieve(userDetails.profile_picture);
+      }
+
+      // Attach user details to the reaction
+      storyReactions[i].user = userDetails;
+    }
+
+    // Respond with the reactions
+    res.status(200).json({ reactions: storyReactions });
+  } catch (err) {
+    // Log the error and respond with a 500 status code
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-  catch (err) {
-    return res.status(404).json({ Error: "Internal Server Error" })
-  }
-})
+});
+
+
 
 
 
