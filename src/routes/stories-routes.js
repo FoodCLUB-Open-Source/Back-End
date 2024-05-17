@@ -287,7 +287,7 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
 
     const { store_in_memory } = req.body;
 
-    const storeInMemory = store_in_memory ? true : false;
+    const storeInMemory = store_in_memory;
 
 
     // Define S3 bucket paths for storing files
