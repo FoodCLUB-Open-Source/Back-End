@@ -52,7 +52,7 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
     const userStoryMap = {}; // object to organize stories by user
 
     // Use Promise.all to wait for all queries to complete
-    Promise.all(
+    await Promise.all(
       userFollowing.rows.map(async (user) => {
         try {
           let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
@@ -76,22 +76,14 @@ router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, as
               stories: [],
             };
           }
-          stories.forEach(async (story) => { // processing all user stories
-            // retrieving URLs and replacing them in the story object
-            const imageUrl = await s3Retrieve(story.image_url);
-            // const thumbnailURL = await s3Retrieve(story.thumbnail_url);
-            story.image_url = imageUrl;
-            // story.thumbnail_url = thumbnailURL;
-
-            let storiesList = userStoryMap[user.user_following_id].stories;
-            storiesList = [...storiesList, {
+          await Promise.all(stories.map(async (story) => {
+            const imageUrl = await s3Retrieve(story.imageUrl);
+            userStoryMap[user.user_following_id].stories.push({
               story_id: story.story_id,
-              // thumbnail_url: story.thumbnail_url,
-              image_url: story.image_url,
+              image_url: imageUrl,
               created_at: story.created_at,
-            }];
-            userStoryMap[user.user_following_id].stories = storiesList;
-          });
+            });
+          }));
 
         } catch (error) {
           console.error(error);
