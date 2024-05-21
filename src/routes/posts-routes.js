@@ -61,17 +61,15 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  * @param {any} req.query.title - Title of the post to search for
  * @returns {status} - If successful, returns 200 and a JSON object with the posts, else returns 400 and a JSON object with the message set to 'Unknown error occurred.'
  */
-
-
-
-router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
-    console.log("being called");
     const {
+      username = "",
+      title = "",
       page = 1,
       pageSize = 10
     } = req.query;
-    const user_id = 251
+    const user_id = parseInt(req.body.payload.user_id)
 
     const limit = parseInt(pageSize);
     const offset = (parseInt(page) - 1) * limit;
@@ -101,7 +99,7 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
     // Retrieve paginated posts based on query
     const posts = await pgQuery(query, title, username, limit, offset);
     const tempPosts = posts.rows;
-    console.log(tempPosts.length);
+
 
     // Retrieves additional data for all posts
     let updatedPosts = await updatePosts(tempPosts, user_id);
@@ -142,10 +140,6 @@ router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
     });
   }
 });
-
-
-
-
 
 /**
  * Uploading a Post, video and recipe
