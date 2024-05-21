@@ -61,14 +61,20 @@ router.get("/testing/test/:post_id", inputValidator, async (req, res) => {
  * @param {any} req.query.title - Title of the post to search for
  * @returns {status} - If successful, returns 200 and a JSON object with the posts, else returns 400 and a JSON object with the message set to 'Unknown error occurred.'
  */
-router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, next) => {
-  try {
-    const {
-      username = "",
-      title = ""
-    } = req.query;
 
-    const user_id = parseInt(req.body.payload.user_id);
+
+
+router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
+  try {
+    console.log("being called");
+    const {
+      page = 1,
+      pageSize = 10
+    } = req.query;
+    const user_id = 251
+
+    const limit = parseInt(pageSize);
+    const offset = (parseInt(page) - 1) * limit;
 
     const query = `
       SELECT p.id, p.title, p.thumbnail_name, p.video_name, u.username
@@ -76,11 +82,26 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
       JOIN posts p
       ON p.user_id = u.id
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
+      LIMIT $3 OFFSET $4
     `;
 
-    // Retrieve posts based on query and then store in new object
-    const posts = await pgQuery(query, title, username);
+    const countQuery = `
+      SELECT COUNT(*) AS total
+      FROM users u
+      JOIN posts p
+      ON p.user_id = u.id
+      WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
+    `;
+
+    // Retrieve total count of posts for pagination metadata
+    const countResult = await pgQuery(countQuery, title, username);
+    const totalPosts = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalPosts / limit);
+
+    // Retrieve paginated posts based on query
+    const posts = await pgQuery(query, title, username, limit, offset);
     const tempPosts = posts.rows;
+    console.log(tempPosts.length);
 
     // Retrieves additional data for all posts
     let updatedPosts = await updatePosts(tempPosts, user_id);
@@ -92,10 +113,6 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
         updatedPosts[i].id
       );
 
-      /** NOTE :
-      * Given some posts do not have an exisiting recipe_id, we have to check to see if an associated recipe exists for a post. This can be 
-      * changed or removed when we match the recipe_id with the post_id in a future issue.
-      */
       if (results.rows.length == 0) {
         // Set recipe_id to null if it does not exist
         updatedPosts[i].recipe_id = null;
@@ -110,7 +127,13 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
     }
 
     return res.status(200).json({
-      data: updatedPosts
+      data: updatedPosts,
+      meta: {
+        totalPosts,
+        totalPages,
+        currentPage: parseInt(page),
+        pageSize: limit
+      }
     });
   } catch (err) {
     console.error(err);
@@ -119,6 +142,10 @@ router.get("/", rateLimiter(), inputValidator, verifyTokens, async (req, res, ne
     });
   }
 });
+
+
+
+
 
 /**
  * Uploading a Post, video and recipe
