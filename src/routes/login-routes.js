@@ -53,10 +53,10 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
 
   // Extract necessary input fields from request body
   const { username, email, password, full_name } = req.body;
-  
+
   // Check if all necessary input fields are provided
   if (!(username && email && password && full_name)) {
-    return res.status(400).json({ message :"Necessary input fields not given in request" });
+    return res.status(400).json({ message: "Necessary input fields not given in request" });
   }
 
   // Initialize an array to store Cognito user attributes
@@ -85,7 +85,7 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
     const verified = false;
     const insertQuery = await pgQuery("INSERT INTO users (username, email, password, full_name, verified) VALUES ($1, $2, $3, $4, $5) RETURNING id",
       username, email, passwordHashed, full_name, verified);
-    user_id = insertQuery.rows[0].id; 
+    user_id = insertQuery.rows[0].id;
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
@@ -98,7 +98,7 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
     if (err) {
       // If signup fails, delete the user from the database
       await pgQuery("DELETE FROM users WHERE username = $1", username);
-      return res.status(400).json({ message: err.message }); 
+      return res.status(400).json({ message: err.message });
     }
 
     // Return successful signup response
@@ -110,7 +110,7 @@ router.post("/signup", inputValidator, rateLimiter(), async (req, res) => {
       full_name: full_name,
       session: null
     });
-  });  
+  });
 });
 
 /**
@@ -158,19 +158,19 @@ router.post("/confirm_verification", inputValidator, rateLimiter(), (req, res) =
       Username: username,
       Password: password
     });
-    
+
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: async (result) => {
         // Retrieve user data from the database
         const user = await pgQuery("SELECT id, username, profile_picture FROM users WHERE username = $1", username);
         // Get tokens from Cognito user session
         const signInUserSession = cognitoUser.getSignInUserSession();
-        const idToken =  signInUserSession.getIdToken().getJwtToken();
+        const idToken = signInUserSession.getIdToken().getJwtToken();
         const accessToken = signInUserSession.getAccessToken().getJwtToken();
         const refreshToken = signInUserSession.getRefreshToken().getToken();
 
         // Return successful login response with user data and tokens
-        res.status(200).json({ 
+        res.status(200).json({
           header: "user logged in",
           message: "user email verified successfully",
           user: user.rows[0],
@@ -180,10 +180,10 @@ router.post("/confirm_verification", inputValidator, rateLimiter(), (req, res) =
         });
       },
       onFailure: (err) => {
-         // Handle authentication failure
-        return res.status(400).json({ message: err.message });      
+        // Handle authentication failure
+        return res.status(400).json({ message: err.message });
       }
-    }); 
+    });
   });
 });
 
@@ -196,7 +196,7 @@ router.post("/confirm_verification", inputValidator, rateLimiter(), (req, res) =
  * @returns {status} - A successful status indicates code resent, returns 200 and a JSON object
  * @throws {Error} - If there are errors dont send another verififcation code, returns 400
  */
-router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) => {
+router.post("/resend_verification_code", inputValidator, rateLimiter(), (req, res) => {
   // Extract username from request body
   const { username } = req.body;
 
@@ -208,7 +208,7 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
 
   // Initialize Cognito user object
   const cognitoUser = new CognitoUser(userData);
-  
+
   // Resend confirmation code to user's email
   cognitoUser.resendConfirmationCode((err, result) => {
     if (err) {
@@ -216,9 +216,10 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
       return res.status(400).json({ message: err.message });
     }
     // Return success message if code is resent successfully
-    res.status(200).json({ 
+    res.status(200).json({
       header: "User email is not confirmed",
-      message: "new code sent successfully" });
+      message: "new code sent successfully"
+    });
   });
 });
 
@@ -232,7 +233,7 @@ router.post("/resend_verification_code",inputValidator,rateLimiter(),(req, res) 
  * @returns {status} - A successful status indicates successful sign in, returns 200 and a JSON object
  * @throws {Error} - If there are errors dont sign user in, returns 400 and a JSON with associated error message
  */
-router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) => {
+router.post("/signin", inputValidator, rateLimiter(), emailOrUsername(), (req, res) => {
   // Extract username and password from request body
   const { username, password } = req.body;
 
@@ -250,17 +251,17 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
     Username: username,
     Password: password
   });
-  
+
   // Authenticate user using Cognito
   cognitoUser.authenticateUser(authenticationDetails, {
-    onSuccess: async (result) =>{
+    onSuccess: async (result) => {
       // Retrieve user data from the database
       const user = await pgQuery("SELECT id, username, profile_picture, full_name FROM users WHERE username = $1", username);
       // signInUserSession is an instance of CognitoUserSession
       // these return object instances, not just strings of the tokens.
       const signInUserSession = cognitoUser.getSignInUserSession();
 
-      const idToken =  signInUserSession.getIdToken().getJwtToken();
+      const idToken = signInUserSession.getIdToken().getJwtToken();
       const accessToken = signInUserSession.getAccessToken().getJwtToken();
       const refreshToken = signInUserSession.getRefreshToken().getToken();
 
@@ -282,7 +283,7 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
           if (err) {
             return res.status(400).json({ message: err.message });
           }
-          res.status(400).json({ 
+          res.status(400).json({
             message: "User is not verified",
             description: "new verification code email sent"
           });
@@ -301,7 +302,7 @@ router.post("/signin",inputValidator,rateLimiter(),emailOrUsername(),(req, res) 
         });
       }
     }
-  });  
+  });
 });
 
 /**
@@ -336,9 +337,9 @@ router.post("/signout", rateLimiter(), (req, res) => {
       }
     });
     // Return success message if user is signed out
-    return res.status(200).json({ 
-      message: "user successfully logged out" 
-      
+    return res.status(200).json({
+      message: "user successfully logged out"
+
     });
   } else {
     // Return error message if username is not found
@@ -368,7 +369,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
     Username: username,
     Pool: cognitoUserPool
   };
-  
+
   // Extract authorization header from request
   const authorisation = req.header["Authorisation"];
   try {
@@ -397,7 +398,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
     const cognitoUser = new CognitoUser(userData);
 
     // Set the sign-in user session for the Cognito user
-    cognitoUser.setSignInUserSession(cognitoUserSession); 
+    cognitoUser.setSignInUserSession(cognitoUserSession);
 
     // Change user password
     cognitoUser.changePassword(old_password, new_password, (err, result) => {
@@ -409,7 +410,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
         .status(201)
         .json({ message: "password changed successfully" });
     });
-    
+
   } catch (error) {
     // Handle error if parsing tokens fails
     res.status(400).json({ message: error.message });
@@ -425,7 +426,7 @@ router.post("/change_password", inputValidator, rateLimiter(), (req, res) => {
  * @returns {status} - A successful status indicates code is sent, returns 200 and a JSON object with a message indicating verification code sent 
  * @throws {Error} - If there are errors dont send a code, returns 400 with associated error message
  */
-router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),emailOrUsername(),async (req, res) => {
+router.post("/forgot_password/verification_code", inputValidator, rateLimiter(), emailOrUsername(), async (req, res) => {
   // Extract username from request body
   const { username } = req.body;
 
@@ -462,7 +463,7 @@ router.post("/forgot_password/verification_code",inputValidator,rateLimiter(),em
  * @returns {status} - A successful status indicates new password has been set, returns 201 and a JSON object with successful password reset message
  * @throws {Error} - If there are errors dont chagne the password, returns 400 with associated error message
  */
-router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(req, res) => {
+router.post("/forgot_password_code/new_password", inputValidator, rateLimiter(), (req, res) => {
   // Extract username, verification code, and new password from request body
   const { username, verification_code, new_password } = req.body;
 
@@ -500,23 +501,23 @@ router.post("/forgot_password_code/new_password",inputValidator,rateLimiter(),(r
 router.post("/global_signout", rateLimiter(), async (req, res) => {
   // Extract username from request body
   const { username } = req.body;
-  
+
   // Create user data object for Cognito user
   const userData = {
     Username: username,
     Pool: cognitoUserPool,
   };
-  
+
   // Get the authorisation header and tokens
   const authorisation = req.header["Authorisation"];
   try {
     // Parse access token and id token from authorization header
     const { access_token, id_token } = parseHeader(authorisation);
 
-     // Create Cognito access token and id token objects
+    // Create Cognito access token and id token objects
     const cognitoAccessToken = new CognitoAccessToken({ AccessToken: access_token });
     const cognitoIdToken = new CognitoIdToken({ IdToken: id_token });
-    
+
     // Create session data object
     const sessionData = {
       IdToken: cognitoIdToken,
@@ -524,19 +525,19 @@ router.post("/global_signout", rateLimiter(), async (req, res) => {
       RefreshToken: null,
       ClockDrift: null,
     };
-  
+
     // Create Cognito user session
     const cognitoUserSession = new CognitoUserSession(sessionData);
-  
+
     // Initialize Cognito user object
     const cognitoUser = new CognitoUser(userData);
-  
+
     // Set the sign-in user session for the Cognito user
-    cognitoUser.setSignInUserSession(cognitoUserSession); 
-  
+    cognitoUser.setSignInUserSession(cognitoUserSession);
+
     // Perform global sign out
     cognitoUser.globalSignOut({
-      onSuccess: (result) => { 
+      onSuccess: (result) => {
         // Return success message if global sign out is successfu
         res.status(200).json("User signed out globally");
       },
@@ -570,14 +571,14 @@ router.post("/refresh_session", rateLimiter(10, 1), async (req, res) => {
   if (refresh_token) {
     // first check if refresh token is valid: verify the token
     // Create Cognito refresh token object
-    const cognitoRefreshToken  = new CognitoRefreshToken({ RefreshToken: refresh_token });
+    const cognitoRefreshToken = new CognitoRefreshToken({ RefreshToken: refresh_token });
     try {
       // Create user data object for Cognito user
       const userData = {
         Username: username,
         Pool: cognitoUserPool,
       };
-    
+
       // Initialize Cognito user object
       const cognitoUser = new CognitoUser(userData);
 
