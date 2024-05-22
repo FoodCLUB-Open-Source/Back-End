@@ -51,7 +51,7 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
     const user_id = payload.user_id;
 
     const query = `
-            SELECT id, username, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
+            SELECT id, username, full_name, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
 
     const userDetails = await pgQuery(query, user_id);
     if (userDetails.rows.length < 1) {
