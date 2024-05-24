@@ -455,12 +455,12 @@ router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidat
 
     // Cache the data in Redis for a certain amount of time (e.g., 1 hour)
     //expirey timer 3600 seconds = 1 hour
-    await redis.setEx(cacheKey, 3600, JSON.stringify({ "posts": updatedPosts }));
+    await redis.setEx(cacheKey, 3600, JSON.stringify({ "data": updatedPosts }));
     console.log("Cache Miss");
 
     // Respond with an object containing the "posts" key and the 15 array of objects with post information
     res.status(200).json({
-      "posts": updatedPosts
+      "data": updatedPosts
     });
   } catch (err) {
     next(err);
