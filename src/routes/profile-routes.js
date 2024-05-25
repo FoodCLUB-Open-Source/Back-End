@@ -51,7 +51,7 @@ router.get("/details", rateLimiter(), verifyTokens, inputValidator, async (req, 
     const user_id = payload.user_id;
 
     const query = `
-            SELECT id, username, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
+            SELECT id, username, full_name, email, phone_number, profile_picture,user_bio, gender, created_at, date_of_birth, dietary_preferences FROM users WHERE id = $1`;
 
     const userDetails = await pgQuery(query, user_id);
     if (userDetails.rows.length < 1) {
@@ -532,12 +532,15 @@ router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputV
     if (existingProfilePicture.rows.length > 0 && existingProfilePicture.rows[0].profile_picture !== null) {
       await s3Delete(existingProfilePicture.rows[0].profile_picture);
     }
+    console.log(req.files[0])
 
     const newProfilePictureName = await s3Upload(req.files[0], S3_PROFILE_PICTURE_PATH);
     // example url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.S3_BUCKET_REGION}.amazonaws.com/${S3_PROFILE_PICTURE_PATH}/${req.files[0]}`
     const profilePictureURL = await s3Retrieve(`${S3_PROFILE_PICTURE_PATH}${req.files[0]}`)
+
+
     // console.log("new profile picture" + newProfilePictureName);
-    await pgQuery(query, profilePictureURL, user_id);
+    await pgQuery(query, newProfilePictureName, user_id);
     res.status(200).json({ "Status": "Profile Picture Updated" });
 
   } catch (error) {
@@ -545,7 +548,7 @@ router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputV
   }
 });
 
-
+console.log(await pgQuery("SELECT * FROM users WHERE id=251"))
 
 
 
