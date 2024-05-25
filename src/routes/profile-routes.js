@@ -548,7 +548,7 @@ router.put("/profile_picture", upload.any(), rateLimiter(), verifyTokens, inputV
   }
 });
 
-console.log(await pgQuery("SELECT * FROM users WHERE id=251"))
+
 
 
 
