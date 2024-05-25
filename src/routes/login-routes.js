@@ -15,7 +15,7 @@ import rateLimiter from "../middleware/rate_limiter.js";
 import inputValidator from "../middleware/input_validator.js";
 
 import { cognitoUserPool } from "../config/cognito.js";
-import { pgQuery } from "../functions/general_functions.js";
+import { pgQuery, s3Retrieve } from "../functions/general_functions.js";
 import emailOrUsername from "../middleware/auth_options.js";
 import { parseHeader } from "../functions/cognito_functions.js";
 import { verifyTokens } from "../middleware/verify.js";
@@ -264,6 +264,10 @@ router.post("/signin", inputValidator, rateLimiter(), emailOrUsername(), (req, r
       const idToken = signInUserSession.getIdToken().getJwtToken();
       const accessToken = signInUserSession.getAccessToken().getJwtToken();
       const refreshToken = signInUserSession.getRefreshToken().getToken();
+      if (user.rows[0].profile_picture != null) {
+        user.rows[0].profile_picture = await s3Retrieve(user.rows[0].profile_picture)
+      }
+
 
       // user id is in idToken.payload['custom:id'] 
       // Return successful sign in response with user data and tokens      
