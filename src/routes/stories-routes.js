@@ -207,7 +207,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
 
     // Query to retrive user details from database
     const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
-    const userDetails = await pgQuery(query,user_id);
+    const userDetails = await pgQuery(query, user_id);
 
     if (userDetails.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
@@ -456,11 +456,14 @@ router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) =
  * @param {any} req.params.story_id - The ID of the story.
  * @returns {status} - If successful, returns 200 and a JSON object with status set to an array of users
  */
-router.get("/reaction/story/:storyId", async (req, res) => {
+router.get("/reaction/story/:storyId", verifyTokens, async (req, res) => {
   try {
+    const { payload, filterByCurrentUser } = req.body
+    const { user_id } = payload
 
     // Destructure the storyId from the request body
     const storyId = req.params.storyId;
+
 
 
     // Query DynamoDB to get reactions for the specified storyId
@@ -484,10 +487,13 @@ router.get("/reaction/story/:storyId", async (req, res) => {
 
       // Attach user details to the reaction
       storyReactions[i].user = userDetails;
+      if (filterByCurrentUser && storyReactions[i].user_id == user_id) {
+        return res.status(200).json({ reactions: storyReactions[i] });
+      }
     }
 
     // Respond with the reactions
-    res.status(200).json({ reactions: storyReactions });
+    return res.status(200).json({ reactions: storyReactions });
   } catch (err) {
     // Log the error and respond with a 500 status code
     console.error(err);
