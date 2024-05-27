@@ -101,11 +101,11 @@ router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => 
         p.video_name, 
         p.thumbnail_name, 
         p.created_at, 
-        r.id AS recipe_id -- Include recipe_id in the selection
+        r.id AS recipe_id 
     FROM 
         posts p 
     LEFT JOIN 
-        recipes r ON p.id = r.post_id -- Join with the recipes table
+        recipes r ON p.id = r.post_id 
     WHERE 
         p.user_id = $1 
     ORDER BY 
