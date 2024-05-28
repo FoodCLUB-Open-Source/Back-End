@@ -31,6 +31,8 @@ router.get("/testing", rateLimiter(), async (req, res) => {
  * @returns {status} - If successful, returns 200 and a JSON object with the specific recipe, else returns 404 and a JSON object with error set to 'Recipe not found'
  */
 router.get("/:recipe_id", verifyTokens, inputValidator, rateLimiter(), async (req, res, next) => {
+
+
   const recipeId = parseInt(req.params.recipe_id);
 
   try {
@@ -51,6 +53,7 @@ router.get("/:recipe_id", verifyTokens, inputValidator, rateLimiter(), async (re
       recipeId
     );
 
+
     // Add ingredients to the recipe object
     specificRecipe.rows[0].recipe_ingredients = ingredients.rows;
 
@@ -60,8 +63,10 @@ router.get("/:recipe_id", verifyTokens, inputValidator, rateLimiter(), async (re
       specificRecipe.rows[0].post_id
     );
 
+    let postTitle = await pgQuery("SELECT title FROM posts WHERE id=$1", specificRecipe.rows[0].post_id)
     // Add categories to the recipe object
     specificRecipe.rows[0].categories = recipeCategories.rows;
+    specificRecipe.rows[0].title = postTitle.rows[0].title
 
     // Return the fetched recipe
     return res.status(200).json({ recipe: specificRecipe.rows[0] });
