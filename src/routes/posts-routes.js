@@ -75,10 +75,10 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     const offset = (parseInt(page) - 1) * limit;
 
     const query = `
-      SELECT p.id, p.title, p.thumbnail_name, p.video_name, u.username
+      SELECT p.id, p.title, p.description, p.thumbnail_name, p.video_name, p.created_at, p.updated_at, u.username, pc.category_name
       FROM users u
-      JOIN posts p
-      ON p.user_id = u.id
+      JOIN posts p ON p.user_id = u.id
+      JOIN posts_categories pc ON p.id = pc.post_id
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
       LIMIT $3 OFFSET $4
     `;
@@ -86,8 +86,8 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     const countQuery = `
       SELECT COUNT(*) AS total
       FROM users u
-      JOIN posts p
-      ON p.user_id = u.id
+      JOIN posts p ON p.user_id = u.id
+      JOIN posts_categories pc ON p.id = pc.post_id
       WHERE p.title ILIKE ('%' || $1 || '%') AND u.username ILIKE ('%' || $2 || '%')
     `;
 
@@ -397,18 +397,21 @@ router.get("/category/:category_name", verifyTokens, rateLimiter(), inputValidat
     const cachedData = await redis.get(cacheKey);
 
     if (cachedData) {
-
       // Return cached data if available
       // IMPORTANT: If you update a post, remember to delete this cache
       // For example, if you update post with ID 2:
       // const cacheKeys = await redis.keys(`category:${category}:page:*`);
       // await redis.del('category:' + categoryId + ':page:' + currentPage);
       const cachedPosts = JSON.parse(cachedData);
-      const paginatedPosts = {};
-      paginatedPosts.posts = cachedPosts.posts.slice(offset, offset + pageSize);
-
-      //For testing cache proccess
-      console.log("Cache Hit");
+      // Paginate the cached posts
+      const paginatedPosts = {
+        data: cachedPosts.data.slice(offset, offset + pageSize)
+      };
+      // Remove user_id from the response
+      paginatedPosts.data = paginatedPosts.data.map(post => {
+        const { user_id,post_id, ...postWithoutUserId } = post;
+          return postWithoutUserId;
+        });
       return res.status(200).json(paginatedPosts);
     }
 
