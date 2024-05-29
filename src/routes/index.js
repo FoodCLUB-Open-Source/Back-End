@@ -8,6 +8,7 @@ import profileRouter from "./profile-routes.js";
 import recipeRouter from "./recipes-routes.js";
 import storiesRouter from "./stories-routes.js";
 import ingredientsRouter from "./ingredients-routes.js";
+import memoryRouter from "./memories-routes.js"
 
 export {
   blockRouter,
@@ -20,4 +21,5 @@ export {
   recipeRouter,
   storiesRouter,
   ingredientsRouter,
+  memoryRouter
 };
