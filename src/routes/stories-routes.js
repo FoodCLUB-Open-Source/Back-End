@@ -272,11 +272,10 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
  *       The image should be attached as the first file in req.files[0], 
  *       The thumbnail should be attached as the second file in req.files[1].
  */
-router.post("/", rateLimiter(), inputValidator, upload.any(), async (req, res, next) => {
+router.post("/", verifyTokens, rateLimiter(), inputValidator, upload.any(), async (req, res, next) => {
   try {
-    // let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
-    // let user_id = user.user_id;
-    let user_id = 251
+    let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
+    let user_id = user.user_id;
 
     const { store_in_memory } = req.body;
 
@@ -302,7 +301,6 @@ router.post("/", rateLimiter(), inputValidator, upload.any(), async (req, res, n
 
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
-      console.log(StorySchema)
       // Respond with a success message
       res.status(200).json({ Status: "Image Posted" });
 
