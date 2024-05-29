@@ -272,7 +272,7 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
  *       The image should be attached as the first file in req.files[0], 
  *       The thumbnail should be attached as the second file in req.files[1].
  */
-router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), async (req, res, next) => {
+router.post("/", verifyTokens, rateLimiter(), inputValidator, upload.any(), async (req, res, next) => {
   try {
     let user = await getUserInfoFromIdToken(req.headers.authorisation.split(" ")[2])
     let user_id = user.user_id;
@@ -287,6 +287,7 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
     const S3_IMAGE_PATH = "stories/active/";
 
     try {
+      console.log(req.files[0].mimetype)
       // Upload the first file (image) and the second file (thumbnail) to an S3 bucket
 
       if (!req.files || !req.files[0].mimetype.startsWith("image/")) {
@@ -300,7 +301,6 @@ router.post("/", rateLimiter(), verifyTokens, inputValidator, upload.any(), asyn
 
       // Insert the StorySchema object into the DynamoDB Stories table
       await getDynamoRequestBuilder("Stories").put(StorySchema).exec();
-      console.log(StorySchema)
       // Respond with a success message
       res.status(200).json({ Status: "Image Posted" });
 
