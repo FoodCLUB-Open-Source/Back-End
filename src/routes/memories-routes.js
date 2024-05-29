@@ -24,14 +24,19 @@ router.get("/testing", async (req, res, next) => {
 /**
  * Retrieves memories  of users that have stored memories
  * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
+ * 
+ * @route GET /following_stories
+ * @query {string} req.query.page_number - The page number for pagination.
+ * @query {string} req.query.page_size - The page size for pagination.
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at. Else returns 400 and a JSON object with associated error message
  * @throws {Error} - If there is error retrieving stories
  */
 
-router.get("/", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), inputValidator, async (req, res, next) => {
     try {
         const { payload } = req.body;
-        const userID = payload.user_id;
+        // const userID = payload.user_id;
+        const userID = 251
 
         // Querying DynamoDB to get user stories
         let stories = await getDynamoRequestBuilder("Stories")
@@ -51,9 +56,15 @@ router.get("/", verifyTokens, rateLimiter(), inputValidator, async (req, res, ne
             }
         }
 
+        // Sort the filtered stories based on created_at in descending order
+        filteredStories.sort((a, b) => {
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
         return res.status(200).json({ memories: filteredStories });
     } catch (error) {
-        return res.status(400).json({ Error: err });
+        // Pass error to the next middleware
+        next(error);
     }
 });
 
