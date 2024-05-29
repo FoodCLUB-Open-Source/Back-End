@@ -3,8 +3,12 @@ import { Router, query } from "express";
 import multer, { memoryStorage } from "multer";
 import inputValidator from "../middleware/input_validator.js";
 import rateLimiter from "../middleware/rate_limiter.js";
+
+
 import { pgQuery, s3Delete, s3Upload, s3Retrieve, getUserInfoFromIdToken, checkReactionExists } from "../functions/general_functions.js";
 import getDynamoRequestBuilder from "../config/dynamoDB.js";
+
+import { setStory, setStoryReactions } from "../dynamo_schemas/dynamo_schemas.js";
 import { verifyTokens } from "../middleware/verify.js";
 
 const router = Router();
@@ -12,21 +16,6 @@ const storage = memoryStorage();
 const upload = multer({ storage: storage });
 
 
-// Testing stories
-router.get("/testing", async (req, res, next) => {
-    try {
-        res.status(200).json({ Status: "Memories" });
-    } catch (err) {
-        next(err);
-    }
-});
-
-/**
- * Retrieves memories  of users that have stored memories
- * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
- * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at. Else returns 400 and a JSON object with associated error message
- * @throws {Error} - If there is error retrieving stories
- */
 
 router.get("/", verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
     try {
@@ -41,27 +30,35 @@ router.get("/", verifyTokens, rateLimiter(), inputValidator, async (req, res, ne
             .exec();
 
         // Filter and process stories
-        const filteredStories = [];
+        const filteredStories = {};
         for (let story of stories) {
             if (story.store_in_memory != null) {
                 if (story.imageUrl != null) {
                     story.imageUrl = await s3Retrieve(story.imageUrl);
                 }
-                filteredStories.push(story);
+                const dateStr = story.created_at.split('T')[0]; // Extract date string
+                console.log(dateStr)
+                if (!filteredStories[dateStr]) {
+                    filteredStories[dateStr] = []; // Initialize array if not exists
+                }
+                filteredStories[dateStr].push(story); // Push story to the array
             }
         }
 
-        return res.status(200).json({ memories: filteredStories });
+        // Format the response
+        const response = Object.keys(filteredStories).map(date => {
+            return {
+                date: date,
+                snaps: filteredStories[date]
+            };
+        });
+
+        return res.status(200).json({ memories: response });
     } catch (error) {
-        return res.status(400).json({ Error: err });
+        // Pass error to the next middleware
+        next(error);
     }
 });
 
 
-
-
-
-
-
-
-export default router;
+export default router
