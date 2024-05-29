@@ -91,8 +91,28 @@ router.get("/:userId", rateLimiter(), inputValidator, async (req, res, next) => 
     const userNameQuery = "SELECT id,username, profile_picture ,full_name FROM users WHERE id = $1"; // username and profile picture query
     const userFollowersQuery = "SELECT following.user_id, users.username, users.profile_picture FROM following JOIN users on following.user_id = users.id WHERE following.user_following_id = $1"; // user followers query
     const userFollowingQuery = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1"; // user following query
-    const userPostsQuery = "SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // user posts query with pagination
+    //const userPostsQuery = "SELECT id, title, description, video_name, thumbnail_name, created_at from posts WHERE user_id = $1 ORDER BY created_at DESC LIMIT $3 OFFSET (($2 - 1) * $3)"; // user posts query with pagination
     const topCreatorsQuery = "SELECT id, username, profile_picture FROM users WHERE id <> $1 AND NOT EXISTS (SELECT $1 FROM following WHERE user_id = $1 AND user_following_id = users.id) ORDER BY RANDOM() LIMIT 8"; // top creators query, returns 8 random users that the user does not follow
+    const userPostsQuery = `
+    SELECT 
+        p.id, 
+        p.title, 
+        p.description, 
+        p.video_name, 
+        p.thumbnail_name, 
+        p.created_at, 
+        r.id AS recipe_id 
+    FROM 
+        posts p 
+    LEFT JOIN 
+        recipes r ON p.id = r.post_id 
+    WHERE 
+        p.user_id = $1 
+    ORDER BY 
+        p.created_at DESC 
+    LIMIT $3 
+    OFFSET (($2 - 1) * $3)
+`;
 
     // EXECUTING QUERIES
     const [userNameProfile, userFollowers, userFollowing, userLikes, userPosts, topCreators] = await Promise.all([
