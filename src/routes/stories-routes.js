@@ -156,7 +156,7 @@ router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, asy
  * @returns {status} - If successful, returns 200 and a JSON object of  list of stories that have been saved sorted by created_at, else returns 400 and a JSON object with message set to 'Invalid page_number or page_size', else returns 500 and error message
  * @throws {Error} - If there is error in retrieving stories
  */
-router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
   try {
     const { payload } = req.body;
     const user_id = payload.user_id;
@@ -234,18 +234,17 @@ router.get("/user", rateLimiter(), verifyTokens, inputValidator, async (req, res
 });
 
 /**
- * Retrieves stories of a user
+ * Retrieves stories of a given user
  * This endpoint needs a request header called 'Authorisation' with both the access token and the ID token 
  * 
  * @route GET /:user_id
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at, else returns 404 and a JSON object with message set to 'User not found'
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/:userID",verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     //we get the id of the user in string format
-    const { payload } = req.body;
-    const user_id = parseInt(payload.user_id);
+    const user_id = req.params.userID;
 
     // Query to retrive user details from database
     const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
@@ -256,13 +255,13 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
     }
 
     const userDetail = userDetails.rows[0];
-    //retrive all storeis realted to the user
+    // //retrive all storeis realted to the user
     const userStories = await getDynamoRequestBuilder("Stories")
-      .query("user_id", user_id)
+      .query("user_id", parseInt(user_id))
       .useIndex("user_id-created_at-index")
       .scanIndexDescending()
       .exec();
-
+      
     const ONE_DAY = 1000 * 60 * 60 * 24; // One day in milliseconds
 
     //filter the story
@@ -286,11 +285,11 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
       user_id: user_id,
       full_name: userDetail.full_name,
       user_name: userDetail.username,
-      profile_picture: userDetail.profile_picture || null,
+      profile_picture: (userDetail.profile_picture!=null?await s3Retrieve(userDetail.profile_picture):null),
       users_stories: [...updatedStories]
 
     };
-    //return the variable object
+    
     res.status(200).json({ stories: user_details });
   } catch (err) {
     next(err);
