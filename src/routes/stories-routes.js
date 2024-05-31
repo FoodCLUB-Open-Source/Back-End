@@ -35,14 +35,14 @@ router.get("/testing", async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at. Else returns 400 and a JSON object with associated error message
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/following_stories",rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     // Retrieve body data including userId from payload and page size and number
     const page_size = parseInt(req.query.page_size, 10) || 15;
     const page_number = parseInt(req.query.page_number, 10) || 1;
-    const { payload } = req.body;
-    // const userID = payload.user_id;
-    const userID = "251"
+    // const { payload } = req.body;
+    const {payload} = req.body;
+    const userID = payload.user_id;
 
     // Conditions to check if page_number or page_size body variable is not null
     if (isNaN(page_number) || isNaN(page_size)) {
@@ -91,12 +91,14 @@ router.get("/following_stories",rateLimiter(), inputValidator, async (req, res, 
             }
           }
 
-          // Initialize user story map with user details
+          // Initialize user story map with user details under 'user' key and stories under 'stories' key
           userStoryMap[user.user_following_id] = {
-            user_id: user.user_following_id,
-            profile_picture: profilePictureUrl,
-            username: user.username,
-            full_name: user.full_name, // Assuming full_name is needed
+            user: {
+              user_id: user.user_following_id,
+              profile_picture: profilePictureUrl,
+              username: user.username,
+              full_name: user.full_name, // Assuming full_name is needed
+            },
             stories: [],
           };
         }
@@ -112,8 +114,6 @@ router.get("/following_stories",rateLimiter(), inputValidator, async (req, res, 
 
           // Find the reaction of the current user on the story
           let reactionID = null;
-          console.log(reactions)
-          console.log("/////")
           for (let i = 0; i < reactions.length; i++) {
             if (reactions[i].user_id === userID) {
               reactionID = reactions[i].reaction_Id;
@@ -137,12 +137,13 @@ router.get("/following_stories",rateLimiter(), inputValidator, async (req, res, 
 
     // Convert userStoryMap object to an array
     const userStoriesArray = Object.values(userStoryMap);
-    return res.status(200).json({ stories: userStoriesArray});
+    res.status(200).json({ stories: userStoriesArray });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 
 
 /**
