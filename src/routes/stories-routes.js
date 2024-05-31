@@ -35,74 +35,115 @@ router.get("/testing", async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at. Else returns 400 and a JSON object with associated error message
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/following_stories", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/following_stories",rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    const page_size = parseInt(req.query.page_size) || 15;
-    const page_number = parseInt(req.query.page_number) || 1;
+    // Retrieve body data including userId from payload and page size and number
+    const page_size = parseInt(req.query.page_size, 10) || 15;
+    const page_number = parseInt(req.query.page_number, 10) || 1;
     const { payload } = req.body;
-    const userID = payload.user_id;
+    // const userID = payload.user_id;
+    const userID = "251"
 
-
+    // Conditions to check if page_number or page_size body variable is not null
     if (isNaN(page_number) || isNaN(page_size)) {
       return res.status(400).json({ message: "Invalid page_number or page_size" });
     }
-    // getting users the user follows
-    const query = "SELECT following.user_following_id, users.username, users.profile_picture FROM following JOIN users on following.user_following_id = users.id WHERE following.user_id = $1 ORDER BY following.created_at ASC"; // returns the users that are followed by the user with pagination
-    const userFollowing = await pgQuery(query, userID); // executing query
-    const userStoryMap = {}; // object to organize stories by user
 
-    // Use Promise.all to wait for all queries to complete
-    await Promise.all(
-      userFollowing.rows.map(async (user) => {
-        try {
-          let stories = await getDynamoRequestBuilder("Stories").query("user_id", parseInt(user.user_following_id)).useIndex("user_id-created_at-index").scanIndexDescending().exec(); // querying dynamoDB to get user stories
+    // Getting users the user follows
+    const query = `
+      SELECT following.user_following_id, users.username, users.profile_picture, users.full_name 
+      FROM following 
+      JOIN users ON following.user_following_id = users.id 
+      WHERE following.user_id = $1 
+      ORDER BY following.created_at ASC
+    `;
 
-          // filtering out stories that are older than 24 hours
-          const ONE_DAY = 1000 * 60 * 60 * 24; // one day in milliseconds
-          stories = stories.filter(story => {
-            const timeDiff = Date.now() - Date.parse(story.created_at);
-            return timeDiff < ONE_DAY;
-          });
+    // Executing the Postgres SQL query to retrieve which users the current author is following
+    const userFollowing = await pgQuery(query, userID);
 
-          if (stories.length === 0) return; // no recent stories for user
+    // Used to map all new story objects
+    const userStoryMap = {};
 
-          if (!userStoryMap[user.user_following_id]) { // checking if userStoryMap contains user details
-            // if not user details are created and stored
-            userStoryMap[user.user_following_id] = {
-              user_id: user.user_following_id,
-              profile_picture: user.profile_picture,
-              username: user.username,
-              full_name: user.full_name, // added full name
-              stories: [],
-            };
+    // Traverse through all the followers and retrieve all their stories
+    await Promise.all(userFollowing.rows.map(async (user) => {
+      try {
+        // Getting the following user's stories
+        let stories = await getDynamoRequestBuilder("Stories")
+          .query("user_id", parseInt(user.user_following_id, 10))
+          .useIndex("user_id-created_at-index")
+          .scanIndexDescending()
+          .exec();
+
+        // Filter stories that are older than 24 hours
+        const ONE_DAY = 1000 * 60 * 60 * 24;
+        stories = stories.filter(story => (Date.now() - Date.parse(story.created_at)) < ONE_DAY);
+
+        if (stories.length === 0) return;
+
+        if (!userStoryMap[user.user_following_id]) {
+          let profilePictureUrl = null;
+          if (user.profile_picture) {
+            try {
+              // Retrieve profile picture URL from S3
+              profilePictureUrl = await s3Retrieve(user.profile_picture);
+            } catch (err) {
+              console.error(`Error retrieving profile picture for user ${user.user_following_id}:`, err);
+            }
           }
-          await Promise.all(stories.map(async (story) => {
-            const imageUrl = await s3Retrieve(story.imageUrl);
-            userStoryMap[user.user_following_id].stories.push({
-              story_id: story.story_id,
-              image_url: imageUrl,
-              created_at: story.created_at,
-            });
-          }));
 
-        } catch (error) {
-          console.error(error);
-          return res.status(400).json({ error: error });
+          // Initialize user story map with user details
+          userStoryMap[user.user_following_id] = {
+            user_id: user.user_following_id,
+            profile_picture: profilePictureUrl,
+            username: user.username,
+            full_name: user.full_name, // Assuming full_name is needed
+            stories: [],
+          };
         }
-      })
-    ).then(() => {
-      // converting the userStoryMap object to an array
-      const userStoriesArray = Object.values(userStoryMap);
-      // sending data to client
-      return res.status(200).json({ stories: userStoriesArray });
-    }).catch((error) => {
-      console.error(error);
-      return res.status(400).json({ error: error });
-    });
+
+        await Promise.all(stories.map(async (story) => {
+          // Retrieve story image URL from S3
+          const imageUrl = await s3Retrieve(story.imageUrl);
+          const reactions = await getDynamoRequestBuilder("Story_Reactions")
+            .query("story_id", story.story_id)
+            .useIndex("story_id-index")
+            .scanIndexDescending()
+            .exec();
+
+          // Find the reaction of the current user on the story
+          let reactionID = null;
+          console.log(reactions)
+          console.log("/////")
+          for (let i = 0; i < reactions.length; i++) {
+            if (reactions[i].user_id === userID) {
+              reactionID = reactions[i].reaction_Id;
+              break;
+            }
+          }
+
+          // Add story details to the user's stories
+          userStoryMap[user.user_following_id].stories.push({
+            story_id: story.story_id,
+            image_url: imageUrl,
+            created_at: story.created_at,
+            reactionID: reactionID,
+          });
+        }));
+      } catch (error) {
+        console.error(error);
+        throw new Error('Failed to process user stories');
+      }
+    }));
+
+    // Convert userStoryMap object to an array
+    const userStoriesArray = Object.values(userStoryMap);
+    return res.status(200).json({ stories: userStoriesArray});
   } catch (error) {
-    next(error); // server side error
+    console.error(error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 
 /**
  * Retrieves a user's  saved stories
@@ -395,10 +436,11 @@ router.delete("/story/:story_id/user", rateLimiter(), verifyTokens, inputValidat
  * @throws {Error} - If any error occurs during the deletion process.
  */
 
-router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) => {
+router.post("/reaction/:story_Id/:reaction_Id", async (req, res) => {
   try {
-    const { payload } = req.body;
-    const user_id = payload.user_id;
+    // const { payload } = req.body;
+    // const user_id = payload.user_id;
+    const user_id = "2"
     const reactionId = parseInt(req.params.reaction_Id);
     const storyId = req.params.story_Id;
 
@@ -442,7 +484,7 @@ router.post("/reaction/:story_Id/:reaction_Id", verifyTokens, async (req, res) =
   } catch (err) {
     // Log the error and respond with a 500 status code
     console.error(err);
-    return res.status(500).json({ error: "Internal Server Error" });
+    return res.status(500).json({ error: err });
   }
 });
 
