@@ -89,29 +89,42 @@ router.get("/:user_id", rateLimiter(), verifyTokens, inputValidator, async (req,
 
     // query to get bookmarked post details
     const bookmarkPostsQuery = `
-        SELECT 
-            p.id, p.title, p.description, p.video_name, p.thumbnail_name, p.created_at, u.id AS user_id, u.full_name, u.profile_picture, u.username,
-            CASE 
-                WHEN fol.user_following_id IS NOT NULL THEN true 
-                ELSE false 
-            END as isFollowed
-        FROM 
-            posts p 
-        JOIN 
-            bookmarks b ON p.id = b.post_id 
-        JOIN 
-            users u ON p.user_id = u.id
-        JOIN
-            posts_categories pc ON pc.post_id = p.id
-        LEFT JOIN
-            following fol ON u.id = fol.user_following_id AND fol.user_id = $1
-        WHERE 
-            b.user_id = $1 
-        ORDER BY 
-            b.created_at DESC 
-        LIMIT $3 
-        OFFSET (($2 - 1) * $3)`; // query to get bookmarked post details
-
+      SELECT 
+      p.id, 
+      p.title, 
+      p.description, 
+      p.video_name, 
+      p.thumbnail_name, 
+      p.created_at, 
+      u.id AS user_id, 
+      u.full_name, 
+      u.profile_picture, 
+      u.username,
+      r.id AS recipe_id,
+      CASE 
+        WHEN fol.user_following_id IS NOT NULL THEN true 
+        ELSE false 
+      END as isFollowed
+      FROM 
+        posts p 
+      JOIN 
+        bookmarks b ON p.id = b.post_id 
+      JOIN 
+        users u ON p.user_id = u.id
+      JOIN
+        posts_categories pc ON pc.post_id = p.id
+      LEFT JOIN
+        following fol ON u.id = fol.user_following_id AND fol.user_id = $1
+      LEFT JOIN
+        recipes r ON r.post_id = p.id
+      WHERE 
+        b.user_id = $1 
+      ORDER BY 
+        b.created_at DESC 
+      LIMIT $3 
+      OFFSET (($2 - 1) * $3)`;
+      
+    // query to get bookmarked post details
     const bookmarkPostsQueryPromise = await pgQuery(bookmarkPostsQuery, user_id, page_number, page_size);
     const updatedPostsData = await updatePosts(bookmarkPostsQueryPromise.rows, parseInt(user_id)); // updating post objects to include further information
 
