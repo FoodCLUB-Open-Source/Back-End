@@ -35,7 +35,7 @@ router.get("/testing", async (req, res, next) => {
  * @returns {status} - If successful, returns 200 and a JSON object containing story information such as story id, video URL, thumbnail URL, view count, created at. Else returns 400 and a JSON object with associated error message
  * @throws {Error} - If there is error retrieving stories
  */
-router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
+router.get("/following_stories",verifyTokens,rateLimiter(), inputValidator, async (req, res, next) => {
   try {
     // Retrieve body data including userId from payload and page size and number
     const page_size = parseInt(req.query.page_size, 10) || 15;
@@ -43,6 +43,7 @@ router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, asy
     // const { payload } = req.body;
     const {payload} = req.body;
     const userID = payload.user_id;
+
 
     // Conditions to check if page_number or page_size body variable is not null
     if (isNaN(page_number) || isNaN(page_size)) {
@@ -104,6 +105,7 @@ router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, asy
         }
 
         await Promise.all(stories.map(async (story) => {
+          let reactionID = null;
           // Retrieve story image URL from S3
           const imageUrl = await s3Retrieve(story.imageUrl);
           const reactions = await getDynamoRequestBuilder("Story_Reactions")
@@ -113,7 +115,6 @@ router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, asy
             .exec();
 
           // Find the reaction of the current user on the story
-          let reactionID = null;
           for (let i = 0; i < reactions.length; i++) {
             if (reactions[i].user_id === userID) {
               reactionID = reactions[i].reaction_Id;
@@ -137,7 +138,7 @@ router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, asy
 
     // Convert userStoryMap object to an array
     const userStoriesArray = Object.values(userStoryMap);
-    res.status(200).json({ stories: userStoriesArray });
+    res.status(200).json({ data: userStoriesArray });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -156,79 +157,91 @@ router.get("/following_stories",verifyTokens, rateLimiter(), inputValidator, asy
  * @returns {status} - If successful, returns 200 and a JSON object of  list of stories that have been saved sorted by created_at, else returns 400 and a JSON object with message set to 'Invalid page_number or page_size', else returns 500 and error message
  * @throws {Error} - If there is error in retrieving stories
  */
-router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, next) => {
+router.get("/",verifyTokens,rateLimiter(),inputValidator, async (req, res, next) => {
   try {
-    const { payload } = req.body;
-    const user_id = payload.user_id;
-    const pageSize = parseInt(req.query.page_size) || 15;
-    const page_number = parseInt(req.query.page_number) || 1;
+    const {payload}=req.body
+    const user_id =payload.user_id ;
+    const pageSize = parseInt(req.query.page_size, 10) || 15;
+    const pageNumber = parseInt(req.query.page_number, 10) || 1;
 
-    if (isNaN(page_number) || isNaN(pageSize)) {
+    if (isNaN(pageNumber) || isNaN(pageSize)) {
       return res.status(400).json({ message: "Invalid page_number or page_size" });
     }
 
-    // Query to retrive user details from database
-    const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
-    const userDetails = await pgQuery(query, parseInt(user_id));
+    // Retrieve user details from the database
+    const userQuery = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
+    const userDetails = await pgQuery(userQuery, parseInt(user_id, 10));
 
     if (userDetails.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
 
     const userDetail = userDetails.rows[0];
-    // Calculate the offset based on page size and page number
-    const offset = (page_number - 1) * pageSize;
-    console.log("The offset number is: ", offset);
+
+    // Calculate the offset for pagination
+    const offset = (pageNumber - 1) * pageSize;
+
     try {
+      // Retrieve user stories from DynamoDB
       const stories = await getDynamoRequestBuilder("Stories")
-        .query("user_id", parseInt(user_id))
+        .query("user_id", parseInt(user_id, 10))
         .useIndex("user_id-created_at-index")
         .scanIndexDescending()
-        .exclusiveStartKey(offset > 0 ? { created_at: stories[offset - 1].created_at } : undefined) // Use startKey for pagination
         .limit(pageSize)
         .exec();
 
-      // Check if stories array is not empty before sorting
-      if (stories && stories.length > 0) {
-        console.log("First DynamoDB Item:", stories[0]);
-      }
-
-      // Sort the stories according to created_at so latest stories show first
-      const savedStories = stories.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      // Sort stories by creation date in descending order
+      const sortedStories = stories.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       // Use map to concurrently retrieve S3 URLs for video and thumbnail
-      const s3Promises = savedStories.map(async (story) => {
-        story.imageUrl = await s3Retrieve(story.imageUrl);
-        // story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
+      const s3Promises = sortedStories.map(async (story) => {
+        // Retrieve story image URL from S3
+        story.imageUrl = story.imageUrl ? await s3Retrieve(story.imageUrl) : null;
+
+        // Retrieve reactions and related user info
+        const reactions = await getDynamoRequestBuilder("Story_Reactions")
+          .query("story_id", story.story_id)
+          .useIndex("story_id-index")
+          .scanIndexDescending()
+          .exec();
+
+        for (let i = 0; i < reactions.length; i++) {
+          const reactorInfo = await pgQuery("SELECT username, profile_picture FROM users WHERE id=$1", reactions[i].user_id);
+          if (reactorInfo.rows.length > 0) {
+            reactorInfo.rows[0].profile_picture = reactorInfo.rows[0].profile_picture ? await s3Retrieve(reactorInfo.rows[0].profile_picture) : null;
+            reactions[i].user = reactorInfo.rows[0];
+          }
+        }
+
         return {
           story_id: story.story_id,
           imageUrl: story.imageUrl,
-          // thumbnail_url: story.thumbnail_url,
           created_at: story.created_at,
           view_count: story.view_count,
+          reactions: reactions
         };
       });
 
       // Wait for all promises to resolve
       const updatedStories = await Promise.all(s3Promises);
 
-      const user_details = {
-        user_id: user_id,
-        full_name: userDetail.full_name,
-        user_name: userDetail.username,
-        profile_picture: userDetail.profile_picture,
-        saved_stories: [...updatedStories]
-        // Include other user details as needed
+      const data = {
+        user: {
+          user_id: user_id,
+          full_name: userDetail.full_name,
+          username: userDetail.username,
+          profile_picture: userDetail.profile_picture ? await s3Retrieve(userDetail.profile_picture) : null
+        },
+        stories: updatedStories
       };
 
-
-      res.status(200).json({ stories: user_details });
+      res.status(200).json({ data });
     } catch (err) {
-
-      return res.status(500).json({ message: err });
+      console.error("Error processing stories:", err);
+      res.status(500).json({ message: "Internal Server Error" });
     }
   } catch (err) {
-    console.log(err);
+    console.error("Error retrieving user details:", err);
     next(err);
   }
 });
@@ -243,8 +256,11 @@ router.get("/", rateLimiter(), verifyTokens, inputValidator, async (req, res, ne
  */
 router.get("/:userID",verifyTokens, rateLimiter(), inputValidator, async (req, res, next) => {
   try {
-    //we get the id of the user in string format
+    const { payload } = req.body;
+    const loggedInUser = payload.user_id;
     const user_id = req.params.userID;
+
+    let reactionID=null;
 
     // Query to retrive user details from database
     const query = "SELECT full_name, username, profile_picture FROM users WHERE id=$1";
@@ -272,7 +288,22 @@ router.get("/:userID",verifyTokens, rateLimiter(), inputValidator, async (req, r
 
     //change the name of the sotry into url form
     const s3Promises = filteredStories.map(async (story) => {
+      let reactionID = null;
       story.imageUrl = await s3Retrieve(story.imageUrl);
+      const reactions = await getDynamoRequestBuilder("Story_Reactions")
+        .query("story_id", story.story_id)
+        .useIndex("story_id-index")
+        .scanIndexDescending()
+        .exec();
+
+      // Find the reaction of the current user on the story
+      for (let i = 0; i < reactions.length; i++) {
+        if (reactions[i].user_id === loggedInUser) {
+          reactionID = reactions[i].reaction_Id;
+          break;
+        }
+      }
+      story.reactionID=reactionID
       // story.thumbnail_url = await s3Retrieve(story.thumbnail_url);
       return story;
     });
@@ -281,16 +312,17 @@ router.get("/:userID",verifyTokens, rateLimiter(), inputValidator, async (req, r
     const updatedStories = await Promise.all(s3Promises);
 
     // user details and stories
-    const user_details = {
-      user_id: user_id,
-      full_name: userDetail.full_name,
-      user_name: userDetail.username,
-      profile_picture: (userDetail.profile_picture!=null?await s3Retrieve(userDetail.profile_picture):null),
-      users_stories: [...updatedStories]
+    const data = {
+      user:{      
+        user_id: user_id,
+        full_name: userDetail.full_name,
+        user_name: userDetail.username,
+        profile_picture: (userDetail.profile_picture!=null?await s3Retrieve(userDetail.profile_picture):null)},
+      stories: [...updatedStories]
 
     };
     
-    res.status(200).json({ stories: user_details });
+    res.status(200).json({ data });
   } catch (err) {
     next(err);
   }
